@@ -1,0 +1,13 @@
+# Python
+__pycache__
+*.egg-info
+
+# Jupyter
+.ipynb_checkpoints
+
+# Virtual environments
+venv
+
+# Annoyances
+.DS_Store
+.vscode
