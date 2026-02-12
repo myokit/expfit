@@ -4,7 +4,7 @@ requires = ['setuptools>=80']
 
 [project]
 requires-python = '>=3.8'
-readme = { file = 'README.md', content-type = 'text/markdown' }
+dynamic = ['version', 'readme']
 
 name = 'expfit'
 description = 'TODO'
@@ -19,8 +19,12 @@ classifiers = [
 ]
 
 dependencies = [
-    'numpy>=1.21',
+    'numpy>=1.18',  # Dec 22, 2019. First version to support Python 3.8
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = 'expfit.__version__'}
+readme = { file = 'README.md', content-type = 'text/markdown'}
 
 [project.optional-dependencies]
 dev = [
