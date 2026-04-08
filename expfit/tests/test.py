@@ -46,7 +46,7 @@ def estimate_initial(x, y):
 
 
     """
-    # This but better might be good
+    # Something like the below might be a good idea
     if False:
         # First, check if we're looking at an extremely steep function (so
         # slope of 0 on one side). If so, zoom in on part of trace where
@@ -58,51 +58,101 @@ def estimate_initial(x, y):
             print(f'LR: {q} ({qlo}, {qhi})')
             if q < 2:   # Empirical
                 break
-            x, y = (x[i:], y[i:]) if qhi > qlo else (x[:-i], y[:-i])
+            x, y = (x[i:], y[i:]) if qhi > qlo else (x[:i], y[:i])
             i = len(x) // 2
         print(f'Final LR: {q}, segment length {len(x)}')
 
     def inner(x, y):
         n = len(x)
 
-        # Number of samples to use in averaging
+        # First, measure the slope on the left and right, using quite a
+        # generous part of the signal
         if len(x) < 10:
             raise ValueError('TODO: Complain array too short')
-        i = max(3, n // 10)
+        m = max(3, n // 10)
 
-        # Get points on the left and right, along with slope estimates
-        xlo, ylo = np.mean(x[:i]), np.mean(y[:i])
-        zlo, slo = least_squares(x[:i], y[:i])
-        xhi, yhi = np.mean(x[-i:]), np.mean(y[-i:])
-        zhi, shi = least_squares(x[-i:], y[-i:])
-        # Note: zlo and zhi are only for plotting
+        # Get a section on the left and on the right
+        # Fit straight lines to each segment
+        for i in [0]:
+            # Left: Fit to left half, right half
+            xlo, ylo = x[:m], y[:m]
+            _, slo1 = least_squares(xlo[:m // 2], ylo[:m // 2])
+            _, slo2 = least_squares(xlo[m // 2:], ylo[m // 2:])
+            print(slo1, slo2)
+            print(abs(slo1 - slo2) / (slo1 + slo2))
+            slo1, slo2 = slo1 / np.var(ylo), slo2 / np.var(ylo)
+            print(slo1, slo2)
+            print(abs(slo1 - slo2) / (slo1 + slo2))
+
+            # Left: Fit to left half, right half
+            xhi, yhi = x[-m:], y[-m:]
+            _, shi1 = least_squares(xhi[:m // 2], yhi[:m // 2])
+            _, shi2 = least_squares(xhi[m // 2:], yhi[m // 2:])
+            print(shi1, shi2)
+            print(abs(shi1 - shi2) / (shi1 + shi2))
+            shi1, shi2 = shi1 / np.var(yhi), shi2 / np.var(yhi)
+            print(shi1, shi2)
+            print(abs(shi1 - shi2) / (shi1 + shi2))
+
+
+
+
+
+        mu_xlo, mu_ylo = np.mean(xlo), np.mean(ylo)
+        mu_xhi, mu_yhi = np.mean(xhi), np.mean(yhi)
+        olo, slo = least_squares(xlo, ylo)
+        ohi, shi = least_squares(xhi, yhi)
 
         # Flat line?
-        if slo == shi or ylo == yhi:
+        if slo == shi or mu_ylo == mu_yhi:
+            # TODO: Can do something better here
             print('Warning: initial estimate suggests flat line')
             return np.mean(y), 0, 0
 
-        if False:
+        # Look at residuals, scaled to signal size
+        zlo = olo + slo * xlo
+        zhi = ohi + shi * xhi
+        #print(np.corrcoef(xlo, zlo - ylo)[0, 1]**2)
+        #print(np.corrcoef(xhi, zhi - yhi)[0, 1]**2)
+        #print(np.var(zlo), np.max(zlo) - np.min(zlo))
+        #print(np.var(zhi), np.max(zhi) - np.min(zhi))
+
+
+
+
+        if True:
             fig = plt.figure(figsize=(8, 5))
             fig.subplots_adjust(0.08, 0.08, 0.99, 0.99)
             ax = fig.add_subplot()
             ax.plot(x, y)
-            ax.plot(xlo, ylo, 'ks')
-            ax.plot(x[:i], zlo + slo * x[:i], 'k')
-            ax.plot(xhi, yhi, 'rs')
-            ax.plot(x[-i:], zhi + shi * x[-i:], 'r')
+            ax.plot(mu_xlo, mu_ylo, 'ks')
+            ax.plot(xlo, zlo, 'k')
+            ax.plot(mu_xhi, mu_yhi, 'rs')
+            ax.plot(xhi, zhi, 'r')
 
-        c = (slo - shi) / (ylo - yhi)
-        print('c', c)
-        alo = ylo - slo / c
-        ahi = yhi - shi / c
+            fig = plt.figure(figsize=(8, 5))
+            fig.subplots_adjust(0.08, 0.08, 0.99, 0.99)
+            ax = fig.add_subplot()
+            ax.plot(xlo, zlo - ylo, 'k')
+            ax.plot(xhi, zhi - yhi, 'r')
+
+        print()
+
+
+
+
+
+        c = (slo - shi) / (mu_ylo - mu_yhi)
+        #print('c', c)
+        alo = mu_ylo - slo / c
+        ahi = mu_yhi - shi / c
 
         # A estimate is usually good, and both estimates should be close.
         # Exception is when we've got a very steep function, so that the
         # left and right edges are too different. In this case, we should
         # zoom in on where the action is
         # Detect if alo / ahi is far from 1, but avoid dividing by zero.
-        print(alo, ahi)
+        #print(alo, ahi)
         if alo == 0 or ahi == 0:
             # Difference
             d = np.abs(alo - ahi)
@@ -122,10 +172,10 @@ def estimate_initial(x, y):
         # If decaying, left-most derivative least affected by noise
         if c < 0:
             a = alo
-            b = (ylo - alo) * np.exp(-c * xlo)
+            b = (mu_ylo - alo) * np.exp(-c * mu_xlo)
         else:
             a = ahi
-            b = (yhi - ahi) * np.exp(-c * xhi)
+            b = (mu_yhi - ahi) * np.exp(-c * mu_xhi)
 
         #print(f'A {at:.5f} {alo:+.5e} {ahi:+.5e}')
         #print(f'B {bt:.5f} {b:+.5e}')
@@ -134,7 +184,8 @@ def estimate_initial(x, y):
         return a, b, c
 
     ret = inner(x, y)
-    print(ret)
+    a, b, c = ret
+    #print(a, b, c)
     if ret is None:
         print('Warning: repeating initial estimation.'
               ' Function too steep?')
@@ -171,39 +222,46 @@ def estimate(t, v):
     if c == 0:
         return a, b, c
 
-    # Attempt transformed
-    rv = (v[-1] - v[0])
-    x, y = t / t[-1], (v - v[0]) / rv
-    ax, bx, cx = estimate_initial(x, y)
-    at = v[0] + ax * rv
-    bt = bx * rv
-    ct = cx / t[-1]
-
-
     from scipy.optimize import minimize as fmin
     f = lambda p: np.sum((p[0] + p[1] * np.exp(p[2] * t) - v)**2)
     r = fmin(f, (a, b, c))
     p = r.x
 
 
-    fig = plt.figure(figsize=(8, 12))
-    fig.subplots_adjust(0.08, 0.08, 0.99, 0.95)
-    ax0 = fig.add_subplot(2, 1, 1)
-    ax0.set_title('Original')
-    ax0.plot(t + t0, v)
-    ax0.plot(t + t0, a + b * np.exp(c * t), '-')
-    ax0.plot(t + t0, at + bt * np.exp(ct * t), '--')
-    ax0.plot(t + t0, p[0] + p[1] * np.exp(p[2] * t), ':')
+    if False:
+        # Attempt transformed
+        rv = (v[-1] - v[0])
+        x, y = t / t[-1], (v - v[0]) / rv
+        ax, bx, cx = estimate_initial(x, y)
+        at = v[0] + ax * rv
+        bt = bx * rv
+        ct = cx / t[-1]
 
-    ax1 = fig.add_subplot(2, 1, 2)
-    ax1.set_title('Transformed')
-    ax1.plot(x, y)
-    ax1.plot(x, ax + bx * np.exp(cx * x), '--', color='tab:green')
 
-    print(f'Init:   {a:+.5e} {b:+.5e} {c:+.5e}')
-    print(f'Init,t: {at:+.5e} {bt:+.5e} {ct:+.5e}')
-    print(f'Opt:    {p[0]:+.5e} {p[1]:+.5e} {p[2]:+.5e}')
-    #print(f'Opt,t:  {a:+.5e} {b:+.5e} {c:+.5e}')
+        fig = plt.figure(figsize=(8, 12))
+        fig.subplots_adjust(0.08, 0.08, 0.99, 0.95)
+        ax0 = fig.add_subplot(2, 1, 1)
+        ax0.set_title('Original data')
+        ax0.plot(t + t0, v)
+        ax0.plot(t + t0, a + b * np.exp(c * t), '-', label='Initial guess, untransformed')
+        ax0.plot(t + t0, at + bt * np.exp(ct * t), '--', label='Initial guess, transformed')
+        ax0.plot(t + t0, p[0] + p[1] * np.exp(p[2] * t), '-.', label='Fit from untransformed')
+        r = fmin(f, (a, b, c))
+        p = r.x
+        ax0.plot(t + t0, p[0] + p[1] * np.exp(p[2] * t), ':', label='Fit from transformed')
+
+
+        ax0.legend()
+
+        ax1 = fig.add_subplot(2, 1, 2)
+        ax1.set_title('Transformed data')
+        ax1.plot(x, y)
+        ax1.plot(x, ax + bx * np.exp(cx * x), '--', color='tab:green')
+
+        print(f'Init:   {a:+.5e} {b:+.5e} {c:+.5e}')
+        print(f'Init,t: {at:+.5e} {bt:+.5e} {ct:+.5e}')
+        print(f'Opt:    {p[0]:+.5e} {p[1]:+.5e} {p[2]:+.5e}')
+        #print(f'Opt,t:  {a:+.5e} {b:+.5e} {c:+.5e}')
 
     #ac, bc, cc = np.mean([[a, b, c], [at, bt, ct]], axis=0)
     #print(np.mean([[a, b, c], [at, bt, ct]], axis=0))
@@ -228,10 +286,10 @@ class TestTest(unittest.TestCase):
         n = 3000
         # TODO: Check equal size, minimum size, etc
 
-        x = np.linspace(1000, 1002, n)
-        at, bt, ct = 3, -1e3, -30
-        yt = at + bt * np.exp(ct * (x - 1000))
-
+        t0 = 0
+        x = np.linspace(t0, t0 + 2, n)
+        at, bt, ct = 3, -1e3, 50
+        yt = at + bt * np.exp(ct * (x - t0))
         s = 0.01 * (np.max(yt) - np.min(yt))
         y = yt + np.random.normal(0, s, size=yt.shape)
 
