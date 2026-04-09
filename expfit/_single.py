@@ -134,7 +134,7 @@ def estimate_initial_single(x, y, axes=None, vet=True):
     x0, x1, y0, y1 = np.mean(xlo), np.mean(xhi), np.mean(ylo), np.mean(yhi)
 
     # Show segments in plot
-    if axes is not None:
+    if axes is not None:  # pragma: no cover
         axes.plot(x0, y0, 'ks', zorder=10)
         axes.plot(xlo, olo + s0 * xlo, 'k', zorder=10)
         axes.plot(x1, y1, 'rs', zorder=10)
@@ -170,21 +170,16 @@ def rmse_single(x, y, a, b, c):
 
 def fit_single(t, v, plot=False, vet=True):
     """
-    Fits an exponential ``a + b * exp(c * (t - t[0]))`` to the time series
-    ``(t, v)``, returning ``(a, b, c)``
+    Fits an exponential ``a + b * exp(c * t)`` to the time series ``(t, v)``,
+    returning ``(a, b, c)``
 
-    Example:
+    Example::
 
-        t = ...
+        t = np.linspace(0, 1, 100)
+        v = 3 - 2 * np.exp(4 * t) + np.random.normal(0, 1)
+        a, b, c = expfit.fit_single(t, v)
+        print(a, b, c)
 
-
-        TODO
-
-
-    Note that the fitted function does not take time shifts into account: it is
-    assumed that the process matched by the exponential starts at t = 0. If
-    this assumption does not hold, the value for ``c`` will still be correct,
-    but the values for ``a`` and ``b`` will be affected.
     """
     if vet:
         t, v = expfit.vet_series(t, v)
@@ -196,7 +191,7 @@ def fit_single(t, v, plot=False, vet=True):
     x, y = (t - t[0]) / rt, (v - v[0]) / rv
 
     # Create initial plot
-    if plot:
+    if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(8, 9))
         fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.2)
@@ -221,7 +216,7 @@ def fit_single(t, v, plot=False, vet=True):
     b = bt * rv * np.exp(-ct * t[0] / rt)
     c = ct / rt
 
-    if plot:
+    if plot:  # pragma: no cover
         a0 = v[0] + at0 * rv
         b0 = bt0 * rv * np.exp(-ct0 * t[0] / rt)
         c0 = ct0 / rt

@@ -49,7 +49,7 @@ class TestSingle(unittest.TestCase):
         rt = expfit.rmse_single(t, v, a, b, c)
         rf = expfit.rmse_single(t, v, af, bf, cf)
 
-        if plot:
+        if plot:  # pragma: no cover
             print(f'True: {a:+.5e} {b:+.5e} {c:+.5e}')
             print(f'RMSE true: {rt}')
             print(f'RMSE fit:  {rf}')
@@ -81,7 +81,7 @@ class TestSingle(unittest.TestCase):
         bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
         rdom = cf / cdom
 
-        if plot:
+        if plot:  # pragma: no cover
             print(f'True:              {bdom:+.5e} {cdom:+.5e}')
             print(f'Full: a {a:+.5e}')
             print(f'      b {b:+.5e} c {c:+.5e}')
@@ -115,7 +115,7 @@ class TestSingle(unittest.TestCase):
         bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
         rdom = cf / cdom
 
-        if plot:
+        if plot:  # pragma: no cover
             print(f'True:              {bdom:+.5e} {cdom:+.5e}')
             print(f'Full: a {a:+.5e}')
             print(f'      b {b:+.5e} c {c:+.5e}')

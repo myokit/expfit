@@ -32,3 +32,8 @@ from ._single import (  # noqa
     fit_single,
     rmse_single,
 )
+
+from ._double import (  # noqa
+    fit_double,
+    rmse_double,
+)
