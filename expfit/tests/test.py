@@ -25,7 +25,7 @@ if debug:
 def least_squares(x, y):
     """
     Returns a least squares fit ``(a, b)`` where ``y`` is approximated by
-    ``a + b * y``.
+    ``a + b * x``.
     """
     # TODO: Input check, vector, same size etc.
     n = len(x)
@@ -36,169 +36,106 @@ def least_squares(x, y):
     return mu_y - b * mu_x, b
 
 
-def estimate_initial(x, y):
+def find_linear_segment(x, y, min_length, left=True):
+    """
+    Reduces the length of a data set ``(x, y)`` until a straight line provides
+    a good prediction of points in ``y`` from ``x``, as judged by
+    autocorrelation in the residuals.
+
+    By default, the left-most section of the segment is kept after each
+    reduction, but this can be changed by setting ``right=True``.
+
+    Returns a tuple ``(n, a, b)`` such that ``y`` is approximated by
+    ``a + b * x`` on a segment of length ``n``, at either the left or the right
+    of the data.
+    """
+    n = len(x)
+    while n > min_length:
+        # Fit a straight line
+        a, b = least_squares(x, y)
+
+        # Calculate residulas
+        r = y - (a + b * x)
+
+        # Calculate R**2 in lag-1 autocorrelation
+        q = np.corrcoef(r[1:], r[:-1])[0, 1]**2
+        if q < 0.1:
+            break
+
+        n = max(n // 2, min_length)
+        x, y = (x[:n], y[:n]) if left else (x[-n:], y[-n:])
+
+    return n, a, b
+
+
+def estimate_initial_single(x, y):
     """
     Estimate initial ``a, b, c`` in ``y = a + b exp(c x)`` using
     derivatives estimated from mean averages at the sides.
 
+    The method first uses :meth:`find_linear_segment` to find a segment on
+    either extreme of the data (initial points and final points) that is
+    approximately linear.
+
+    Next, it
+
+        TODO: Write down how the estimate works
+
 
 
 
 
     """
-    # Something like the below might be a good idea
+    # Estimate the slope of the left-most and right-most segments of the
+    # data. Use a segment that provides a good linear fit.
+    # generous part of the signal
+    n = len(x)
+    if len(x) < 10:
+        raise ValueError('TODO: Complain array too short')
+    m_min = 3
+    m = max(m_min, n // 10)
+    mlo, olo, slo = find_linear_segment(x[:m], y[:m], m_min)
+    mhi, ohi, shi = find_linear_segment(x[-m:], y[-m:], m_min, left=False)
+
+    # Stop if both slopes are (exactly) the same
+    if slo == shi:
+        print('Warning: initial estimate suggests flat line')
+        return np.mean(y), 0, 0
+
+    # Isolate segments
+    xlo, ylo = x[:mlo], y[:mlo]
+    xhi, yhi = x[-mhi:], y[-mhi:]
     if False:
-        # First, check if we're looking at an extremely steep function (so
-        # slope of 0 on one side). If so, zoom in on part of trace where
-        # the action happens
-        i = len(x) // 2
-        while i > 4:
-            qlo, qhi = np.abs(y[0] - y[i]), np.abs(y[i] - y[-1])
-            q = np.log10((qhi / qlo) if qhi > qlo else (qlo / qhi))
-            print(f'LR: {q} ({qlo}, {qhi})')
-            if q < 2:   # Empirical
-                break
-            x, y = (x[i:], y[i:]) if qhi > qlo else (x[:i], y[:i])
-            i = len(x) // 2
-        print(f'Final LR: {q}, segment length {len(x)}')
+        fig = plt.figure(figsize=(8, 5))
+        fig.subplots_adjust(0.08, 0.08, 0.99, 0.99)
+        ax = fig.add_subplot()
+        ax.plot(x, y)
+        ax.plot(np.mean(xlo), np.mean(ylo), 'ks')
+        ax.plot(xlo, olo + slo * xlo, 'k')
+        ax.plot(np.mean(xhi), np.mean(yhi), 'rs')
+        ax.plot(xhi, ohi + shi * xhi, 'r')
 
-    def inner(x, y):
-        n = len(x)
+    # Estimate c in a + b exp(c x)
+    mu_ylo, mu_yhi = np.mean(ylo), np.mean(yhi)
+    c = (slo - shi) / (mu_ylo - mu_yhi)
 
-        # First, measure the slope on the left and right, using quite a
-        # generous part of the signal
-        if len(x) < 10:
-            raise ValueError('TODO: Complain array too short')
-        m = max(3, n // 10)
-
-        # Get a section on the left and on the right
-        # Fit straight lines to each segment
-        for i in [0]:
-            # Left: Fit to left half, right half
-            xlo, ylo = x[:m], y[:m]
-            _, slo1 = least_squares(xlo[:m // 2], ylo[:m // 2])
-            _, slo2 = least_squares(xlo[m // 2:], ylo[m // 2:])
-            print(slo1, slo2)
-            print(abs(slo1 - slo2) / (slo1 + slo2))
-            slo1, slo2 = slo1 / np.var(ylo), slo2 / np.var(ylo)
-            print(slo1, slo2)
-            print(abs(slo1 - slo2) / (slo1 + slo2))
-
-            # Left: Fit to left half, right half
-            xhi, yhi = x[-m:], y[-m:]
-            _, shi1 = least_squares(xhi[:m // 2], yhi[:m // 2])
-            _, shi2 = least_squares(xhi[m // 2:], yhi[m // 2:])
-            print(shi1, shi2)
-            print(abs(shi1 - shi2) / (shi1 + shi2))
-            shi1, shi2 = shi1 / np.var(yhi), shi2 / np.var(yhi)
-            print(shi1, shi2)
-            print(abs(shi1 - shi2) / (shi1 + shi2))
+    # If decaying, left-most derivative least affected by noise, so will
+    # give best estimate of a and b
+    if c < 0:
+        a = mu_ylo - slo / c
+        b = (mu_ylo - a) * np.exp(-c * np.mean(xlo))
+    else:
+        a = mu_yhi - shi / c
+        b = (mu_yhi - a) * np.exp(-c * np.mean(xhi))
+    return a, b, c
 
 
+def rmse_single(x, y, a, b, c):
+    """ Returns the RMSE between ``y`` and ``a + b * exp(c * x)``. """
+    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2))
 
 
-
-        mu_xlo, mu_ylo = np.mean(xlo), np.mean(ylo)
-        mu_xhi, mu_yhi = np.mean(xhi), np.mean(yhi)
-        olo, slo = least_squares(xlo, ylo)
-        ohi, shi = least_squares(xhi, yhi)
-
-        # Flat line?
-        if slo == shi or mu_ylo == mu_yhi:
-            # TODO: Can do something better here
-            print('Warning: initial estimate suggests flat line')
-            return np.mean(y), 0, 0
-
-        # Look at residuals, scaled to signal size
-        zlo = olo + slo * xlo
-        zhi = ohi + shi * xhi
-        #print(np.corrcoef(xlo, zlo - ylo)[0, 1]**2)
-        #print(np.corrcoef(xhi, zhi - yhi)[0, 1]**2)
-        #print(np.var(zlo), np.max(zlo) - np.min(zlo))
-        #print(np.var(zhi), np.max(zhi) - np.min(zhi))
-
-
-
-
-        if True:
-            fig = plt.figure(figsize=(8, 5))
-            fig.subplots_adjust(0.08, 0.08, 0.99, 0.99)
-            ax = fig.add_subplot()
-            ax.plot(x, y)
-            ax.plot(mu_xlo, mu_ylo, 'ks')
-            ax.plot(xlo, zlo, 'k')
-            ax.plot(mu_xhi, mu_yhi, 'rs')
-            ax.plot(xhi, zhi, 'r')
-
-            fig = plt.figure(figsize=(8, 5))
-            fig.subplots_adjust(0.08, 0.08, 0.99, 0.99)
-            ax = fig.add_subplot()
-            ax.plot(xlo, zlo - ylo, 'k')
-            ax.plot(xhi, zhi - yhi, 'r')
-
-        print()
-
-
-
-
-
-        c = (slo - shi) / (mu_ylo - mu_yhi)
-        #print('c', c)
-        alo = mu_ylo - slo / c
-        ahi = mu_yhi - shi / c
-
-        # A estimate is usually good, and both estimates should be close.
-        # Exception is when we've got a very steep function, so that the
-        # left and right edges are too different. In this case, we should
-        # zoom in on where the action is
-        # Detect if alo / ahi is far from 1, but avoid dividing by zero.
-        #print(alo, ahi)
-        if alo == 0 or ahi == 0:
-            # Difference
-            d = np.abs(alo - ahi)
-            if alo != ahi and d > 1:
-                print(f'Too steep! Difference is {d}')
-                print(slo, shi)
-                return None
-        else:
-            # Ratio
-            r = np.abs((1 - alo / ahi))
-            print(f'Ratio {r}')
-            if r > 1:
-                print(f'Too steep! r is {r}')
-                print(slo, shi)
-                return None
-
-        # If decaying, left-most derivative least affected by noise
-        if c < 0:
-            a = alo
-            b = (mu_ylo - alo) * np.exp(-c * mu_xlo)
-        else:
-            a = ahi
-            b = (mu_yhi - ahi) * np.exp(-c * mu_xhi)
-
-        #print(f'A {at:.5f} {alo:+.5e} {ahi:+.5e}')
-        #print(f'B {bt:.5f} {b:+.5e}')
-        #print(f'C {ct:.3f} {c:.3f}')
-
-        return a, b, c
-
-    ret = inner(x, y)
-    a, b, c = ret
-    #print(a, b, c)
-    if ret is None:
-        print('Warning: repeating initial estimation.'
-              ' Function too steep?')
-        while ret is None:
-            i = len(x) // 2
-            qlo, qhi = np.abs(y[0] - y[i]), np.abs(y[i] - y[-1])
-            x, y = (x[i:], y[i:]) if qhi > qlo else (x[:-i], y[:-i])
-            ret = inner(x, y)
-
-    return ret
-
-
-def estimate(t, v):
+def fit_single(t, v):
     """
     Fits an exponential ``a + b * exp(c * (t - t[0]))`` to the time series
     ``(t, v)``, returning ``(a, b, c)``
@@ -207,111 +144,108 @@ def estimate(t, v):
 
         t = ...
 
-    Note that the returned exponentials are defined on ``t - t[0]`` rather
-    than ``t``. With this convention, we can analyse segments of a time series
-    (i.e. from t=1000 to t=1010) without getting excessively large values of
-    ``b``, while at the same time returning a ``b`` that is more likely to
-    correspond to a process magnitude (rather than a time-shift).
+
+        TODO
+
+
+    Note that the fitted function does not take time shifts into account: it is
+    assumed that the process matched by the exponential starts at t = 0. If
+    this assumption does not hold, the value for ``c`` will still be correct,
+    but the values for ``a`` and ``b`` will be affected.
     """
-    # Zero t
-    t0 = t[0]
-    t = t - t0
+    # Transform to unit square, to avoid overflows
+    rt, rv = (t[-1] - t[0]), abs(v[-1] - v[0])
+    x, y = (t - t[0]) / rt, (v - v[0]) / rv
 
-    # Attempt untransformed
-    a, b, c = estimate_initial(t, v)
-    if c == 0:
-        return a, b, c
+    # Get an initial estimate
+    at0, bt0, ct0 = estimate_initial_single(x, y)
 
+    # Fit
     from scipy.optimize import minimize as fmin
-    f = lambda p: np.sum((p[0] + p[1] * np.exp(p[2] * t) - v)**2)
-    r = fmin(f, (a, b, c))
-    p = r.x
+    r = fmin(lambda p: rmse_single(x, y, *p), (at0, bt0, ct0))
+    at, bt, ct = r.x
 
+    # Detransform obtained parameters
+    a = v[0] + at * rv
+    b = bt * rv * np.exp(-ct * t[0] / rt)
+    c = ct / rt
 
     if False:
-        # Attempt transformed
-        rv = (v[-1] - v[0])
-        x, y = t / t[-1], (v - v[0]) / rv
-        ax, bx, cx = estimate_initial(x, y)
-        at = v[0] + ax * rv
-        bt = bx * rv
-        ct = cx / t[-1]
-
-
         fig = plt.figure(figsize=(8, 12))
         fig.subplots_adjust(0.08, 0.08, 0.99, 0.95)
         ax0 = fig.add_subplot(2, 1, 1)
-        ax0.set_title('Original data')
-        ax0.plot(t + t0, v)
-        ax0.plot(t + t0, a + b * np.exp(c * t), '-', label='Initial guess, untransformed')
-        ax0.plot(t + t0, at + bt * np.exp(ct * t), '--', label='Initial guess, transformed')
-        ax0.plot(t + t0, p[0] + p[1] * np.exp(p[2] * t), '-.', label='Fit from untransformed')
-        r = fmin(f, (a, b, c))
-        p = r.x
-        ax0.plot(t + t0, p[0] + p[1] * np.exp(p[2] * t), ':', label='Fit from transformed')
-
-
+        ax0.plot(x, y, 'k', alpha=0.25)
+        ax0.plot(x, at0 + bt0 * np.exp(ct0 * x), '-', label='Initial guess')
+        ax0.plot(x, at + bt * np.exp(ct * x), '--', label='Fit')
         ax0.legend()
 
         ax1 = fig.add_subplot(2, 1, 2)
-        ax1.set_title('Transformed data')
-        ax1.plot(x, y)
-        ax1.plot(x, ax + bx * np.exp(cx * x), '--', color='tab:green')
+        ax1.set_title('Residuals')
+        ax1.plot(x, y - (at0 + bt0 * np.exp(ct0 * x)))
+        ax1.plot(x, y - (at + bt * np.exp(ct * x)))
 
-        print(f'Init:   {a:+.5e} {b:+.5e} {c:+.5e}')
-        print(f'Init,t: {at:+.5e} {bt:+.5e} {ct:+.5e}')
-        print(f'Opt:    {p[0]:+.5e} {p[1]:+.5e} {p[2]:+.5e}')
-        #print(f'Opt,t:  {a:+.5e} {b:+.5e} {c:+.5e}')
+    if True:
+        a0 = v[0] + at0 * rv
+        b0 = bt0 * rv * np.exp(-ct0 * t[0] / rt)
+        c0 = ct0 / rt
+        print(f'Init: {a0:+.5e} {b0:+.5e} {c0:+.5e}')
 
-    #ac, bc, cc = np.mean([[a, b, c], [at, bt, ct]], axis=0)
-    #print(np.mean([[a, b, c], [at, bt, ct]], axis=0))
-
-    #ax.plot(x, ac + bc * np.exp(cc * x), ':')
-    plt.show()
+    return a, b, c
 
 
-    return p
-
-
-class TestTest(unittest.TestCase):
+class TestSingle(unittest.TestCase):
     """
     Teeeeest
     """
 
-    def test_o(self):
+    def single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
+               d1=False, d2=False):
+        """
+        Fits an exponential and returns the ratio
+        ``RMSE(fit, noisy) / RMSE(true, noisy)``.
 
+        Creates a signal ``a + b exp(c t)`` with ``n`` points from ``t0`` to
+        ``t0 + duration``, and normally distributed noise with a variance of
+        ``fnoise`` times the clea signal's magnitude.
 
+        Then fits a signal, and calculates the RMSEs between (1) the noisy
+        signal and the exponential with the input parameters, and (2) the
+        noisy signal and the fit. For a perfect fit the ratio Rfit/Rtrue will
+        be less than 1, as the fit will incorporate some of the bias introduced
+        by the random noise.
+        """
 
+        t = np.linspace(t0, t0 + duration, n)
+        vt = a + b * np.exp(c * t)
+        v = vt + np.random.normal(0, fnoise * abs(vt[0] - vt[-1]), size=n)
 
-        n = 3000
-        # TODO: Check equal size, minimum size, etc
+        af, bf, cf = fit_single(t, v)
+        rt = rmse_single(t, v, a, b, c)
+        rf = rmse_single(t, v, af, bf, cf)
 
-        t0 = 0
-        x = np.linspace(t0, t0 + 2, n)
-        at, bt, ct = 3, -1e3, 50
-        yt = at + bt * np.exp(ct * (x - t0))
-        s = 0.01 * (np.max(yt) - np.min(yt))
-        y = yt + np.random.normal(0, s, size=yt.shape)
+        if d1:
+            print(f'True: {a:+.5e} {b:+.5e} {c:+.5e}')
+            print(f'Fit:  {af:+.5e} {bf:+.5e} {cf:+.5e}')
+            print(f'RMSE true: {rt}')
+            print(f'RMSE fit:  {rf}')
+            print(f'ratio: {rf / rt}')
 
-
-
-
-        # Transform
-        a, b, c = estimate(x, y)
-        print(f'True:   {at:+.5e} {bt:+.5e} {ct:+.5e}')
-
-        '''
-        if True:
+        if d2:
             fig = plt.figure(figsize=(8, 5))
             fig.subplots_adjust(0.08, 0.08, 0.99, 0.95)
             ax = fig.add_subplot()
-            ax.plot(x, y)
-            ax.plot(x, yt)
-            ax.plot(x, a + b * np.exp(c * (x - x[0])), '--')
+            ax.plot(t, v)
+            ax.plot(t, vt)
+            ax.plot(t, af + bf * np.exp(cf * t), '--')
             plt.show()
-        '''
+
+        return rf / rt
 
 
+    def test_o(self):
+        #self.single(3, -1, 3e-1, 2, 3000, t0=1000)
+
+        self.assertLess(self.single(3, -1, 3e-1, 2, 3000), 1)
 
 
 
