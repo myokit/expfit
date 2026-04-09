@@ -68,7 +68,7 @@ def find_linear_segment(x, y, min_length, left=True, vet=True):
     return x, y, a, b
 
 
-def estimate_initial_single(x, y, axes=None, vet=True):
+def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     """
     Estimate ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
@@ -93,6 +93,21 @@ def estimate_initial_single(x, y, axes=None, vet=True):
 
     To pick a segment, the method assumes that the side with the steepest slope
     will have the best signal to noise ratio.
+
+    Arguments:
+
+    ``x``
+        A time vector
+    ``y``
+        The corresponding values
+    ``azero=False``
+        This can be set to true to force ``a=0``
+    ``axes=None``
+        Pass in matplotlib Axes to obtain a plot of the selected segments and
+        estimates slopes.
+    ``vet=True``
+        This can be used to disable checks on the dimensions of ``x`` and'
+        ``y``.
 
     If a matplot ``axes`` object is passed in, it will plot the used line
     segments.
@@ -150,10 +165,10 @@ def estimate_initial_single(x, y, axes=None, vet=True):
     # Estimate c, a, and b
     c = (s0 - s1) / (y0 - y1)
     if c < 0:
-        a = y0 - s0 / c
+        a = 0 if azero else y0 - s0 / c
         b = (y0 - a) * np.exp(-c * x0)
     else:
-        a = y1 - s1 / c
+        a = 0 if azero else y1 - s1 / c
         b = (y1 - a) * np.exp(-c * x1)
 
     # Very low b? Then assume flat line
@@ -204,7 +219,7 @@ def fit_single(t, v, plot=False, vet=True):
         ax0 = None
 
     # Get an initial estimate
-    at0, bt0, ct0 = estimate_initial_single(x, y, ax0, vet=False)
+    at0, bt0, ct0 = estimate_initial_single(x, y, axes=ax0, vet=False)
 
     # Fit
     with np.errstate(all='ignore'):
