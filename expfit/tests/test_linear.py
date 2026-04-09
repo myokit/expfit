@@ -25,6 +25,17 @@ class TestLinear(unittest.TestCase):
         self.assertEqual(a, 4)
         self.assertEqual(b, 13)
 
+        self.assertRaisesRegex(
+            ValueError, 'At least 2 points', expfit.least_squares, [1], [2])
+
+        # Test vetting occurs but can be switched off
+        x, y = [3, 2], [1, 1]
+        self.assertRaisesRegex(
+            ValueError, 'strictly increasing', expfit.least_squares, x, y)
+        self.assertRaises(
+            TypeError, expfit.least_squares, x, y, vet=False)
+
+
     def test_find_linear_segment(self):
 
         pass
