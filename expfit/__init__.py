@@ -11,7 +11,6 @@ This package provides functions to fit a handful of exponentials to noisy time
 series data.
 """
 
-
 #
 # Version information
 #
@@ -24,9 +23,11 @@ from ._expfit_version import (  # noqa
 # Imports
 #
 
-from ._vetting import vet_series
+from ._vetting import (  # noqa
+    vet_series
+)
 
-from ._single import (
+from ._single import (  # noqa
     estimate_initial_single,
     fit_single,
     rmse_single,

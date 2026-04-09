@@ -168,7 +168,7 @@ class TestSingle(unittest.TestCase):
         sos(4, 10, 3, 2, 100, fnoise=0.11, plot=plot)
         sos(4, 10, 3, 2, 100, fnoise=0.3, plot=plot)
         sos(51, -1, -0.5, 5, 200, maxr=1.01, fnoise=0.5, plot=plot)
-        sos(-10, -2, 9, 2, 600, maxr=1.01, fnoise=1,  plot=plot)
+        sos(-10, -2, 9, 2, 600, maxr=1.01, fnoise=1, plot=plot)
 
         # Short
         sos(30, 2, 4, 2, 10, plot=plot)
