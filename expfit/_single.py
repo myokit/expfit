@@ -1,5 +1,5 @@
 #
-# Single expontial fits
+# Single expontial fits, form the basis of multi-exponential fits
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
@@ -9,63 +9,6 @@ import numpy as np
 from scipy.optimize import minimize as fmin
 
 import expfit
-
-
-def least_squares(x, y, vet=True):
-    """
-    Returns a least squares fit ``(a, b)`` where ``y`` is approximated by
-    ``a + b * x``.
-    """
-    if vet:
-        x, y = expfit.vet_series(x, y)
-    n = len(x)
-    if n < 2:
-        raise ValueError('At least 2 points are required')
-
-    mu_x, mu_y = np.mean(x), np.mean(y)
-    xx = np.sum(x**2) - n * mu_x**2
-    xy = np.sum(x * y) - n * mu_x * mu_y
-    b = xy / xx
-    return mu_y - b * mu_x, b
-
-
-def find_linear_segment(x, y, min_length, left=True, vet=True):
-    """
-    Reduces the length of a data set ``(x, y)`` until a straight line provides
-    a good prediction of points in ``y`` from ``x``, as judged by
-    autocorrelation in the residuals.
-
-    By default, the left-most section of the segment is kept after each
-    reduction, but this can be changed by setting ``right=True``.
-
-    Returns a tuple ``(n, a, b)`` such that ``y`` is approximated by
-    ``a + b * x`` on a segment of length ``n``, at either the left or the right
-    of the data.
-    """
-    if vet:
-        x, y = expfit.vet_series(x, y)
-    n = len(x)
-    if n < 2:
-        raise ValueError('At least 2 points are required')
-
-    # Fit a straight line
-    a, b = least_squares(x, y, vet=False)
-
-    while n > min_length:
-
-        # Calculate residulas
-        r = y - (a + b * x)
-
-        # Calculate R**2 in lag-1 autocorrelation
-        q = np.corrcoef(r[1:], r[:-1])[0, 1]**2
-        if q < 0.1:
-            break
-
-        n = max(n // 2, min_length)
-        x, y = (x[:n], y[:n]) if left else (x[-n:], y[-n:])
-        a, b = least_squares(x, y, vet=False)
-
-    return x, y, a, b
 
 
 def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
@@ -132,9 +75,9 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
         else:
             m = max(m_min, n // 2)
 
-        xlo, ylo, olo, s0 = find_linear_segment(
+        xlo, ylo, olo, s0 = expfit.find_linear_segment(
             x[:m], y[:m], m_min, vet=False)
-        xhi, yhi, ohi, s1 = find_linear_segment(
+        xhi, yhi, ohi, s1 = expfit.find_linear_segment(
             x[-m:], y[-m:], m_min, left=False, vet=False)
 
     else:
@@ -142,8 +85,8 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
         m = (n + 1) // 2
         xlo, ylo, xhi, yhi = x[:m], y[:m], x[-m:], y[-m:]
         x0, x1, y0, y1 = np.mean(xlo), np.mean(xhi), np.mean(ylo), np.mean(yhi)
-        olo, s0 = least_squares(xlo, ylo, vet=False)
-        ohi, s1 = least_squares(xhi, yhi, vet=False)
+        olo, s0 = expfit.least_squares(xlo, ylo, vet=False)
+        ohi, s1 = expfit.least_squares(xhi, yhi, vet=False)
 
     # Use means of selected segments
     x0, x1, y0, y1 = np.mean(xlo), np.mean(xhi), np.mean(ylo), np.mean(yhi)

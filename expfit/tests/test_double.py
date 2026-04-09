@@ -64,7 +64,7 @@ class TestDouble(unittest.TestCase):
         # Both decaying
         dod(200, 4, -5, 100, -3, plot=False)
         dod(200, 4, -5, 1, -3, plot=False)
-        dod(200, 4, -5, 1, -0.5, plot=True)
+        dod(200, 4, -5, 1, -0.5, plot=False)
 
         # Both expanding
         #dod(200, 4, -5, 1, -3, plot=True)
@@ -81,5 +81,5 @@ class TestDouble(unittest.TestCase):
         #dod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=plot)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

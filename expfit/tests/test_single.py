@@ -37,7 +37,7 @@ class TestSingle(unittest.TestCase):
         be less than 1, as the fit will incorporate some of the bias introduced
         by the random noise.
         """
-        if maxr is None and maxrmse is None:
+        if maxr is None and maxrmse is None:  # pragma: no cover
             raise ValueError('Either maxr or maxrmse must be set')
 
         t = np.linspace(t0, t0 + duration, n)
@@ -218,5 +218,5 @@ class TestSingle(unittest.TestCase):
         # Needs user to chop it off
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

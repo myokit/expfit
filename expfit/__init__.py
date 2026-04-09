@@ -27,6 +27,11 @@ from ._vetting import (  # noqa
     vet_series
 )
 
+from ._linear import (  # noqa
+    find_linear_segment,
+    least_squares,
+)
+
 from ._single import (  # noqa
     estimate_initial_single,
     fit_single,
