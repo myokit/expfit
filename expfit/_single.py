@@ -118,12 +118,6 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     if np.abs(b) < 1e-100:
         return np.mean(y), 0, 0
 
-    # A and b opposite? Then assume straight line
-    if np.abs(a / b + 1) < 1e-9 and np.abs(c) < 1e-9:
-        b = np.mean((s0, s1))
-        c = 0
-        a = np.mean(y) - np.mean(x) * b
-
     return a, b, c
 
 
@@ -132,7 +126,7 @@ def rmse_single(x, y, a, b, c):
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2))
 
 
-def fit_single(t, v, plot=False, vet=True):
+def fit_single(t, v, plot=False):
     """
     Fits an exponential ``a + b * exp(c * t)`` to the time series ``(t, v)``,
     returning ``(a, b, c)``
@@ -145,8 +139,7 @@ def fit_single(t, v, plot=False, vet=True):
         print(a, b, c)
 
     """
-    if vet:
-        t, v = expfit.vet_series(t, v)
+    t, v = expfit.vet_series(t, v)
 
     # Transform to unit square, to avoid overflows
     rt, rv = (t[-1] - t[0]), (v[-1] - v[0])
@@ -209,4 +202,11 @@ def fit_single(t, v, plot=False, vet=True):
         ax2.legend()
 
     return a, b, c
+
+
+def fit_single_tau(t, v):
+    """
+    Fits a single exponential and returns a time constant.
+    """
+    return -1 / fit_single(t, v)[2]
 

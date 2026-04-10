@@ -28,6 +28,8 @@ def _rmse_double_constrained_unidirectional(x, y, p):
 
 
 def fit_double(t, v, plot=False, vet=True):
+    """
+    """
     if vet:
         t, v = expfit.vet_series(t, v)
 
@@ -47,11 +49,34 @@ def fit_double(t, v, plot=False, vet=True):
         ax0.set_ylabel('y')
         code, color = ('-', '#92cc92') if len(x) > 10 else ('x-', 'tab:green')
         ax0.plot(x, y, code, color=color, label='Transformed data')
+
+        try:
+            if len(plot) == 5:
+                a, b, c, d, e = plot
+                a = (a - v[0]) / rv
+                b = b / rv * np.exp(c * t[0])
+                c = c * rt
+                d = d / rv * np.exp(e * t[0])
+                e = e * rt
+                ax0.plot(x, a * np.ones(x.shape), 'k--', label='Known 0th',
+                         zorder=10)
+                ax0.plot(
+                    x, b * np.exp(c * x), 'k-.', label='Known 1st', zorder=10)
+                ax0.plot(
+                    x, d * np.exp(e * x), 'k:', label='Known 2nd', zorder=10)
+                del(a, b, c, d, e)
+        except TypeError:
+            pass
+        plot = True
     else:
         ax0 = None
 
     # Get an initial estimate, for the dominant rate
     at0, bt0, ct0 = expfit.estimate_initial_single(x, y, axes=ax0, vet=False)
+
+    # Catch nans etc.
+    if ct0 == 0:
+        return v[0] + at0 * rv, bt0 * rv, 0, 0, 0
 
     # Attempt estimate over residuals
     #at1, dt0, et0 = expfit.estimate_initial_single(x, r, vet=False)
@@ -66,6 +91,8 @@ def fit_double(t, v, plot=False, vet=True):
             lambda p: _rmse_double_constrained_unidirectional(x, y, p),
             (at0, bt0, ct0, dt0, et0))
     at, bt, ct, dt, et = res.x
+
+    print(res.x)
 
     # Detransform
     a = v[0] + at * rv

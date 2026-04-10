@@ -26,9 +26,10 @@ class TestSingle(unittest.TestCase):
         def plot(x, y, p=None):  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.figure()
-            plt.plot(x, y)
+            plt.plot(x, y, label='data')
             if p is not None:
                 plt.plot(x, p[0] + p[1] * np.exp(p[2] * x))
+            plt.legend()
             plt.show()
 
         # Noise free
@@ -102,21 +103,29 @@ class TestSingle(unittest.TestCase):
         self.assertEqual(q, 0)
         self.assertEqual(r, 0)
 
-        # Straight line no noise
+        # Straight line through origin, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * x
         p, q, r = expfit.estimate_initial_single(x, y)
         #plot(x, y, (p, q, r))
-        self.assertAlmostEqual(p, 0, 13)
-        self.assertAlmostEqual(q, 3, 13)
-        self.assertEqual(r, 0)
+        self.assertAlmostEqual(np.sum((y - p - q * np.exp(r * x))**2), 0)
+        self.assertAlmostEqual(p, -q)
 
-        # Straight line with noise
+        # Straight line through origin, with noise
         x = np.linspace(0, 1, 99)
         y = 3 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = expfit.estimate_initial_single(x, y)
         #plot(x, y, (p, q, r))
+        self.assertAlmostEqual(p, -q, 1)
         self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1)
+
+        # Straight line with offset and noise
+        x = np.linspace(0, 1, 99)
+        y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y, (p, q, r))
+        self.assertAlmostEqual(p + q, 4, 0)
+        self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1.5)
 
         # Vets, but can be disabled
         a, b, c = 3, 5, -0.7
@@ -348,6 +357,14 @@ class TestSingle(unittest.TestCase):
         #sot(0, 6, -160, -3, -10, 0, 0, n=50, maxrmse=3, plot=True)
         #sot(0, 6, -160, -3, -10, 0, 0, n=1000, maxrmse=3, plot=True)
         # Needs user to chop it off
+
+    def test_single_tau(self):
+
+        a, b, c = 3, -1, 3
+        t = np.linspace(0, 10, 10)
+        v = a + b * np.exp(-t / c)
+        r = expfit.fit_single_tau(t, v)
+        self.assertAlmostEqual(r, 3, 6)
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -35,7 +35,8 @@ class TestDouble(unittest.TestCase):
         s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
         v = vt + self.r.normal(0, s, size=n)
 
-        af, bf, cf, df, ef = expfit.fit_double(t, v, plot=plot)
+        plot_params = (a, b, c, d, e) if plot else False
+        af, bf, cf, df, ef = expfit.fit_double(t, v, plot=plot_params)
         rt = expfit.rmse_double(t, v, a, b, c, d, e)
         rf = expfit.rmse_double(t, v, af, bf, cf, df, ef)
 
@@ -59,12 +60,13 @@ class TestDouble(unittest.TestCase):
         # Test double exponentials on double exponential data
         dod = self.double_on_double
         self.r = np.random.default_rng(5)
-        plot = True
+        plot = False
 
         # Both decaying
-        dod(200, 4, -5, 100, -3, plot=False)
-        dod(200, 4, -5, 1, -3, plot=False)
-        dod(200, 4, -5, 1, -0.5, plot=False)
+        dod(200, 4, -5, 100, -3, plot=plot)
+        dod(200, 4, -5, 10, -2, duration=1, plot=True)
+        dod(200, 4, -5, 1, -0.5, plot=True)
+        dod(200, 4, -5, 10, -1, duration=1, plot=True)
 
         # Both expanding
         #dod(200, 4, -5, 1, -3, plot=True)
@@ -80,6 +82,16 @@ class TestDouble(unittest.TestCase):
         #dod(0, 2, -3, 1, -2.8, maxr=1.1, maxrmse=1, plot=plot)
         #dod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=plot)
 
+    def test_double_edge_cases(self):
+
+        x = np.linspace(0, 1, 10)
+        y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
+        a, b, c, d, e = expfit.fit_double(x, y)
+        self.assertEqual(a, 0)
+        self.assertEqual(b, 0)
+        self.assertEqual(c, 0)
+        self.assertEqual(d, 0)
+        self.assertEqual(e, 0)
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
