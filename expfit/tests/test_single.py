@@ -366,6 +366,14 @@ class TestSingle(unittest.TestCase):
         r = expfit.fit_single_tau(t, v)
         self.assertAlmostEqual(r, 3, 6)
 
+        # Negative infinity
+        a, b, c = 1, 0, 3
+        t = np.linspace(0, 10, 10)
+        v = a + b * np.exp(-t / c)
+        r = expfit.fit_single_tau(t, v)
+        self.assertTrue(np.isinf(r))
+        self.assertLess(r, 0)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

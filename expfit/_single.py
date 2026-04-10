@@ -208,5 +208,11 @@ def fit_single_tau(t, v):
     """
     Fits a single exponential and returns a time constant.
     """
-    return -1 / fit_single(t, v)[2]
+    c = fit_single(t, v)[2]
+    if c == 0:
+        # Instead of checking sign of zero and returning + or - inf, let numpy
+        # handle it (but silently)
+        with np.errstate(divide='ignore'):
+            return -1 / c
+    return -1 / c
 
