@@ -18,17 +18,20 @@ def rmse_double(x, y, a, b, c, d, e):
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2))
 
 
-def _rmse_double_constrained_unidirectional(x, y, p):
+def _rmse_double_decaying(x, y, p):
     rb = p[1] / p[3]    # >0 to keep sign equal
     rc = p[2] / p[4]    # >1 to keep sign equal, and c > e
-    if rb < 0 or rc < 1:
+    if rb < 0 or rc < 1 or p[2] > 0:
         return np.inf  # TODO
     return np.sqrt(np.sum((
         y - p[0] - p[1] * np.exp(p[2] * x) - p[3] * np.exp(p[4] * x))**2))
 
 
-def fit_double(t, v, plot=False, vet=True):
+def fit_double_decaying(t, v, plot=False, vet=True):
     """
+    Fits a double-exponential ``y = a + b * exp(c * x) + d * exp(e * x)``,
+    where ``b`` and ``d`` have the same sign, and ``c`` and ``e`` are both
+    negative.
     """
     if vet:
         t, v = expfit.vet_series(t, v)
@@ -88,7 +91,7 @@ def fit_double(t, v, plot=False, vet=True):
     # Fit
     with np.errstate(all='ignore'):
         res = fmin(
-            lambda p: _rmse_double_constrained_unidirectional(x, y, p),
+            lambda p: _rmse_double_decaying(x, y, p),
             (at0, bt0, ct0, dt0, et0))
     at, bt, ct, dt, et = res.x
 
@@ -148,5 +151,5 @@ def fit_double(t, v, plot=False, vet=True):
 
     #TODO
 
-    return 0, 0, 0, 0, 0
+    return a, b, c, d, e
 

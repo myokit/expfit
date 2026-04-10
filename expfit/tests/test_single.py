@@ -177,6 +177,10 @@ class TestSingle(unittest.TestCase):
         noisy signal and the fit. For a perfect fit the ratio Rfit/Rtrue will
         be less than 1, as the fit will incorporate some of the bias introduced
         by the random noise.
+
+        Criteria: ``digits`` is the ``assertAlmostEqual`` precision of returned
+        parameters, ``ratio`` is the max rmse fit/true ratio, and ``rmse`` is
+        the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
         vt = a + b * np.exp(c * t)

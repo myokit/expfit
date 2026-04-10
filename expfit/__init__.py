@@ -40,6 +40,6 @@ from ._single import (  # noqa
 )
 
 from ._double import (  # noqa
-    fit_double,
+    fit_double_decaying,
     rmse_double,
 )

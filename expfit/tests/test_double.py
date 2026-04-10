@@ -21,22 +21,22 @@ class TestDouble(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def double_on_double(self, a, b, c, d, e, duration=2, n=200, fnoise=0.01,
-                         t0=0, plot=False):
+    def double_decaying_on_double(self, a, b, c, d, e, duration=2, n=200,
+                                  fnoise=0.01, t0=0, digits=[], plot=False):
         # maxr=1, maxrmse=None,
         """
+        Tests a double exponential fit to a double exponential signal.
 
+        Criteria: ``digits`` is the ``assertAlmostEqual`` precision with which
+        fitted parameters match.
         """
-        #if maxr is None and maxrmse is None:
-        #    raise ValueError('Either maxr or maxrmse must be set')
-
         t = np.linspace(t0, t0 + duration, n)
         vt = a + b * np.exp(c * t) + d * np.exp(e * t)
         s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
         v = vt + self.r.normal(0, s, size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        af, bf, cf, df, ef = expfit.fit_double(t, v, plot=plot_params)
+        af, bf, cf, df, ef = expfit.fit_double_decaying(t, v, plot=plot_params)
         rt = expfit.rmse_double(t, v, a, b, c, d, e)
         rf = expfit.rmse_double(t, v, af, bf, cf, df, ef)
 
@@ -48,25 +48,30 @@ class TestDouble(unittest.TestCase):
             import matplotlib.pyplot as plt
             plt.show()
 
-        with self.subTest(a=a, b=b, c=c, duration=duration, n=n, fnoise=fnoise,
-                          t0=t0):
-            #if maxr is not None:
-            #    self.assertLess(rf / rt, maxr)
-            #if maxrmse is not None:
-            #    self.assertLess(rf, maxrmse)
-            pass
+        with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
+                          fnoise=fnoise, t0=t0):
+            if len(digits) == 5:
+                self.assertAlmostEqual(af, a, digits[0])
+                self.assertAlmostEqual(bf, b, digits[1])
+                self.assertAlmostEqual(cf, c, digits[2])
+                self.assertAlmostEqual(df, d, digits[3])
+                self.assertAlmostEqual(ef, e, digits[4])
+            else:  # pragma: no cover
+                raise ValueError('No test criteria set')
 
     def test_double_on_double(self):
         # Test double exponentials on double exponential data
-        dod = self.double_on_double
+        dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
         plot = False
 
         # Both decaying
-        dod(200, 4, -5, 100, -3, plot=plot)
-        dod(200, 4, -5, 10, -2, duration=1, plot=plot)
-        dod(200, 4, -5, 1, -0.5, plot=plot)
-        dod(200, 4, -5, 10, -1, duration=1, plot=plot)
+        dod(200, 4, -5, 100, -3, digits=(0, -1, 0, -1, -1), plot=plot)
+        dod(200, 4, -5, 10, -2, duration=1, digits=(0, -1, -1, -1, 2),
+            plot=plot)
+        dod(200, 4, -5, 1, -0.5, digits=(0, 0, 0, 1, 0), plot=plot)
+        dod(200, 4, -5, 10, -1, duration=1, digits=(-2, -1, -1, -3, -1),
+            plot=plot)
 
         # Both expanding
         #dod(200, 4, -5, 1, -3, plot=True)
@@ -86,7 +91,7 @@ class TestDouble(unittest.TestCase):
 
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
-        a, b, c, d, e = expfit.fit_double(x, y)
+        a, b, c, d, e = expfit.fit_double_decaying(x, y)
         self.assertEqual(a, 0)
         self.assertEqual(b, 0)
         self.assertEqual(c, 0)
