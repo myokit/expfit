@@ -1,11 +1,23 @@
-# Expfit: fit noisy time series with 1 to 4 exponentials
+# Expfit: Fit exponentials to noisy time series
 
-- With guessing of initial parameters
-- With tests
-- A place to try out a few methods
-  - Cobble something together that fits 1, then 2, then 3 etc.
-  - Or just chuck it in a global opt, but with sensible constraints e.g. tau1 > tau2 > tau3 etc (unless that's not sensible, cause if it finds tau1=tau2 it'd be stuck until they are both near equal and the other can move again? might be better to order after finding?)
-- Ideally with minimal dependencies (because for low number of exponentials (1--4) it shouldn't be super hard.
+Expfit is a lightweight Python package to fit exponentials to noisy time 
+series, typically with the aim of extracting time constants.
+
+It aims to meet the following goals:
+
+- Fit scaled and vertically transposed exponentials ``y = a + b * exp(c * x)``
+  without requiring initial parameter estimates.
+- Fit double, triple, and quadruple exponentials ``y = a + b_i * exp(c_i * x)``
+  where each exponential term is decaying (``c_i < 0``) and all ``b_i`` have
+  the same sign.
+- Fit multiple decaying exponentials in data with multiple ``b_i`` signs.
+- Be lightweight: use good initial strategies and properties of exponentials to
+  simplify the optimisation problem.
+
+Although a relatively simple task, ``expfit`` has unit tests, and reported
+failures will be added to its test suite to create a reliable tool for this
+sometimes fiddly operation.
+
 
 ## State 2026-04-10
 
@@ -13,12 +25,5 @@ Does single exponentials well
 
 Building on initial guesses for single, also started adding double which it does OK
 
-Not much testing for doubles yet.
 
 
-
-## Future?
-
-Maybe stand-alone. Maybe in pcpostprocess or datkit
-
-For now, need somewhere to play and document.

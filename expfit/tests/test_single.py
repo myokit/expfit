@@ -163,7 +163,7 @@ class TestSingle(unittest.TestCase):
         self.assertEqual(c, 0)
 
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
-                         maxr=1, maxrmse=None, plot=False):
+                         digits=[], ratio=1, rmse=None, plot=False):
         """
         Fits an exponential to a signal containing an exponential, and returns
         the ratio ``RMSE(fit, noisy) / RMSE(true, noisy)``.
@@ -178,9 +178,6 @@ class TestSingle(unittest.TestCase):
         be less than 1, as the fit will incorporate some of the bias introduced
         by the random noise.
         """
-        if maxr is None and maxrmse is None:  # pragma: no cover
-            raise ValueError('Either maxr or maxrmse must be set')
-
         t = np.linspace(t0, t0 + duration, n)
         vt = a + b * np.exp(c * t)
         s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
@@ -200,65 +197,95 @@ class TestSingle(unittest.TestCase):
 
         with self.subTest(a=a, b=b, c=c, duration=duration, n=n, fnoise=fnoise,
                           t0=t0):
-            if maxr is not None:
-                self.assertLess(rf / rt, maxr)
-            if maxrmse is not None:
-                self.assertLess(rf, maxrmse)
+            if len(digits) == 3:
+                self.assertAlmostEqual(af, a, digits[0])
+                self.assertAlmostEqual(bf, b, digits[1])
+                self.assertAlmostEqual(cf, c, digits[2])
+            if ratio is not None:
+                self.assertLess(rf / rt, ratio)
+            if rmse is not None:
+                self.assertLess(rf, rmse)
+            if len(digits) != 3 and ratio is None and rmse is None:
+                raise Exception('No test criteria set')  # pragma: no cover
 
-    def test_single_on_single(self):
+    def test_single_on_single_basic(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)
         plot = False
 
         # Moderate
-        sos(0, -1, 3, 2, 123, plot=plot)
-        sos(3e2, 2, 4, 2, 200, plot=plot)
-        sos(5e3, 3, -0.5, 5, 500, plot=plot)
-        sos(-1e3, 10, -9, 2, 50, plot=plot)
+        sos(0, -1, 3, 2, 123, digits=(0, 1, 1), plot=plot)
+        sos(3e2, 2, 4, 2, 200, digits=(-2, 1, 1), plot=plot)
+        sos(5e3, 3, -0.5, 5, 500, digits=(1, 1, 0), plot=plot)
+        sos(-1e3, 10, -9, 2, 50, digits=(1, 1, 1), plot=plot)
 
         # Steep
-        sos(4e5, -1, 30, 2, 300, maxr=1.2, plot=plot)
-        sos(-1e3, 10, -9, 2, 1000, plot=plot)
-        sos(3e5, -1, 15, 2, 500, maxr=1.02, plot=plot)
+        sos(4e5, -1, 30, 2, 300, ratio=1.2, plot=plot)
+        sos(-1e3, 10, -9, 2, 1000, digits=(2, 1, 1), plot=plot)
+        sos(3e5, -1, 15, 2, 500, ratio=1.02, plot=plot)
 
         # Almost straight
-        sos(3, -1, 0.3, 2, 3000, plot=plot)
-        sos(-6e2, +1, 0.03, 2, 3000, plot=plot)
-        sos(0, 1, 1e-6, 1, 200, maxr=1.001, plot=plot)
+        sos(3, -1, 0.3, 2, 3000, digits=(1, 1, 2), plot=plot)
+        sos(-6e2, +1, 0.03, 2, 3000, digits=(0, 0, 1), plot=plot)
+        sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
         sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
 
+    def test_single_on_single_straight(self):
+        # Test single exponentials on single exponential data
+        sos = self.single_on_single
+        self.r = np.random.default_rng(873)
+        plot = False
+
         # Flat
-        sos(1, 0, 3, 1, 200, maxr=1.1, plot=plot)
+        sos(1, 0, 3, 1, 200, ratio=1.1, plot=plot)
+
+    def test_single_on_single_noisy(self):
+        # Test single exponentials on single exponential data
+        sos = self.single_on_single
+        self.r = np.random.default_rng(12)
+        plot = False
 
         # Clean
-        sos(0, -1, 3, 2, 123, fnoise=0, maxr=None, maxrmse=0.05, plot=plot)
-        sos(4e2, 2, 4, 2, 1000, fnoise=1e-3, maxr=1.01, plot=plot)
-        sos(7e3, 3, -0.5, 5, 500, fnoise=1e-2, plot=plot)
+        sos(0, -1, 3, 2, 123, digits=(2, 2, 3), fnoise=0, ratio=None,
+            rmse=0.05, plot=plot)
+        sos(4e2, 2, 4, 2, 1000, digits=(0, 2, 2), fnoise=1e-3, ratio=1.01,
+            plot=plot)
+        sos(7e3, 3, -0.5, 5, 500, digits=(0, 3, 1), fnoise=1e-2, plot=plot)
 
         # Noisy
         sos(4, 10, 3, 2, 100, fnoise=0.11, plot=plot)
         sos(4, 10, 3, 2, 100, fnoise=0.3, plot=plot)
-        sos(51, -1, -0.5, 5, 200, maxr=1.01, fnoise=0.5, plot=plot)
-        sos(-10, -2, 9, 2, 600, maxr=1.01, fnoise=1, plot=plot)
+        sos(51, -1, -0.5, 5, 200, digits=(0, 0, 0), ratio=1.01, fnoise=0.5,
+            plot=plot)
+        sos(-10, -2, 9, 2, 600, ratio=1.01, fnoise=1, plot=plot)
+
+    def test_single_on_single_dense(self):
+        # Test single exponentials on single exponential data
+        sos = self.single_on_single
+        self.r = np.random.default_rng(1)
+        plot = False
 
         # Short
-        sos(30, 2, 4, 2, 10, plot=plot)
-        sos(15, 3, 5, 1.5, 9, plot=plot)
+        sos(30, 2, 4, 2, 10, digits=(-2, 1, 1), plot=plot)
+        sos(15, 3, 5, 1.5, 9, digits=(-1, 0, 1), plot=plot)
         sos(10, -3, -1e3, 5, 8, plot=plot)
-        sos(-2, 3, 0.05, 5, 6, plot=plot)
-        sos(-30, 10, -5, 0.2, 5, plot=plot)
-        sos(20, -10, 7, 2, 4, maxr=1.4, plot=plot)
-        sos(-5, 10, -2, 4, 3, plot=plot)
+        sos(-2, 3, 0.05, 5, 6, digits=(-1, -1, 1), plot=plot)
+        sos(-30, 10, -5, 0.2, 5, digits=(0, -1, 0), plot=plot)
+        sos(20, -10, 7, 2, 4, ratio=1.4, plot=plot)
+        sos(-5, 10, -2, 4, 3, digits=(1, 3, 0), plot=plot)
 
         # Dense
-        sos(1e2, -2, 3, 2, 10000, plot=plot)
-        sos(1e3, 8, -0.12, 5, 100000, plot=plot)
+        sos(1e2, -2, 3, 2, 10000, digits=(0, 2, 2), plot=plot)
+        sos(1e3, 8, -0.12, 5, 100000, digits=(2, 2, 4), plot=plot)
 
     def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
-                         t0=0, maxr=2, maxrmse=1, plot=False):
+                         t0=0, rdom=2, rmse=1, plot=False):
         """
         Fits a single exponential to a signal containing a double exponential.
+
+        Criteria: ``rdom`` is the ratio between estimated c and dominant c in
+        given parameters, ``rmse`` is the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
         vt = a + b * np.exp(c * t) + d * np.exp(e * t)
@@ -270,7 +297,7 @@ class TestSingle(unittest.TestCase):
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
-        rdom = cf / cdom
+        dr = cf / cdom
 
         if plot:  # pragma: no cover
             print(f'True:              {bdom:+.5e} {cdom:+.5e}')
@@ -278,16 +305,16 @@ class TestSingle(unittest.TestCase):
             print(f'      b {b:+.5e} c {c:+.5e}')
             print(f'      d {d:+.5e} e {e:+.5e}')
             print(f'RMSE fit: {rf}')
-            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
+            print(f'Estimate / dominant true: {dr:.5e} ({1 / dr:.5e})')
 
             import matplotlib.pyplot as plt
             plt.show()
 
         with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
                           fnoise=fnoise, t0=t0):
-            self.assertLess(rdom, maxr)
-            self.assertGreater(rdom, 1 / maxr)
-            self.assertLess(rf, maxrmse)
+            self.assertLess(dr, rdom)
+            self.assertGreater(dr, 1 / rdom)
+            self.assertLess(rf, rmse)
 
     def test_single_on_double(self):
         # Test single exponentials on single exponential data
@@ -296,20 +323,23 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sod(0, -1, 3, -4, 5, maxr=1.2, maxrmse=60, plot=plot)
-        sod(0, -1, 3, -2, 5, maxr=1.1, maxrmse=35, plot=plot)
-        sod(0, -1, 3, -1, 5, maxr=1.1, maxrmse=60, plot=plot)
-        sod(0, -1, 3, -0.5, 5, maxr=1.2, maxrmse=10, plot=plot)
-        sod(0, -1, 3, -1e-6, 5, maxr=1.7, maxrmse=3, plot=plot)
-        sod(0, -1, 3, -1e-12, 5, maxr=1.7, maxrmse=2, plot=plot)
-        sod(0, 1, -3, 1, -3.1, maxr=1.1, maxrmse=1, plot=plot)
-        sod(0, 2, -3, 1, -2.8, maxr=1.1, maxrmse=1, plot=plot)
-        sod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=plot)
+        sod(0, -1, 3, -4, 5, rdom=1.2, rmse=60, plot=plot)
+        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=35, plot=plot)
+        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=60, plot=plot)
+        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=10, plot=plot)
+        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=3, plot=plot)
+        sod(0, -1, 3, -1e-12, 5, rdom=1.7, rmse=2, plot=plot)
+        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=1, plot=plot)
+        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=1, plot=plot)
+        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=1, plot=plot)
 
     def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
-                         fnoise=0.01, t0=0, maxr=2, maxrmse=2, plot=False):
+                         fnoise=0.01, t0=0, rdom=2, rmse=2, plot=False):
         """
         Fits a single exponential to a signal containing a double exponential.
+
+        Criteria: ``rdom`` is the ratio between estimated c and dominant c in
+        given parameters, ``rmse`` is the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
         vt = a + b * np.exp(c * t) + d * np.exp(e * t) + f * np.exp(g * t)
@@ -321,7 +351,7 @@ class TestSingle(unittest.TestCase):
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
-        rdom = cf / cdom
+        dr = cf / cdom
 
         if plot:  # pragma: no cover
             print(f'True:              {bdom:+.5e} {cdom:+.5e}')
@@ -330,16 +360,16 @@ class TestSingle(unittest.TestCase):
             print(f'      d {d:+.5e} e {e:+.5e}')
             print(f'      f {f:+.5e} g {g:+.5e}')
             print(f'RMSE fit: {rf}')
-            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
+            print(f'Estimate / dominant true: {dr:.5e} ({1 / dr:.5e})')
 
             import matplotlib.pyplot as plt
             plt.show()
 
         with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
                           fnoise=fnoise, t0=t0):
-            self.assertLess(rdom, maxr)
-            self.assertGreater(rdom, 1 / maxr)
-            self.assertLess(rf, maxrmse)
+            self.assertLess(dr, rdom)
+            self.assertGreater(dr, 1 / rdom)
+            self.assertLess(rf, rmse)
 
     def test_single_on_triple(self):
         # Test single exponentials on single exponential data
@@ -348,14 +378,14 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sot(0, -6, -0.1, -3, -10, -2, -2, maxr=2.5, maxrmse=3, plot=plot)
-        sot(0, -6, 0.1, -3, 10, -2, 2, maxr=1.01, maxrmse=7e3, plot=plot)
-        sot(0, 3, -1, 3, -6, 2, -2, maxr=2, maxrmse=1, plot=plot)
-        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, maxr=1.1, maxrmse=7e8, plot=plot)
+        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.5, rmse=3, plot=plot)
+        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.01, rmse=7e3, plot=plot)
+        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=1, plot=plot)
+        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.1, rmse=7e8, plot=plot)
 
         # Opposing direction, over fast
-        #sot(0, 6, -160, -3, -10, 0, 0, n=50, maxrmse=3, plot=True)
-        #sot(0, 6, -160, -3, -10, 0, 0, n=1000, maxrmse=3, plot=True)
+        #sot(0, 6, -160, -3, -10, 0, 0, n=50, rmse=3, plot=True)
+        #sot(0, 6, -160, -3, -10, 0, 0, n=1000, rmse=3, plot=True)
         # Needs user to chop it off
 
     def test_single_tau(self):
