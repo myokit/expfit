@@ -64,7 +64,7 @@ def fit_double(t, v, plot=False, vet=True):
                     x, b * np.exp(c * x), 'k-.', label='Known 1st', zorder=10)
                 ax0.plot(
                     x, d * np.exp(e * x), 'k:', label='Known 2nd', zorder=10)
-                del(a, b, c, d, e)
+                del a, b, c, d, e
         except TypeError:
             pass
         plot = True
@@ -91,8 +91,6 @@ def fit_double(t, v, plot=False, vet=True):
             lambda p: _rmse_double_constrained_unidirectional(x, y, p),
             (at0, bt0, ct0, dt0, et0))
     at, bt, ct, dt, et = res.x
-
-    print(res.x)
 
     # Detransform
     a = v[0] + at * rv

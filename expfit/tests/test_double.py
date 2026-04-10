@@ -40,7 +40,7 @@ class TestDouble(unittest.TestCase):
         rt = expfit.rmse_double(t, v, a, b, c, d, e)
         rf = expfit.rmse_double(t, v, af, bf, cf, df, ef)
 
-        if plot:
+        if plot:  # pragma: no cover
             print(f'True: {a:+.5e} {b:+.5e} {c:+.5e} {d:+.5e} {e:+.5e}')
             print(f'RMSE true: {rt}')
             print(f'RMSE fit:  {rf}')
@@ -64,9 +64,9 @@ class TestDouble(unittest.TestCase):
 
         # Both decaying
         dod(200, 4, -5, 100, -3, plot=plot)
-        dod(200, 4, -5, 10, -2, duration=1, plot=True)
-        dod(200, 4, -5, 1, -0.5, plot=True)
-        dod(200, 4, -5, 10, -1, duration=1, plot=True)
+        dod(200, 4, -5, 10, -2, duration=1, plot=plot)
+        dod(200, 4, -5, 1, -0.5, plot=plot)
+        dod(200, 4, -5, 10, -1, duration=1, plot=plot)
 
         # Both expanding
         #dod(200, 4, -5, 1, -3, plot=True)
@@ -92,6 +92,7 @@ class TestDouble(unittest.TestCase):
         self.assertEqual(c, 0)
         self.assertEqual(d, 0)
         self.assertEqual(e, 0)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
