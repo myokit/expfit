@@ -101,8 +101,8 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     # TODO: Become clever about e.g. slopes pointing towards it not being
     # an exponential?
 
-    # Stop if both slopes are exactly the same, and assume a flat line
-    if s0 == s1:
+    # Avoid divide by zero if y0 == y1: straight line
+    if y0 == y1:
         return np.mean(y), 0, 0
 
     # Estimate c, a, and b
@@ -115,8 +115,14 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
         b = (y1 - a) * np.exp(-c * x1)
 
     # Very low b? Then assume flat line
-    if abs(b) < 1e-100:
-        b = c = 0
+    if np.abs(b) < 1e-100:
+        return np.mean(y), 0, 0
+
+    # A and b opposite? Then assume straight line
+    if np.abs(a / b + 1) < 1e-9 and np.abs(c) < 1e-9:
+        b = np.mean((s0, s1))
+        c = 0
+        a = np.mean(y) - np.mean(x) * b
 
     return a, b, c
 

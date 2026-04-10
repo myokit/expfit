@@ -9,8 +9,8 @@ import unittest
 
 import numpy as np
 
-
 import expfit
+
 
 class TestDouble(unittest.TestCase):
     """

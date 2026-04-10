@@ -21,6 +21,138 @@ class TestSingle(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
+    def test_estimate_initial(self):
+
+        def plot(x, y, p=None):  # pragma: no cover
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.plot(x, y)
+            if p is not None:
+                plt.plot(x, p[0] + p[1] * np.exp(p[2] * x))
+            plt.show()
+
+        # Noise free
+        a, b, c = 8, 2, 0.3
+        x = np.linspace(1.5, 2.5, 2000)
+        y = a + b * np.exp(c * x)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertAlmostEqual(p, a, 7)
+        self.assertAlmostEqual(q, b, 6)
+        self.assertAlmostEqual(r, c, 7)
+
+        a, b, c = -1e3, 5, -0.3
+        x = np.linspace(0.3, 4, 200)
+        y = a + b * np.exp(c * x)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertAlmostEqual(p, a, 7)
+        self.assertAlmostEqual(q, b, 3)
+        self.assertAlmostEqual(r, c, 5)
+
+        a, b, c = 2e2, 21, -0.7
+        x = np.linspace(0, 0.5, 9)
+        y = a + b * np.exp(c * x)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertAlmostEqual(p, a, 10)
+        self.assertAlmostEqual(q, b, 1)
+        self.assertAlmostEqual(r, c, 2)
+
+        # With noise
+        rng = np.random.default_rng(7)
+        a, b, c = 73, 1, 0.18
+        n = 1003
+        x = np.linspace(0, 6.7, n)
+        y = a + b * np.exp(c * x) + rng.normal(0, 0.05, n)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y, (p, q, r))
+        self.assertAlmostEqual(p, a, 0)
+        self.assertAlmostEqual(q, b, 0)
+        self.assertAlmostEqual(r, c, 1)
+
+        a, b, c = -51, -7.2, 1000
+        n = 900
+        x = np.linspace(1e-3, 7e-3, n)
+        y = a + b * np.exp(c * x) + rng.normal(0, 100, n)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y, (p, q, r))
+        self.assertAlmostEqual(p, a, -2)
+        self.assertAlmostEqual(q, b, 0)
+        self.assertAlmostEqual(r, c, -1)
+
+        a, b, c = 1, 1e13, -3
+        n = 88
+        x = np.linspace(10, 11, n)
+        y = a + b * np.exp(c * x) + rng.normal(0, 0.02, n)
+        #plot(x, y, (p, q, r))
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertAlmostEqual(p, a, 1)
+        self.assertAlmostEqual(r, c, 0)
+        self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 0.1)
+
+        # Edge case: perfectly flat line, no noise
+        x = np.linspace(0, 1, 10)
+        y = 3 * np.ones(x.shape)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertEqual((p, q, r), (3, 0, 0))
+
+        # Flat line with noise: hit b < 1e-100
+        x = np.linspace(0, 1, 3000)
+        y = 3 * np.ones(x.shape) + rng.normal(0, 1e-6, x.shape)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        self.assertAlmostEqual(p, 3, 7)
+        self.assertEqual(q, 0)
+        self.assertEqual(r, 0)
+
+        # Straight line no noise
+        x = np.linspace(0, 1, 10)
+        y = 3 * x
+        p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y, (p, q, r))
+        self.assertAlmostEqual(p, 0, 13)
+        self.assertAlmostEqual(q, 3, 13)
+        self.assertEqual(r, 0)
+
+        # Straight line with noise
+        x = np.linspace(0, 1, 99)
+        y = 3 * x + rng.normal(0, 0.1, x.shape)
+        p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y, (p, q, r))
+        self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1)
+
+        # Vets, but can be disabled
+        a, b, c = 3, 5, -0.7
+        x = np.linspace(0.5, 1.5, 100)
+        y = a + b * np.exp(c * x)
+        self.assertRaisesRegex(
+            ValueError, 'must have same length, got 100 and 99',
+            expfit.estimate_initial_single, x, y[:-1], 5)
+        expfit.estimate_initial_single(x, y[:-1], 5, vet=False)
+
+        self.assertRaisesRegex(
+            ValueError, 'At least 3', expfit.estimate_initial_single,
+            [1, 2], [3, 4], 1)
+
+    def test_rmse_single(self):
+
+        a, b, c = 1, 2, -3
+        x = np.linspace(0, 1, 99)
+        y = a + b * np.exp(c * x)
+        self.assertAlmostEqual(expfit.rmse_single(x, y, a, b, c), 0, 14)
+        y = 3 * np.ones(x.shape)
+        self.assertEqual(
+            expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2)))
+        y = 10 + b * np.exp(c * x)
+        self.assertAlmostEqual(
+            expfit.rmse_single(x, y, a, b, c), np.sqrt(99 * 81), 14)
+
+    def test_single_edge_cases(self):
+
+        x = np.linspace(0, 1, 10)
+        y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
+        a, b, c = expfit.fit_single(x, y)
+        self.assertEqual(a, 0)
+        self.assertEqual(b, 0)
+        self.assertEqual(c, 0)
+
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
                          maxr=1, maxrmse=None, plot=False):
         """
@@ -63,75 +195,6 @@ class TestSingle(unittest.TestCase):
                 self.assertLess(rf / rt, maxr)
             if maxrmse is not None:
                 self.assertLess(rf, maxrmse)
-
-    def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
-                         t0=0, maxr=2, maxrmse=1, plot=False):
-        """
-        Fits a single exponential to a signal containing a double exponential.
-        """
-        t = np.linspace(t0, t0 + duration, n)
-        vt = a + b * np.exp(c * t) + d * np.exp(e * t)
-        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
-        v = vt + self.r.normal(0, s, size=n)
-
-        af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
-
-        # Dominant rate
-        bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
-        rdom = cf / cdom
-
-        if plot:  # pragma: no cover
-            print(f'True:              {bdom:+.5e} {cdom:+.5e}')
-            print(f'Full: a {a:+.5e}')
-            print(f'      b {b:+.5e} c {c:+.5e}')
-            print(f'      d {d:+.5e} e {e:+.5e}')
-            print(f'RMSE fit: {rf}')
-            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
-
-            import matplotlib.pyplot as plt
-            plt.show()
-
-        with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
-                          fnoise=fnoise, t0=t0):
-            self.assertLess(rdom, maxr)
-            self.assertGreater(rdom, 1 / maxr)
-            self.assertLess(rf, maxrmse)
-
-    def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
-                         fnoise=0.01, t0=0, maxr=2, maxrmse=2, plot=False):
-        """
-        Fits a single exponential to a signal containing a double exponential.
-        """
-        t = np.linspace(t0, t0 + duration, n)
-        vt = a + b * np.exp(c * t) + d * np.exp(e * t) + f * np.exp(g * t)
-        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
-        v = vt + self.r.normal(0, s, size=n)
-
-        af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
-
-        # Dominant rate
-        bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
-        rdom = cf / cdom
-
-        if plot:  # pragma: no cover
-            print(f'True:              {bdom:+.5e} {cdom:+.5e}')
-            print(f'Full: a {a:+.5e}')
-            print(f'      b {b:+.5e} c {c:+.5e}')
-            print(f'      d {d:+.5e} e {e:+.5e}')
-            print(f'      f {f:+.5e} g {g:+.5e}')
-            print(f'RMSE fit: {rf}')
-            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
-
-            import matplotlib.pyplot as plt
-            plt.show()
-
-        with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
-                          fnoise=fnoise, t0=t0):
-            self.assertLess(rdom, maxr)
-            self.assertGreater(rdom, 1 / maxr)
-            self.assertLess(rf, maxrmse)
 
     def test_single_on_single(self):
         # Test single exponentials on single exponential data
@@ -183,6 +246,40 @@ class TestSingle(unittest.TestCase):
         sos(1e2, -2, 3, 2, 10000, plot=plot)
         sos(1e3, 8, -0.12, 5, 100000, plot=plot)
 
+    def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
+                         t0=0, maxr=2, maxrmse=1, plot=False):
+        """
+        Fits a single exponential to a signal containing a double exponential.
+        """
+        t = np.linspace(t0, t0 + duration, n)
+        vt = a + b * np.exp(c * t) + d * np.exp(e * t)
+        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
+        v = vt + self.r.normal(0, s, size=n)
+
+        af, bf, cf = expfit.fit_single(t, v, plot=plot)
+        rf = expfit.rmse_single(t, v, af, bf, cf)
+
+        # Dominant rate
+        bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
+        rdom = cf / cdom
+
+        if plot:  # pragma: no cover
+            print(f'True:              {bdom:+.5e} {cdom:+.5e}')
+            print(f'Full: a {a:+.5e}')
+            print(f'      b {b:+.5e} c {c:+.5e}')
+            print(f'      d {d:+.5e} e {e:+.5e}')
+            print(f'RMSE fit: {rf}')
+            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
+
+            import matplotlib.pyplot as plt
+            plt.show()
+
+        with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
+                          fnoise=fnoise, t0=t0):
+            self.assertLess(rdom, maxr)
+            self.assertGreater(rdom, 1 / maxr)
+            self.assertLess(rf, maxrmse)
+
     def test_single_on_double(self):
         # Test single exponentials on single exponential data
         sod = self.single_on_double
@@ -199,6 +296,41 @@ class TestSingle(unittest.TestCase):
         sod(0, 1, -3, 1, -3.1, maxr=1.1, maxrmse=1, plot=plot)
         sod(0, 2, -3, 1, -2.8, maxr=1.1, maxrmse=1, plot=plot)
         sod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=plot)
+
+    def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
+                         fnoise=0.01, t0=0, maxr=2, maxrmse=2, plot=False):
+        """
+        Fits a single exponential to a signal containing a double exponential.
+        """
+        t = np.linspace(t0, t0 + duration, n)
+        vt = a + b * np.exp(c * t) + d * np.exp(e * t) + f * np.exp(g * t)
+        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
+        v = vt + self.r.normal(0, s, size=n)
+
+        af, bf, cf = expfit.fit_single(t, v, plot=plot)
+        rf = expfit.rmse_single(t, v, af, bf, cf)
+
+        # Dominant rate
+        bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
+        rdom = cf / cdom
+
+        if plot:  # pragma: no cover
+            print(f'True:              {bdom:+.5e} {cdom:+.5e}')
+            print(f'Full: a {a:+.5e}')
+            print(f'      b {b:+.5e} c {c:+.5e}')
+            print(f'      d {d:+.5e} e {e:+.5e}')
+            print(f'      f {f:+.5e} g {g:+.5e}')
+            print(f'RMSE fit: {rf}')
+            print(f'Estimate / dominant true: {rdom:.5e} ({1 / rdom:.5e})')
+
+            import matplotlib.pyplot as plt
+            plt.show()
+
+        with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
+                          fnoise=fnoise, t0=t0):
+            self.assertLess(rdom, maxr)
+            self.assertGreater(rdom, 1 / maxr)
+            self.assertLess(rf, maxrmse)
 
     def test_single_on_triple(self):
         # Test single exponentials on single exponential data

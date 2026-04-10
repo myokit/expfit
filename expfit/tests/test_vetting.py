@@ -68,7 +68,7 @@ class TestVetting(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'could not convert string to float: \'1 2 3\'',
             expfit.vet_series, x, y)
-        x = '123' #
+        x = '123'
         self.assertRaisesRegex(
             ValueError, 'same length, got 1 and 3',
             expfit.vet_series, x, y)

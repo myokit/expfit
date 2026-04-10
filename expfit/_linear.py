@@ -6,8 +6,6 @@
 #
 import numpy as np
 
-from scipy.optimize import minimize as fmin
-
 import expfit
 
 
@@ -38,9 +36,9 @@ def find_linear_segment(x, y, min_length, left=True, vet=True):
     By default, the left-most section of the segment is kept after each
     reduction, but this can be changed by setting ``right=True``.
 
-    Returns a tuple ``(n, a, b)`` such that ``y`` is approximated by
-    ``a + b * x`` on a segment of length ``n``, at either the left or the right
-    of the data.
+    Returns a tuple ``(xx, yy, a, b)`` such that ``yy`` is approximated by
+    ``a + b * xx`` on a segment ``(xx, yy)`` of the original time series
+    ``(x, y)`` at either the left or right side of the data.
     """
     if vet:
         x, y = expfit.vet_series(x, y)

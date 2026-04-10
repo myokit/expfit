@@ -121,7 +121,7 @@ def fit_double(t, v, plot=False, vet=True):
 
     # Assume
 
-
+    #TODO
 
     return 0, 0, 0, 0, 0
 
