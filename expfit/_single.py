@@ -197,8 +197,10 @@ def fit_single(t, v, plot=False):
         ax2.set_xlabel('t')
         ax2.set_ylabel('v')
         ax2.plot(t, v, code, color=color, label='Untransformed data')
-        ax2.plot(t, a0 + b0 * np.exp(c0 * t), '-', label='Initial')
-        ax2.plot(t, a + b * np.exp(c * t), '--', label='Fit')
+        ax2.plot(t, a0 + b0 * np.exp(c0 * t), '-',
+                 label=f'Initial (c={c0:+.3f}, tau={-1 / c0:+.3f})')
+        ax2.plot(t, a + b * np.exp(c * t), '--',
+                 label='fFit (c={c:+.3f}, tau={-1 / c:+.3f})')
         ax2.legend()
 
     return a, b, c

@@ -54,8 +54,9 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax0.plot(x, y, code, color=color, label='Transformed data')
 
         try:
+            known = False
             if len(plot) == 5:
-                a, b, c, d, e = plot
+                a, b, c, d, e = known = plot
                 a = (a - v[0]) / rv
                 b = b / rv * np.exp(c * t[0])
                 c = c * rt
@@ -141,10 +142,15 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax3 = fig.add_subplot(3, 2, 6)
         ax3.set_xlabel('t')
         ax3.set_ylabel('v')
-        ax3.plot(t, v, code, color=color, label='Untransformed data')
-        ax3.plot(t, a0 + b0 * np.exp(c0 * t), '-', label='Initial')
+        label = 'Untransformed data'
+        if known:
+            kc, ke = known[2], known[4]
+            label = f'{label} (tau1={-1/kc:.3g}, tau2={-1/ke:.3g})'
+        ax3.plot(t, v, code, color=color, label=label)
+        ax3.plot(t, a0 + b0 * np.exp(c0 * t), '-',
+                 label=f'Initial (tau={-1/c0:.3g})')
         ax3.plot(t, a + b * np.exp(c * t) + d * np.exp(e * t), '--',
-                 label='Fit')
+                 label=f'Fit (tau1={-1/c:.3g}, tau2={-1/e:.3g})')
         ax3.legend()
 
     # Assume

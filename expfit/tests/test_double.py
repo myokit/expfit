@@ -69,6 +69,7 @@ class TestDouble(unittest.TestCase):
         dod(200, 4, -5, 100, -3, digits=(0, -1, 0, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -2, duration=1, digits=(0, -1, -1, -1, 2),
             plot=plot)
+        # This next one used to be interesting, but something changed
         dod(200, 4, -5, 1, -0.5, digits=(0, 0, 0, 1, 0), plot=plot)
         dod(200, 4, -5, 10, -1, duration=1, digits=(-2, -1, -1, -3, -1),
             plot=plot)
