@@ -102,7 +102,7 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     # an exponential?
 
     # Avoid divide by zero if y0 == y1: straight line
-    if y0 == y1:
+    if y0 - y1 == 0:
         return np.mean(y), 0, 0
 
     # Estimate c, a, and b

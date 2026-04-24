@@ -235,6 +235,9 @@ class TestSingle(unittest.TestCase):
         sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
         sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
 
+        # Both sides of zero
+        sos(-2.5, 5, -2, 2, 50, digits=(1, 1, 1), plot=plot)
+
     def test_single_on_single_straight(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
