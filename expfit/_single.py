@@ -6,7 +6,7 @@
 #
 import numpy as np
 
-from scipy.optimize import minimize as fmin
+#from scipy.optimize import minimize as fmin
 
 import expfit
 
@@ -121,9 +121,49 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     return a, b, c
 
 
-def rmse_single(x, y, a, b, c):
+def rmse_single(x, y, a, b, c):     # TODO Remove
     """ Returns the RMSE between ``y`` and ``a + b * exp(c * x)``. """
-    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2))
+    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
+
+
+class SingleExponentialError():
+    """
+    Callable class returning the MSE and its Jacobian and Hessian for a single
+    exponential ``y = a + b * exp(c * x)`` fit with parameter set
+    ``p = (a, b, c)``.
+    """
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        self._m = 1 / len(x)
+
+    def __call__(self, p):
+        a, b, c = p
+        e = np.exp(c * self._x)
+        f = a - self._y + b * e
+        ef = e * f
+        mse = self._m * np.sum(f * f)
+
+        # Jacobian
+        jac = np.array([
+            2 * self._m * np.sum(f),
+            2 * self._m * np.sum(ef),
+            2 * self._m * np.sum(ef * self._x) * b
+        ])
+
+        # Hessian
+        ex = e * self._x
+        aex = (a - self._y + 2 * b * e) * ex
+        hes = np.array([
+            [2, 2 * self._m * np.sum(e), 2 * b * self._m * np.sum(ex)],
+            [0, 2 * self._m * np.sum(e * e), 2 * self._m * np.sum(aex)],
+            [0, 0, 2 * self._m * b * np.sum(self._x * aex)],
+        ])
+        hes[1, 0] = hes[0, 1]
+        hes[2, 0] = hes[0, 2]
+        hes[2, 1] = hes[1, 2]
+
+        return mse, jac, hes
 
 
 def fit_single(t, v, plot=False):
@@ -148,6 +188,13 @@ def fit_single(t, v, plot=False):
     x, y = (t - t[0]) / rt, (v - v[0]) / rv
 
     # Create initial plot
+    known = False
+    try:
+        if len(plot) == 3:
+            known = plot
+            plot = True
+    except TypeError:
+        pass
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(8, 9))
@@ -164,9 +211,26 @@ def fit_single(t, v, plot=False):
     at0, bt0, ct0 = estimate_initial_single(x, y, axes=ax0, vet=False)
 
     # Fit
+    from scipy.optimize import minimize as fmin
     with np.errstate(all='ignore'):
         r = fmin(lambda p: rmse_single(x, y, *p), (at0, bt0, ct0))
+    print()
+    print(r)
+    e1 = rmse_single(x, y, *r.x)
+
+    e = SingleExponentialError(x, y)
+    with np.errstate(all='ignore'):
+        r = expfit.fmin(e, (at0, bt0, ct0))
     at, bt, ct = r.x
+    print()
+    print(r)
+    e2 = rmse_single(x, y, *r.x)
+    print()
+    print(f'Scipy  {e1}')
+    lohi = 'lower' if e2 < e1 else ('higher' if e2 > e1 else 'same')
+    print(f'Expfit {e2} ({lohi})')
+    e3 = SingleExponentialError(x, y)(r.x)[0]
+    print(e3)
 
     # Detransform obtained parameters
     a = v[0] + at * rv
@@ -196,11 +260,14 @@ def fit_single(t, v, plot=False):
         ax2 = fig.add_subplot(2, 2, 4)
         ax2.set_xlabel('t')
         ax2.set_ylabel('v')
-        ax2.plot(t, v, code, color=color, label='Untransformed data')
+        label = 'Untransformed data'
+        if known:
+            label = f'{label} (tau={-1 / known[2]:+.3f})'
+        ax2.plot(t, v, code, color=color, label=label)
         ax2.plot(t, a0 + b0 * np.exp(c0 * t), '-',
                  label=f'Initial (c={c0:+.3f}, tau={-1 / c0:+.3f})')
         ax2.plot(t, a + b * np.exp(c * t), '--',
-                 label='fFit (c={c:+.3f}, tau={-1 / c:+.3f})')
+                 label=f'fFit (c={c:+.3f}, tau={-1 / c:+.3f})')
         ax2.legend()
 
     return a, b, c

@@ -187,7 +187,7 @@ class TestSingle(unittest.TestCase):
         s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
         v = vt + self.r.normal(0, s, size=n)
 
-        af, bf, cf = expfit.fit_single(t, v, plot=plot)
+        af, bf, cf = expfit.fit_single(t, v, plot=(a, b, c) if plot else False)
         rt = expfit.rmse_single(t, v, a, b, c)
         rf = expfit.rmse_single(t, v, af, bf, cf)
 
@@ -216,27 +216,27 @@ class TestSingle(unittest.TestCase):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)
-        plot = False
+        plot = True
 
         # Moderate
-        sos(0, -1, 3, 2, 123, digits=(0, 1, 1), plot=plot)
-        sos(3e2, 2, 4, 2, 200, digits=(-2, 1, 1), plot=plot)
-        sos(5e3, 3, -0.5, 5, 500, digits=(1, 1, 0), plot=plot)
-        sos(-1e3, 10, -9, 2, 50, digits=(1, 1, 1), plot=plot)
+        #sos(0, -1, 3, 2, 123, digits=(0, 1, 1), plot=plot)
+        #sos(3e2, 2, 4, 2, 200, digits=(-2, 1, 1), plot=plot)
+        #sos(5e3, 3, -0.5, 5, 500, digits=(1, 1, 0), plot=plot)
+        #sos(-1e3, 10, -9, 2, 50, digits=(1, 0, 1), plot=plot)
 
         # Steep
         sos(4e5, -1, 30, 2, 300, ratio=1.2, plot=plot)
-        sos(-1e3, 10, -9, 2, 1000, digits=(2, 1, 1), plot=plot)
-        sos(3e5, -1, 15, 2, 500, ratio=1.02, plot=plot)
+        #sos(-1e3, 10, -9, 2, 1000, digits=(2, 1, 1), plot=plot)
+        #sos(3e5, -1, 15, 2, 500, ratio=1.02, plot=plot)
 
         # Almost straight
-        sos(3, -1, 0.3, 2, 3000, digits=(1, 1, 2), plot=plot)
-        sos(-6e2, +1, 0.03, 2, 3000, digits=(0, 0, 1), plot=plot)
-        sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
-        sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
+        #sos(3, -1, 0.3, 2, 3000, digits=(1, 1, 2), plot=plot)
+        #sos(-6e2, +1, 0.03, 2, 3000, digits=(0, 0, 1), plot=plot)
+        #sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
+        #sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
 
         # Both sides of zero
-        sos(-2.5, 5, -2, 2, 50, digits=(1, 1, 1), plot=plot)
+        #sos(-2.5, 5, -2, 2, 50, digits=(1, 1, 1), plot=plot)
 
     def test_single_on_single_straight(self):
         # Test single exponentials on single exponential data

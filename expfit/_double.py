@@ -23,8 +23,9 @@ def _rmse_double_decaying(x, y, p):
     rc = p[2] / p[4]    # >1 to keep sign equal, and c > e
     if rb < 0 or rc < 1 or p[2] > 0:
         return np.inf  # TODO
-    return np.sqrt(np.sum((
-        y - p[0] - p[1] * np.exp(p[2] * x) - p[3] * np.exp(p[4] * x))**2))
+    return np.sqrt(np.sum(
+        (y - p[0] - p[1] * np.exp(p[2] * x) - p[3] * np.exp(p[4] * x))**2
+    ) / len(x))
 
 
 def fit_double_decaying(t, v, plot=False, vet=True):
@@ -145,12 +146,12 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         label = 'Untransformed data'
         if known:
             kc, ke = known[2], known[4]
-            label = f'{label} (tau1={-1/kc:.3g}, tau2={-1/ke:.3g})'
+            label = f'{label} (tau1={-1 / kc:.3g}, tau2={-1 / ke:.3g})'
         ax3.plot(t, v, code, color=color, label=label)
         ax3.plot(t, a0 + b0 * np.exp(c0 * t), '-',
-                 label=f'Initial (tau={-1/c0:.3g})')
+                 label=f'Initial (tau={-1 / c0:.3g})')
         ax3.plot(t, a + b * np.exp(c * t) + d * np.exp(e * t), '--',
-                 label=f'Fit (tau1={-1/c:.3g}, tau2={-1/e:.3g})')
+                 label=f'Fit (tau1={-1 / c:.3g}, tau2={-1 / e:.3g})')
         ax3.legend()
 
     # Assume

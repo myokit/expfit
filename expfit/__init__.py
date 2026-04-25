@@ -36,10 +36,15 @@ from ._single import (  # noqa
     estimate_initial_single,
     fit_single,
     fit_single_tau,
-    rmse_single,
+    rmse_single,    # TODO: Remove
+    SingleExponentialError,
 )
 
 from ._double import (  # noqa
     fit_double_decaying,
     rmse_double,
+)
+
+from ._opt import (  # noqa
+    fmin
 )
