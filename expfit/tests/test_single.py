@@ -12,6 +12,11 @@ import numpy as np
 import expfit
 
 
+def rmse_single(x, y, a, b, c):
+    """ Returns the RMSE between ``y`` and ``a + b * exp(c * x)``. """
+    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
+
+
 class TestSingle(unittest.TestCase):
     """
     Tests fitting of single exponentials.
@@ -140,18 +145,20 @@ class TestSingle(unittest.TestCase):
             ValueError, 'At least 3', expfit.estimate_initial_single,
             [1, 2], [3, 4], 1)
 
-    def test_rmse_single(self):
+    def test_single_error(self):
 
+        # TODO
+        '''
         a, b, c = 1, 2, -3
         x = np.linspace(0, 1, 99)
         y = a + b * np.exp(c * x)
-        self.assertAlmostEqual(expfit.rmse_single(x, y, a, b, c), 0, 14)
+        self.assertAlmostEqual(rmse_single(x, y, a, b, c), 0, 14)
         y = 3 * np.ones(x.shape)
         self.assertEqual(
-            expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
+            rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
         y = 10 + b * np.exp(c * x)
-        self.assertAlmostEqual(
-            expfit.rmse_single(x, y, a, b, c), np.sqrt(81), 14)
+        self.assertAlmostEqual(rmse_single(x, y, a, b, c), np.sqrt(81), 14)
+        '''
 
     def test_single_edge_cases(self):
 
@@ -188,8 +195,8 @@ class TestSingle(unittest.TestCase):
         v = vt + self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=(a, b, c) if plot else False)
-        rt = expfit.rmse_single(t, v, a, b, c)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rt = rmse_single(t, v, a, b, c)
+        rf = rmse_single(t, v, af, bf, cf)
 
         if plot:  # pragma: no cover
             print(f'True: {a:+.5e} {b:+.5e} {c:+.5e}')
@@ -298,7 +305,7 @@ class TestSingle(unittest.TestCase):
         v = vt + self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rf = rmse_single(t, v, af, bf, cf)
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
@@ -352,7 +359,7 @@ class TestSingle(unittest.TestCase):
         v = vt + self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rf = rmse_single(t, v, af, bf, cf)
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]

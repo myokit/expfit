@@ -6,8 +6,6 @@
 #
 import numpy as np
 
-#from scipy.optimize import minimize as fmin
-
 import expfit
 
 
@@ -121,11 +119,6 @@ def estimate_initial_single(x, y, azero=False, axes=None, vet=True):
     return a, b, c
 
 
-def rmse_single(x, y, a, b, c):     # TODO Remove
-    """ Returns the RMSE between ``y`` and ``a + b * exp(c * x)``. """
-    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
-
-
 class SingleExponentialError():
     """
     Callable class returning the MSE and its Jacobian and Hessian for a single
@@ -211,15 +204,9 @@ def fit_single(t, v, plot=False):
     at0, bt0, ct0 = estimate_initial_single(x, y, axes=ax0, vet=False)
 
     # Fit
-    scipy = False
-    if not scipy:
-        e = SingleExponentialError(x, y)
-        with np.errstate(all='ignore'):
-            r = expfit.fmin(e, (at0, bt0, ct0))
-    else:
-        from scipy.optimize import minimize as fmin
-        with np.errstate(all='ignore'):
-            r = fmin(lambda p: rmse_single(x, y, *p), (at0, bt0, ct0))
+    e = SingleExponentialError(x, y)
+    with np.errstate(all='ignore'):
+        r = expfit.fmin(e, (at0, bt0, ct0))
     at, bt, ct = r.x
 
     # Detransform obtained parameters

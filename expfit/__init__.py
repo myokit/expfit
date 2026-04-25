@@ -36,7 +36,6 @@ from ._single import (  # noqa
     estimate_initial_single,
     fit_single,
     fit_single_tau,
-    rmse_single,    # TODO: Remove
     SingleExponentialError,
 )
 

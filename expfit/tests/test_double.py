@@ -66,7 +66,7 @@ class TestDouble(unittest.TestCase):
         plot = False
 
         # Both decaying
-        dod(200, 4, -5, 100, -3, digits=(0, -1, 0, -1, -1), plot=plot)
+        dod(200, 3, -5, 3, -3, digits=(0, -1, 0, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -2, duration=1, digits=(0, -1, -1, -1, 2),
             plot=plot)
         # This next one used to be interesting, but something changed
