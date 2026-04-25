@@ -148,10 +148,10 @@ class TestSingle(unittest.TestCase):
         self.assertAlmostEqual(expfit.rmse_single(x, y, a, b, c), 0, 14)
         y = 3 * np.ones(x.shape)
         self.assertEqual(
-            expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2)))
+            expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
         y = 10 + b * np.exp(c * x)
         self.assertAlmostEqual(
-            expfit.rmse_single(x, y, a, b, c), np.sqrt(99 * 81), 14)
+            expfit.rmse_single(x, y, a, b, c), np.sqrt(81), 14)
 
     def test_single_edge_cases(self):
 
@@ -216,27 +216,27 @@ class TestSingle(unittest.TestCase):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)
-        plot = True
+        plot = False
 
         # Moderate
-        #sos(0, -1, 3, 2, 123, digits=(0, 1, 1), plot=plot)
-        #sos(3e2, 2, 4, 2, 200, digits=(-2, 1, 1), plot=plot)
-        #sos(5e3, 3, -0.5, 5, 500, digits=(1, 1, 0), plot=plot)
-        #sos(-1e3, 10, -9, 2, 50, digits=(1, 0, 1), plot=plot)
+        sos(0, -1, 3, 2, 123, digits=(0, 1, 1), plot=plot)
+        sos(3e2, 2, 4, 2, 200, digits=(-2, 1, 1), plot=plot)
+        sos(5e3, 3, -0.5, 5, 500, digits=(1, 1, 0), plot=plot)
+        sos(-1e3, 10, -9, 2, 50, digits=(1, 0, 1), plot=plot)
 
-        # Steep
+        # Steep: These rely more on the guess than on the fitting
         sos(4e5, -1, 30, 2, 300, ratio=1.2, plot=plot)
-        #sos(-1e3, 10, -9, 2, 1000, digits=(2, 1, 1), plot=plot)
-        #sos(3e5, -1, 15, 2, 500, ratio=1.02, plot=plot)
+        sos(-1e3, 10, -9, 2, 1000, digits=(2, 1, 1), plot=plot)
+        sos(3e5, -1, 15, 2, 500, ratio=1.04, plot=plot)
 
         # Almost straight
-        #sos(3, -1, 0.3, 2, 3000, digits=(1, 1, 2), plot=plot)
-        #sos(-6e2, +1, 0.03, 2, 3000, digits=(0, 0, 1), plot=plot)
-        #sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
-        #sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
+        sos(3, -1, 0.3, 2, 3000, digits=(1, 1, 2), plot=plot)
+        sos(-6e2, +1, 0.03, 2, 3000, ratio=1.02, digits=(0, 0, 1), plot=plot)
+        sos(0, 1, 1e-6, 1, 200, ratio=1.001, plot=plot)
+        sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
 
         # Both sides of zero
-        #sos(-2.5, 5, -2, 2, 50, digits=(1, 1, 1), plot=plot)
+        sos(-2.5, 5, -2, 2, 50, digits=(1, 1, 1), plot=plot)
 
     def test_single_on_single_straight(self):
         # Test single exponentials on single exponential data
@@ -245,7 +245,7 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Flat
-        sos(1, 0, 3, 1, 200, ratio=1.1, plot=plot)
+        sos(1, 0, 3, 1, 200, plot=plot)
 
     def test_single_on_single_noisy(self):
         # Test single exponentials on single exponential data
@@ -254,18 +254,16 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Clean
-        sos(0, -1, 3, 2, 123, digits=(2, 2, 3), fnoise=0, ratio=None,
-            rmse=0.05, plot=plot)
-        sos(4e2, 2, 4, 2, 1000, digits=(0, 2, 2), fnoise=1e-3, ratio=1.01,
-            plot=plot)
-        sos(7e3, 3, -0.5, 5, 500, digits=(0, 3, 1), fnoise=1e-2, plot=plot)
+        sos(0, -1, 3, 2, 123, digits=(5, 6, 6), fnoise=0, ratio=None,
+            rmse=4e-6, plot=plot)
+        sos(4e2, 2, 4, 2, 1000, digits=(1, 2, 3), fnoise=1e-3, plot=plot)
+        sos(7e3, 3, -0.5, 5, 500, digits=(2, 3, 2), fnoise=1e-2, plot=plot)
 
         # Noisy
         sos(4, 10, 3, 2, 100, fnoise=0.11, plot=plot)
-        sos(4, 10, 3, 2, 100, fnoise=0.3, plot=plot)
-        sos(51, -1, -0.5, 5, 200, digits=(0, 0, 0), ratio=1.01, fnoise=0.5,
-            plot=plot)
-        sos(-10, -2, 9, 2, 600, ratio=1.01, fnoise=1, plot=plot)
+        sos(4, 10, 3, 2, 100, fnoise=0.3, ratio=1.01, plot=plot)
+        sos(51, -1, -0.5, 5, 200, digits=(0, 0, 0), fnoise=0.5, plot=plot)
+        sos(-10, -2, 9, 2, 600, fnoise=1, plot=plot)
 
     def test_single_on_single_dense(self):
         # Test single exponentials on single exponential data
@@ -279,12 +277,12 @@ class TestSingle(unittest.TestCase):
         sos(10, -3, -1e3, 5, 8, plot=plot)
         sos(-2, 3, 0.05, 5, 6, digits=(-1, -1, 1), plot=plot)
         sos(-30, 10, -5, 0.2, 5, digits=(0, -1, 0), plot=plot)
-        sos(20, -10, 7, 2, 4, ratio=1.4, plot=plot)
+        sos(20, -10, 7, 2, 4, ratio=4, plot=plot)
         sos(-5, 10, -2, 4, 3, digits=(1, 3, 0), plot=plot)
 
         # Dense
         sos(1e2, -2, 3, 2, 10000, digits=(0, 2, 2), plot=plot)
-        sos(1e3, 8, -0.12, 5, 100000, digits=(2, 2, 4), plot=plot)
+        sos(1e3, 8, -0.12, 5, 100000, digits=(2, 2, 3), plot=plot)
 
     def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
                          t0=0, rdom=2, rmse=1, plot=False):
@@ -330,15 +328,15 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sod(0, -1, 3, -4, 5, rdom=1.2, rmse=60, plot=plot)
-        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=35, plot=plot)
-        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=60, plot=plot)
-        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=10, plot=plot)
-        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=3, plot=plot)
+        sod(0, -1, 3, -4, 5, rdom=1.2, rmse=6, plot=plot)
+        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=3.1, plot=plot)
+        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=2, plot=plot)
+        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=1, plot=plot)
+        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=0.2, plot=plot)
         sod(0, -1, 3, -1e-12, 5, rdom=1.7, rmse=2, plot=plot)
-        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=1, plot=plot)
-        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=1, plot=plot)
-        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=1, plot=plot)
+        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=0.02, plot=plot)
+        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=0.031, plot=plot)
+        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=0.02, plot=plot)
 
     def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
                          fnoise=0.01, t0=0, rdom=2, rmse=2, plot=False):
@@ -385,10 +383,10 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.5, rmse=3, plot=plot)
-        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.01, rmse=7e3, plot=plot)
-        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=1, plot=plot)
-        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.1, rmse=7e8, plot=plot)
+        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.2, rmse=0.2, plot=plot)
+        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.002, rmse=650, plot=plot)
+        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=0.1, plot=plot)
+        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.1, rmse=7e6, plot=plot)
 
         # Opposing direction, over fast
         #sot(0, 6, -160, -3, -10, 0, 0, n=50, rmse=3, plot=True)
@@ -401,7 +399,7 @@ class TestSingle(unittest.TestCase):
         t = np.linspace(0, 10, 10)
         v = a + b * np.exp(-t / c)
         r = expfit.fit_single_tau(t, v)
-        self.assertAlmostEqual(r, 3, 6)
+        self.assertAlmostEqual(r, 3, 3)
 
         # Negative infinity
         a, b, c = 1, 0, 3

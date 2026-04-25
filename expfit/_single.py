@@ -211,26 +211,16 @@ def fit_single(t, v, plot=False):
     at0, bt0, ct0 = estimate_initial_single(x, y, axes=ax0, vet=False)
 
     # Fit
-    from scipy.optimize import minimize as fmin
-    with np.errstate(all='ignore'):
-        r = fmin(lambda p: rmse_single(x, y, *p), (at0, bt0, ct0))
-    print()
-    print(r)
-    e1 = rmse_single(x, y, *r.x)
-
-    e = SingleExponentialError(x, y)
-    with np.errstate(all='ignore'):
-        r = expfit.fmin(e, (at0, bt0, ct0))
+    scipy = False
+    if not scipy:
+        e = SingleExponentialError(x, y)
+        with np.errstate(all='ignore'):
+            r = expfit.fmin(e, (at0, bt0, ct0))
+    else:
+        from scipy.optimize import minimize as fmin
+        with np.errstate(all='ignore'):
+            r = fmin(lambda p: rmse_single(x, y, *p), (at0, bt0, ct0))
     at, bt, ct = r.x
-    print()
-    print(r)
-    e2 = rmse_single(x, y, *r.x)
-    print()
-    print(f'Scipy  {e1}')
-    lohi = 'lower' if e2 < e1 else ('higher' if e2 > e1 else 'same')
-    print(f'Expfit {e2} ({lohi})')
-    e3 = SingleExponentialError(x, y)(r.x)[0]
-    print(e3)
 
     # Detransform obtained parameters
     a = v[0] + at * rv

@@ -14,31 +14,41 @@ class OptResult:
     success = False
     x = None
     score = None
+    jac = None
+    hes = None
     gtol = None
     iterations = None
     time = None
 
     def __str__(self):
+        p = 5
+        hes = np.array2string(self.hes, precision=p).splitlines()
         return '\n'.join((
             f'    message: {self.msg}',
             f'    success: {self.success}',
-            f'      score: {self.score}',
             f' root score: {np.sqrt(self.score)}',
-            f'          x: {self.x}',
+            f'      score: {self.score}',
+            f'   jacobian: {np.array2string(self.jac, precision=p)}',
+            f'    hessian: {hes[0]}',
+            f'             {hes[1]}',
+            f'             {hes[2]}',
+            f'          x: {np.array2string(self.x, precision=p)}',
             f'       gtol: {self.gtol}',
             f' iterations: {self.iterations}',
             f'       time: {self.time}s',
         ))
 
 
-def fmin(f, p0, gtol=1e-5, max_iter=500):
+def fmin(f, p0, gtol=1e-6, max_iter=50, verbose=False):
     """
     Performs a Levenberg-Marquardt optimisation of ``f`` starting from ``p0``.
 
     The function ``f`` is expected to return a tuple
     ``(error, jacobian, hessian)``.
 
-    Optimisation stops when the norm of the jacobian is less than ``gtol``.
+    Optimisation stops when the norm of the jacobian is less than ``gtol``,
+    when ``max_iter`` iterations have been performed, or when the problem is
+    ill-conditioned
     """
     time = timeit.default_timer()
 
@@ -57,13 +67,14 @@ def fmin(f, p0, gtol=1e-5, max_iter=500):
             err = 'Ill-conditioned Hessian'
             break
 
-        if False:
-            print()
+        if verbose:  # pragma: no cover
+            print(f'Iteration {1 + i}')
             print(f'p {p}')
             print(f'm {m}')
             print(f'J {j}')
             print(h)
             print(f'cond {np.linalg.cond(h)}')
+            print()
 
         # Suggest next point
         ps = p - np.linalg.solve(h + alpha * eye * h, j)
@@ -74,14 +85,19 @@ def fmin(f, p0, gtol=1e-5, max_iter=500):
             alpha *= 0.1
             p = ps
             m, j, h = fs
-        elif alpha < 1e12:
+        else:
             alpha *= 10
+            if alpha > 1e100:  # pragma: no cover
+                err = 'Lambda factor grew too large'
+                break
     time = timeit.default_timer() - time
 
     # Create and return result object
     res = OptResult()
     res.x = p[0]
     res.score = m
+    res.jac = j
+    res.hes = h
     res.gtol = np.linalg.norm(j)
     res.iterations = i
     res.time = time
@@ -91,7 +107,6 @@ def fmin(f, p0, gtol=1e-5, max_iter=500):
         res.msg = 'Maximum iterations reached'
     else:
         res.success = True
-        res.msg = (f'Ran to {m:.7} (gtol {res.gtol:.7})'
-                   f' in {time:.5f}s, {i} iterations.')
+        res.msg = 'Optimisation successful'
     return res
 
