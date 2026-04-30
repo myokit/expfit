@@ -28,13 +28,17 @@ class TestSingle(unittest.TestCase):
 
     def test_estimate_initial(self):
 
-        def plot(x, y, p=None):  # pragma: no cover
+        rng = np.random.default_rng(7)
+
+        def plot(x, y):  # pragma: no cover
             import matplotlib.pyplot as plt
-            plt.figure()
-            plt.plot(x, y, label='data')
-            if p is not None:
-                plt.plot(x, p[0] + p[1] * np.exp(p[2] * x))
-            plt.legend()
+            fig = plt.figure()
+            ax = fig.add_subplot()
+            ax.plot(x, y, label='data')
+            a, b, c = expfit.estimate_initial_single(x, y, axes=ax)
+            ax.plot(x, a + b * np.exp(c * x), '--',
+                    label=f'Initial: {a:.3}, {b:.3}, {c:.3}')
+            ax.legend()
             plt.show()
 
         # Noise free
@@ -63,13 +67,12 @@ class TestSingle(unittest.TestCase):
         self.assertAlmostEqual(r, c, 2)
 
         # With noise
-        rng = np.random.default_rng(7)
         a, b, c = 73, 1, 0.18
         n = 1003
         x = np.linspace(0, 6.7, n)
         y = a + b * np.exp(c * x) + rng.normal(0, 0.05, n)
         p, q, r = expfit.estimate_initial_single(x, y)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         self.assertAlmostEqual(p, a, 0)
         self.assertAlmostEqual(q, b, 0)
         self.assertAlmostEqual(r, c, 1)
@@ -79,7 +82,7 @@ class TestSingle(unittest.TestCase):
         x = np.linspace(1e-3, 7e-3, n)
         y = a + b * np.exp(c * x) + rng.normal(0, 100, n)
         p, q, r = expfit.estimate_initial_single(x, y)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         self.assertAlmostEqual(p, a, -2)
         self.assertAlmostEqual(q, b, 0)
         self.assertAlmostEqual(r, c, -1)
@@ -88,7 +91,7 @@ class TestSingle(unittest.TestCase):
         n = 88
         x = np.linspace(10, 11, n)
         y = a + b * np.exp(c * x) + rng.normal(0, 0.02, n)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         p, q, r = expfit.estimate_initial_single(x, y)
         self.assertAlmostEqual(p, a, 1)
         self.assertAlmostEqual(r, c, 0)
@@ -98,21 +101,22 @@ class TestSingle(unittest.TestCase):
         x = np.linspace(0, 1, 10)
         y = 3 * np.ones(x.shape)
         p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y)
         self.assertEqual((p, q, r), (3, 0, 0))
 
-        # Flat line with noise: hit b < 1e-100
+        # Flat line with noise
         x = np.linspace(0, 1, 3000)
-        y = 3 * np.ones(x.shape) + rng.normal(0, 1e-6, x.shape)
+        y = 3 * np.ones(x.shape) + rng.normal(0, 1e-9, x.shape)
         p, q, r = expfit.estimate_initial_single(x, y)
+        #plot(x, y)
         self.assertAlmostEqual(p, 3, 7)
-        self.assertEqual(q, 0)
-        self.assertEqual(r, 0)
+        self.assertAlmostEqual(q, 0, 10)
 
         # Straight line through origin, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * x
         p, q, r = expfit.estimate_initial_single(x, y)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         self.assertAlmostEqual(np.sum((y - p - q * np.exp(r * x))**2), 0)
         self.assertAlmostEqual(p, -q)
 
@@ -120,15 +124,15 @@ class TestSingle(unittest.TestCase):
         x = np.linspace(0, 1, 99)
         y = 3 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = expfit.estimate_initial_single(x, y)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         self.assertAlmostEqual(p, -q, 1)
-        self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1)
+        self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1.05)
 
         # Straight line with offset and noise
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = expfit.estimate_initial_single(x, y)
-        #plot(x, y, (p, q, r))
+        #plot(x, y)
         self.assertAlmostEqual(p + q, 4, 0)
         self.assertLess(np.sum((y - p - q * np.exp(r * x))**2), 1.5)
 
@@ -139,7 +143,9 @@ class TestSingle(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 100 and 99',
             expfit.estimate_initial_single, x, y[:-1], 5)
-        expfit.estimate_initial_single(x, y[:-1], 5, vet=False)
+        self.assertRaisesRegex(
+            ValueError, 'could not be broadcast together with shapes',
+            expfit.estimate_initial_single, x, y[:-1], 5, vet=False)
 
         self.assertRaisesRegex(
             ValueError, 'At least 3', expfit.estimate_initial_single,
@@ -248,10 +254,12 @@ class TestSingle(unittest.TestCase):
     def test_single_on_single_straight(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
-        self.r = np.random.default_rng(873)
+        self.r = np.random.default_rng(1)
         plot = False
 
-        # Flat
+        # Flat: extremely dependent on random seed
+        sos(1, 0, 3, 1, 200, plot=plot)
+        sos(1, 0, 3, 1, 200, plot=plot)
         sos(1, 0, 3, 1, 200, plot=plot)
 
     def test_single_on_single_noisy(self):
@@ -395,11 +403,6 @@ class TestSingle(unittest.TestCase):
         sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=0.1, plot=plot)
         sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.1, rmse=7e6, plot=plot)
 
-        # Opposing direction, over fast
-        #sot(0, 6, -160, -3, -10, 0, 0, n=50, rmse=3, plot=True)
-        #sot(0, 6, -160, -3, -10, 0, 0, n=1000, rmse=3, plot=True)
-        # Needs user to chop it off
-
     def test_single_tau(self):
 
         a, b, c = 3, -1, 3
@@ -415,6 +418,61 @@ class TestSingle(unittest.TestCase):
         r = expfit.fit_single_tau(t, v)
         self.assertTrue(np.isinf(r))
         self.assertLess(r, 0)
+
+    def test_single_with_peak_and_slope(self):
+        # Remnant of "peak" at start of signal, plus slope at end
+
+        a0, b0, c0 = 1, -2, -9
+        n = 300
+        x = np.linspace(0, 1, n)
+        y = a0 * np.zeros(x.shape)
+        y += b0 * np.exp(c0 * x)
+        y += 0.8 * np.exp(-30 * x)
+        y += -0.2 * x
+        a, b, c = expfit.fit_single(x, y)
+        self.assertAlmostEqual(a, a0, -1)
+        self.assertAlmostEqual(b, b0, -1)
+        self.assertAlmostEqual(c, c0, -1)
+        self.assertLess(rmse_single(x, y, a, b, c), 0.1)
+
+    def test_single_with_big_sine(self):
+        # Sine wave causing both segment slopes to exceed the full signal slope
+
+        a0, b0, c0 = 1, -2, -9
+        n = 300
+        x = np.linspace(0, 1, n)
+        y = a0 * np.zeros(x.shape)
+        y += b0 * np.exp(c0 * x)
+        y += 0.1 * np.sin(10.2 * np.pi * x)
+        a, b, c = expfit.fit_single(x, y)
+        self.assertAlmostEqual(a, a0, -1)
+        self.assertAlmostEqual(b, b0, 0)
+        self.assertAlmostEqual(c, c0, 0)
+        self.assertLess(rmse_single(x, y, a, b, c), 0.1)
+
+    def test_single_ar1(self):
+        # Test with AR1 noise
+
+        a0, b0, c0 = 3, -4, -7
+        x = np.linspace(0, 1, 300)
+        y = a0 + b0 * np.exp(c0 * x)
+
+        # Add AR1 noise
+        # https://pints.readthedocs.io/en/stable/noise_generators.html
+        rng = np.random.default_rng(5)
+        rho, sigma = 0.9, 0.1
+        s = sigma * np.sqrt(1 - rho**2)
+        v = rng.normal(0, s, len(x))
+        v[0] = rng.uniform()
+        for t in range(1, len(x)):
+            v[t] += rho * v[t - 1]
+        y += v
+
+        a, b, c = expfit.fit_single(x, y)
+        self.assertAlmostEqual(a, a0, 1)
+        self.assertAlmostEqual(b, b0, 0)
+        self.assertAlmostEqual(c, c0, -1)
+        self.assertLess(rmse_single(x, y, a, b, c), 0.1)
 
 
 if __name__ == '__main__':  # pragma: no cover

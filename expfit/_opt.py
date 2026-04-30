@@ -10,7 +10,7 @@ import numpy as np
 
 
 class OptResult:
-    msg = 'Not run'
+    message = 'Not run'
     success = False
     x = None
     score = None
@@ -24,7 +24,7 @@ class OptResult:
         p = 5
         hes = np.array2string(self.hes, precision=p).splitlines()
         return '\n'.join((
-            f'    message: {self.msg}',
+            f'    message: {self.message}',
             f'    success: {self.success}',
             f' root score: {np.sqrt(self.score)}',
             f'      score: {self.score}',
@@ -39,7 +39,7 @@ class OptResult:
         ))
 
 
-def fmin(f, p0, gtol=1e-6, max_iter=50, verbose=False):
+def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
     """
     Performs a Levenberg-Marquardt optimisation of ``f`` starting from ``p0``.
 
@@ -99,14 +99,14 @@ def fmin(f, p0, gtol=1e-6, max_iter=50, verbose=False):
     res.jac = j
     res.hes = h
     res.gtol = np.linalg.norm(j)
-    res.iterations = i
+    res.iterations = 1 + i
     res.time = time
     if err:
-        res.msg = err
-    elif i == max_iter:
-        res.msg = 'Maximum iterations reached'
+        res.message = err
+    elif i + 1 == max_iter:
+        res.message = 'Maximum iterations reached'
     else:
         res.success = True
-        res.msg = 'Optimisation successful'
+        res.message = 'Optimisation successful'
     return res
 
