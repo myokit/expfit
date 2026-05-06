@@ -11,7 +11,7 @@ import numpy as np
 
 import expfit
 
-from expfit.tests.test_single import rmse_single
+from expfit.tests import rmse_single
 
 
 class TestSingleRw1(unittest.TestCase):
@@ -29,11 +29,10 @@ class TestSingleRw1(unittest.TestCase):
         # Real world failing example
         plot = False
 
-        if plot:
-           import matplotlib.pyplot as plt
         x = np.arange(0, len(y))
         p = expfit.fit_single(x, y, plot=plot)
         if plot:
+            import matplotlib.pyplot as plt
             plt.show()
         self.assertLess(rmse_single(x, y, *p), 14)
 

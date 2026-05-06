@@ -27,16 +27,27 @@ from ._vetting import (  # noqa
     vet_series
 )
 
-from ._linear import (  # noqa
-    find_linear_segment,
+from ._err import (  # noqa
+    rmse_single,
+    SingleExponentialError,
+)
+
+from ._opt import (  # noqa
+    fmin,
     least_squares,
+    LeastSquaresFit,
+)
+
+from ._trans import (  # noqa
+    NoTransform,
+    UnitTransform,
+    ZoomTransform
 )
 
 from ._single import (  # noqa
     estimate_initial_single,
     fit_single,
     fit_single_tau,
-    SingleExponentialError,
 )
 
 from ._double import (  # noqa
@@ -44,6 +55,3 @@ from ._double import (  # noqa
     rmse_double,
 )
 
-from ._opt import (  # noqa
-    fmin
-)

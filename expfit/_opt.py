@@ -1,5 +1,5 @@
 #
-# Simple optimiser for exponential fits
+# Simple optimiser functions for exponential fits
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
@@ -18,24 +18,28 @@ class OptResult:
     hes = None
     gtol = None
     iterations = None
+    evaluations = None
+    accepted = None
     time = None
 
     def __str__(self):
         p = 5
         hes = np.array2string(self.hes, precision=p).splitlines()
         return '\n'.join((
-            f'    message: {self.message}',
-            f'    success: {self.success}',
-            f' root score: {np.sqrt(self.score)}',
-            f'      score: {self.score}',
-            f'   jacobian: {np.array2string(self.jac, precision=p)}',
-            f'    hessian: {hes[0]}',
-            f'             {hes[1]}',
-            f'             {hes[2]}',
-            f'          x: {np.array2string(self.x, precision=p)}',
-            f'       gtol: {self.gtol}',
-            f' iterations: {self.iterations}',
-            f'       time: {self.time}s',
+            f'     message: {self.message}',
+            f'     success: {self.success}',
+            f'  root score: {np.sqrt(self.score)}',
+            f'       score: {self.score}',
+            f'    jacobian: {np.array2string(self.jac, precision=p)}',
+            f'     hessian: {hes[0]}',
+            f'              {hes[1]}',
+            f'              {hes[2]}',
+            f'           x: {np.array2string(self.x, precision=p)}',
+            f'        gtol: {self.gtol}',
+            f'  iterations: {self.iterations}',
+            f' evaluations: {self.evaluations}',
+            f'    accepted: {self.accepted}',
+            f'        time: {self.time}s',
         ))
 
 
@@ -60,11 +64,10 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
 
     err = False
     m, j, h = f(p[0])
-    for i in range(max_iter):
+    evaluations = 0
+    accepted = 0
+    for iterations in range(max_iter):
         if np.linalg.norm(j) < gtol:
-            break
-        if np.linalg.cond(h) > 1e15:
-            err = 'Ill-conditioned Hessian'
             break
 
         if verbose:  # pragma: no cover
@@ -73,21 +76,35 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
             print(f'm {m}')
             print(f'J {j}')
             print(h)
-            print(f'cond {np.linalg.cond(h)}')
             print()
 
         # Suggest next point
-        ps = p - np.linalg.solve(h + alpha * eye * h, j)
-        fs = f(ps[0])
+        try:
+            ps = p - np.linalg.solve(h + alpha * eye * h, j)
+        except np.linalg.LinAlgError:
+            # Try Gauss-newton approximation
+            try:
+                hx = np.outer(j, j)
+                ps = p - np.linalg.solve(hx + alpha * eye * hx, j)
+            except np.linalg.linalgError:
+                fs = [m * 2]
+            else:
+                h = hx
+                fs = f(ps[0])
+                evaluations += 1
+        else:
+            fs = f(ps[0])
+            evaluations += 1
 
         # Accept and reduce gradient descent factor if improved
         if fs[0] < m:
             alpha *= 0.1
             p = ps
             m, j, h = fs
+            accepted += 1
         else:
             alpha *= 10
-            if alpha > 1e100:  # pragma: no cover
+            if alpha > 1e20:  # pragma: no cover
                 err = 'Lambda factor grew too large'
                 break
     time = timeit.default_timer() - time
@@ -99,14 +116,59 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
     res.jac = j
     res.hes = h
     res.gtol = np.linalg.norm(j)
-    res.iterations = 1 + i
+    res.iterations = 1 + iterations
+    res.evaluations = evaluations
+    res.accepted = accepted
     res.time = time
     if err:
         res.message = err
-    elif i + 1 == max_iter:
+    elif iterations + 1 == max_iter:
         res.message = 'Maximum iterations reached'
     else:
         res.success = True
         res.message = 'Optimisation successful'
     return res
 
+
+def least_squares(x, y, vet=True):
+    """
+    Returns a least squares fit ``(a, b)`` where ``y`` is approximated by
+    ``a + b * x``.
+    """
+    if vet:
+        x, y = expfit.vet_series(x, y)
+    n = len(x)
+    if n < 2:
+        raise ValueError('At least 2 points are required')
+
+    mu_x, mu_y = np.mean(x), np.mean(y)
+    xx = np.sum(x**2) - n * mu_x**2
+    xy = np.sum(x * y) - n * mu_x * mu_y
+    b = xy / xx
+    return mu_y - b * mu_x, b
+
+
+class LeastSquaresFit():
+    """
+    Creates a least squares fit ``(a, b)`` where ``y`` is approximated by
+    ``a + b * x``.
+
+    Properties: ``offset``, ``slope``, ``mu_x``, ``mu_y``.
+    """
+    def __init__(self, x, y, vet=True):
+        if vet:
+            x, y = expfit.vet_series(x, y)
+        n = len(x)
+        if n < 2:
+            raise ValueError('At least 2 points are required')
+
+        self.mu_x = np.mean(x)
+        self.mu_y = np.mean(y)
+        xx = np.sum(x**2) - n * self.mu_x**2
+        xy = np.sum(x * y) - n * self.mu_x * self.mu_y
+        self.slope = xy / xx
+        self.offset = self.mu_y - self.slope * self.mu_x
+
+    def __str__(self):
+        return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
+                f' {self.offset:.3} + {self.slope:.3} x')

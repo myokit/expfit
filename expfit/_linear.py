@@ -9,24 +9,9 @@ import numpy as np
 import expfit
 
 
-def least_squares(x, y, vet=True):
-    """
-    Returns a least squares fit ``(a, b)`` where ``y`` is approximated by
-    ``a + b * x``.
-    """
-    if vet:
-        x, y = expfit.vet_series(x, y)
-    n = len(x)
-    if n < 2:
-        raise ValueError('At least 2 points are required')
-
-    mu_x, mu_y = np.mean(x), np.mean(y)
-    xx = np.sum(x**2) - n * mu_x**2
-    xy = np.sum(x * y) - n * mu_x * mu_y
-    b = xy / xx
-    return mu_y - b * mu_x, b
 
 
+'''
 def find_linear_segment(x, y, min_length, left=True, vet=True):
     """
     Reduces the length of a data set ``(x, y)`` until a straight line provides
@@ -64,4 +49,4 @@ def find_linear_segment(x, y, min_length, left=True, vet=True):
         a, b = least_squares(x, y, vet=False)
 
     return x, y, a, b
-
+'''
