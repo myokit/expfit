@@ -183,6 +183,10 @@ def estimate_initial_single(t, v, transform=True, vet=True,
         plot_line(axes, seg1[0], l1, 'k', detransform=True)
         plot_line(axes, seg2[0], l2, 'r', detransform=True)
 
+    #
+    # H1: Use the derived segments to estimate the parameters
+    #
+
     # Unpack
     x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
     x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
