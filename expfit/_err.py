@@ -12,6 +12,15 @@ def rmse_single(x, y, a, b, c):
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
 
 
+def rmse_double(x, y, a, b1, c1, b2, c2):
+    """
+    Returns the RMSE between ``y`` and
+    ``a + b1 * exp(c1 * x) + b2 * exp(c2 * x)``.
+    """
+    return np.sqrt(np.sum((
+        y - a - b1 * np.exp(c1 * x) - b2 * np.exp(c2 * x))**2))
+
+
 class SingleExponentialError():
     """
     Callable class returning the MSE and its Jacobian and Hessian for a single

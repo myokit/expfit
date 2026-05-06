@@ -27,21 +27,21 @@ from ._vetting import (  # noqa
     vet_series
 )
 
+from ._trans import (  # noqa
+    NoTransform,
+    UnitTransform,
+    ZoomTransform
+)
+
 from ._err import (  # noqa
     rmse_single,
+    rmse_double,
     SingleExponentialError,
 )
 
 from ._opt import (  # noqa
     fmin,
-    least_squares,
     LeastSquaresFit,
-)
-
-from ._trans import (  # noqa
-    NoTransform,
-    UnitTransform,
-    ZoomTransform
 )
 
 from ._single import (  # noqa
@@ -52,6 +52,5 @@ from ._single import (  # noqa
 
 from ._double import (  # noqa
     fit_double_decaying,
-    rmse_double,
 )
 

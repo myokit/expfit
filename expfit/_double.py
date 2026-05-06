@@ -11,13 +11,6 @@ from scipy.optimize import minimize as fmin
 import expfit
 
 
-def rmse_double(x, y, a, b, c, d, e):
-    """
-    Returns the RMSE between ``y`` and ``a + b * exp(c * x) + d * exp(e * x)``.
-    """
-    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2))
-
-
 def _rmse_double_decaying(x, y, p):
     rb = p[1] / p[3]    # >0 to keep sign equal
     rc = p[2] / p[4]    # >1 to keep sign equal, and c > e

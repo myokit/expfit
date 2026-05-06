@@ -114,7 +114,6 @@ def estimate_initial_single(t, v, transform=True, vet=True,
     def shrink(seg, ls, n_min, start=True, increasing=True):
         x, y = seg
         n = len(x)
-        s = ls.slope
         increasing = bool(increasing)
         r = None
         while n > n_min:

@@ -73,7 +73,7 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
             break
 
         if verbose:  # pragma: no cover
-            print(f'Iteration {1 + i}')
+            print(f'Iteration {1 + iterations}')
             print(f'p {p}')
             print(f'm {m}')
             print(f'J {j}')
@@ -130,24 +130,6 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
         res.success = True
         res.message = 'Optimisation successful'
     return res
-
-
-def least_squares(x, y, vet=True):
-    """
-    Returns a least squares fit ``(a, b)`` where ``y`` is approximated by
-    ``a + b * x``.
-    """
-    if vet:
-        x, y = expfit.vet_series(x, y)
-    n = len(x)
-    if n < 2:
-        raise ValueError('At least 2 points are required')
-
-    mu_x, mu_y = np.mean(x), np.mean(y)
-    xx = np.sum(x**2) - n * mu_x**2
-    xy = np.sum(x * y) - n * mu_x * mu_y
-    b = xy / xx
-    return mu_y - b * mu_x, b
 
 
 class LeastSquaresFit():

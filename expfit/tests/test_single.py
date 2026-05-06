@@ -154,7 +154,8 @@ class TestSingle(unittest.TestCase):
         self.assertEqual(
             expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
         y = 10 + b * np.exp(c * x)
-        self.assertAlmostEqual(expfit.rmse_single(x, y, a, b, c), np.sqrt(81), 14)
+        self.assertAlmostEqual(
+            expfit.rmse_single(x, y, a, b, c), np.sqrt(81), 14)
         '''
 
     def test_single_edge_cases(self):
