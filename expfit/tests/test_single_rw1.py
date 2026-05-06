@@ -11,8 +11,6 @@ import numpy as np
 
 import expfit
 
-from expfit.tests import rmse_single
-
 
 class TestSingleRw1(unittest.TestCase):
     """
@@ -34,7 +32,7 @@ class TestSingleRw1(unittest.TestCase):
         if plot:
             import matplotlib.pyplot as plt
             plt.show()
-        self.assertLess(rmse_single(x, y, *p), 14)
+        self.assertLess(expfit.rmse_single(x, y, *p), 14)
 
 
 y = [

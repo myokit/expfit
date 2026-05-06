@@ -125,19 +125,15 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             # Test slope
             l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
             if l_new.slope * ls.slope < 0:
-                print('Changed sign')
                 break
             if (abs(l_new.slope) >= abs(ls.slope)) != increasing:
-                print('Not ' + ('increasing' if increasing else 'decreasing'))
                 break
 
             # Test gradual slope increase / decrease
             r_new = l_new.slope / ls.slope
             if r is not None:
-                print(r, r_new, r / r_new)
                 rr = r / r_new
                 if rr < 0.8 or rr > 1.25:
-                    print('Slope change too sudden')
                     break
 
             # Accept
@@ -146,10 +142,6 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             if plot:  # pragma: no cover
                 plot_line(ax, x, ls, 'k' if start else 'r')
 
-        if n == n_min:
-            print('Minimum size')
-
-        print()
         return (x, y), ls
 
     # Get starting segments, and least squares fits
@@ -175,7 +167,6 @@ def estimate_initial_single(t, v, transform=True, vet=True,
 
     # Edge case: exactly the same slopes
     if l1.slope == l2.slope:
-        print('Equal slopes')
         a, b, c = tr2.detransform(l0.offset, l0.slope, 0.0)
         return tr1.detransform(a, b, c) if transform else (a, b, c)
 
@@ -199,7 +190,6 @@ def estimate_initial_single(t, v, transform=True, vet=True,
 
     # Avoid divide by zero if (y1 - y2) == 0: flat line
     if y1 - y2 == 0:
-        print('Equal ys')
         a, b, c = tr2.detransform(l0.mu_y, 0.0, 0.0)
         return tr1.detransform(a, b, c) if transform else (a, b, c)
 
@@ -229,7 +219,6 @@ def estimate_initial_single(t, v, transform=True, vet=True,
         # Compare with flat line
         rr = r / expfit.rmse_single(x, y, l0.mu_y, 0, 0)
     if rr > 2:
-        print(f'RMSE ratio {rr}')
         a, b, c = l0.mu_y, 0.0, 0.0
 
     # Show initial estimate
@@ -287,20 +276,13 @@ def fit_single(t, v, plot=False):
     # Get an initial estimate
     at0, bt0, ct0 = estimate_initial_single(
         x, y, vet=False, transform=False, axes=ax0)
-    #print(at0, bt0, ct0)
-    #print('HEEEEERE')
-
-    # HACK HACK HAC
-    #if ct0 > 0 and at0 > y[0]:
-    #    at0 = y[0]
-
 
     # Fit
     e = expfit.SingleExponentialError(x, y)
     with np.errstate(all='ignore'):
         r = expfit.fmin(e, (at0, bt0, ct0))
+        #print(r)
     at, bt, ct = r.x
-    print(r)
 
     # Detransform obtained parameters
     a, b, c = tr.detransform(at, bt, ct)

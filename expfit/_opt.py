@@ -8,6 +8,8 @@ import timeit
 
 import numpy as np
 
+import expfit
+
 
 class OptResult:
     message = 'Not run'

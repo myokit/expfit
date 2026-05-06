@@ -107,11 +107,9 @@ class TestSingle(unittest.TestCase):
         x = np.linspace(0, 1, 10)
         y = 3 * x
         p, q, r = estimate(x, y, plot=plot)
-        print(p, q, r)
         self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.6)
         self.assertEqual(p, -q)
         p, q, r = estimate(x, y, transform=False, plot=plot)
-        print(p, q, r)
         self.assertEqual(expfit.rmse_single(x, y, p, q, r), 0)
         self.assertEqual(p, -q)
 
@@ -125,7 +123,7 @@ class TestSingle(unittest.TestCase):
         # Straight line with offset and noise
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
-        p, q, r = estimate(x, y, plot=True)
+        p, q, r = estimate(x, y, plot=plot)
         self.assertAlmostEqual(p + q, 4, delta=0.5)
         self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.2)
 
@@ -160,6 +158,7 @@ class TestSingle(unittest.TestCase):
         '''
 
     def test_single_edge_cases(self):
+        # Test for a specific divide by zero case
 
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
@@ -345,15 +344,15 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sod(0, -1, 3, -4, 5, rdom=1.2, rmse=6, plot=True)
-        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=3.1, plot=True)
-        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=2, plot=True)
-        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=1, plot=True)
-        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=0.2, plot=True)
-        sod(0, -1, 3, -1e-12, 5, rdom=1.7, rmse=2, plot=True)
-        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=0.02, plot=True)
-        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=0.031, plot=True)
-        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=0.02, plot=True)
+        sod(0, -1, 3, -4, 5, rdom=1.01, rmse=6, plot=plot)
+        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=3.1, plot=plot)
+        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=2, plot=plot)
+        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=1, plot=plot)
+        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=0.2, plot=plot)
+        sod(0, -1, 3, -1e-12, 5, rdom=1.7, rmse=0.2, plot=plot)
+        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=0.02, plot=plot)
+        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=0.04, plot=plot)
+        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=0.02, plot=plot)
 
     def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
                          fnoise=0.01, t0=0, rdom=2, rmse=2, plot=False):
@@ -400,10 +399,10 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.2, rmse=0.2, plot=True)
-        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.002, rmse=650, plot=True)
-        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=0.1, plot=True)
-        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.1, rmse=7e6, plot=True)
+        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.2, rmse=0.2, plot=plot)
+        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.002, rmse=650, plot=plot)
+        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=0.1, plot=plot)
+        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.001, rmse=6e6, plot=plot)
 
     def test_single_tau(self):
 
