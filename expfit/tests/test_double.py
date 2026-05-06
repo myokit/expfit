@@ -66,27 +66,28 @@ class TestDouble(unittest.TestCase):
         plot = False
 
         # Both decaying
-        dod(200, 3, -5, 3, -3, digits=(0, -1, 0, -1, -1), plot=plot)
+        # This is a good example of it going wrong
+        dod(200, 3, -5, 3, -3, digits=(0, -1, -1, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -2, duration=1, digits=(0, -1, -1, -1, 2),
             plot=plot)
-        # This next one used to be interesting, but something changed
-        dod(200, 4, -5, 1, -0.5, digits=(0, 0, 0, 1, 0), plot=plot)
+        # Another not working well
+        dod(200, 4, -5, 1, -0.5, digits=(0, 0, -1, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -1, duration=1, digits=(-2, -1, -1, -3, -1),
             plot=plot)
 
         # Both expanding
-        #dod(200, 4, -5, 1, -3, plot=True)
+        #dod(200, 4, -5, 1, -3, maxrmse=1, plot=plot)
 
         # Same direction
-        #dod(0, -1, 3, -4, 5, maxr=1.2, maxrmse=60, plot=plot)
-        #dod(0, -1, 3, -2, 5, maxr=1.1, maxrmse=35, plot=plot)
-        #dod(0, -1, 3, -1, 5, maxr=1.1, maxrmse=60, plot=plot)
-        #dod(0, -1, 3, -0.5, 5, maxr=1.2, maxrmse=10, plot=plot)
-        #dod(0, -1, 3, -1e-6, 5, maxr=1.7, maxrmse=3, plot=plot)
-        #dod(0, -1, 3, -1e-12, 5, maxr=1.7, maxrmse=2, plot=plot)
-        #dod(0, 1, -3, 1, -3.1, maxr=1.1, maxrmse=1, plot=plot)
-        #dod(0, 2, -3, 1, -2.8, maxr=1.1, maxrmse=1, plot=plot)
-        #dod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=plot)
+        #dod(0, -1, 3, -4, 5, maxr=1.2, maxrmse=60, plot=True)
+        #dod(0, -1, 3, -2, 5, maxr=1.1, maxrmse=35, plot=True)
+        #dod(0, -1, 3, -1, 5, maxr=1.1, maxrmse=60, plot=True)
+        #dod(0, -1, 3, -0.5, 5, maxr=1.2, maxrmse=10, plot=True)
+        #dod(0, -1, 3, -1e-6, 5, maxr=1.7, maxrmse=3, plot=True)
+        #dod(0, -1, 3, -1e-12, 5, maxr=1.7, maxrmse=2, plot=True)
+        #dod(0, 1, -3, 1, -3.1, maxr=1.1, maxrmse=1, plot=True)
+        #dod(0, 2, -3, 1, -2.8, maxr=1.1, maxrmse=1, plot=True)
+        #dod(0, 2, -3, 1, -0.02, maxr=1.1, maxrmse=1, plot=True)
 
     def test_double_edge_cases(self):
 
