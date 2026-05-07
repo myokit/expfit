@@ -65,12 +65,9 @@ class ZoomTransform():
         self._x0 = 0
         self._rx = 1
 
-        # Calculate total signal range
-        n = len(v)
-        r0 = np.max(v) - np.min(v)
-
         # Try zooming in on left or right of signal
         ilo = ihi = None
+        n = len(v)
         m = n // 2
         s1, s2 = v[:m], v[m:]
         r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)

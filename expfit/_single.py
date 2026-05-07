@@ -92,10 +92,9 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             )
 
             color = 'k' if start else 'r'
-
             label = f'Slope {ls.slope:.3} (n={n})'
             if msg is not None:
-                label=f'{label}: {msg}'
+                label = f'{label}: {msg}'
 
             ax.plot(x, y, color=color, zorder=10, label=label)
             ax.plot(mu_x, mu_y, 's', color=color, zorder=10)
@@ -181,13 +180,6 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     l0 = expfit.LeastSquaresFit(x, y, vet=False)
     l1 = expfit.LeastSquaresFit(*seg1, vet=False)
     l2 = expfit.LeastSquaresFit(*seg2, vet=False)
-
-    # For an exponential, one slope must be larger, and one smaller than the
-    # general signal slope
-    #a0, a1, a2 = np.fabs((l0.slope, l1.slope, l2.slope))
-    #if a1 > a0 and a2 > a0:
-    #    a, b, c = abc_straight
-    #    return tr1.detransform(a, b, c) if transform else (a, b, c)
 
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is
