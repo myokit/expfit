@@ -29,7 +29,7 @@ class TestSingleRw1(unittest.TestCase):
 
         x = np.arange(0, len(y))
         p = expfit.fit_single(x, y, plot=plot)
-        if plot:
+        if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
         self.assertLess(expfit.rmse_single(x, y, *p), 14)

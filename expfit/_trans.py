@@ -124,9 +124,10 @@ class ZoomTransform():
         return x, y
 
 
-class NoTransform():  # pragma: no cover
+class NoTransform():
     """
-    Doesn't.
+    Returns the same data without transforming: useful to replace a
+    transformation when debugging.
     """
     def __init__(self, t, v):
         self.x = t

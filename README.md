@@ -19,11 +19,30 @@ failures will be added to its test suite to create a reliable tool for this
 sometimes fiddly operation.
 
 
-## State 2026-04-10
+## Status 2026-05-07
 
 Does single exponentials well
 
 Building on initial guesses for single, also started adding double which it does OK
 
 
+
+
+## Installation for development
+
+To install from the repo, use e.g.
+```
+python setup.py install -e .
+```
+
+Tests can then be run with
+```
+python -m unittest
+```
+
+And coverage can be tested with
+```
+python -m coverage run
+python -m coverage report
+```
 

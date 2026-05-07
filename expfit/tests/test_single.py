@@ -30,7 +30,7 @@ class TestSingle(unittest.TestCase):
             tr = expfit.UnitSquareTransform(x, y)
             x, y = tr.x, tr.y
         ret = expfit.estimate_initial_single(x, y, plot=plot)
-        if plot:
+        if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
         return tr.detransform(*ret) if transform else ret
@@ -301,7 +301,7 @@ class TestSingle(unittest.TestCase):
         with self.subTest(a=a, b=b, c=c, duration=duration, n=n, fnoise=fnoise,
                           t0=t0):
             if len(deltas) == 3:
-                if plot:
+                if plot:  # pragma: no cover
                     print(abs(af - a))
                     print(abs(bf - b))
                     print(abs(cf - c))

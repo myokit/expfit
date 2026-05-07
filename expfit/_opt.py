@@ -51,15 +51,17 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
     ``p0``.
 
     The function ``f`` is expected to return a tuple
-    ``(error, jacobian, hessian)``. By default, the Hessian is used to guide
-    the update step, but if this leads to an uninvertible matrix, the more
-    common approximation JTJ is used (where JT is the transpose of the
-    Jacobian). Although the Hessian is more exact, it has been suggested this
-    approximation can be more stable, especially far from the true solution.
+    ``(error, jacobian, hessian)``.
 
     Optimisation stops when the norm of the jacobian is less than ``gtol``
     or when ``max_iter`` iterations have been performed.
     """
+    # Old:
+    # By default, the Hessian is used to guide
+    # the update step, but if this leads to an uninvertible matrix, the more
+    # common approximation JTJ is used (where JT is the transpose of the
+    # Jacobian). Although the Hessian is more exact, it has been suggested this
+    # approximation can be more stable, especially far from the true solution.
     time = timeit.default_timer()
 
     p = np.asarray(p0)
@@ -87,7 +89,8 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
         # Suggest next point
         try:
             ps = p - np.linalg.solve(h + alpha * eye * h, j)
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:  # pragma: no cover
+            '''
             # Try Gauss-newton approximation
             try:
                 hx = np.outer(j, j)
@@ -98,6 +101,8 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
                 h = hx
                 fs = f(ps[0])
                 evaluations += 1
+            '''
+            fs = [m * 2]
         else:
             fs = f(ps[0])
             evaluations += 1

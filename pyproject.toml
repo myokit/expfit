@@ -50,6 +50,10 @@ include = ['expfit']
 modules = ['expfit']
 
 [tool.coverage.run]
+command_line = '-m unittest'
 source = ['expfit']
 omit = []
+
+[tool.coverage.report]
+show_missing = 'true'
 

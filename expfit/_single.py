@@ -79,7 +79,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             ax.axvspan(x_org[i], x_org[j - 1], color='#eee')
         ax.plot(x_org, y_org, 's-' if len(x_org) < 50 else '-')
 
-    if plot or axes is not None:
+    if plot or axes is not None:  # pragma: no cover
         def plot_line(ax, x, ls, start=True, msg=None):
             n = len(x)
             x, y = tr.detransform_series(
@@ -101,7 +101,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
 
     # Return a consistent result when things go wrong
     def fail(seg1, seg2, l1, l2, msg):
-        if plot:
+        if plot:  # pragma: no cover
             plot_line(ax, seg1[0], l1, True, msg)
             plot_line(ax, seg2[0], l2, False, msg)
             ax.legend()
@@ -124,9 +124,6 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     #   - the new slope is increased, on the fast side, or decreased, on the
     #     slow side
     #   - The ratio of increase/decrease is between 0.8 and 1.25
-    #
-    #
-    #
     #
     def shrink(seg, ls, n_min, start=True, increasing=True):
         increasing = bool(increasing)
@@ -246,7 +243,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         return fail(seg1, seg2, l1, l2, 'Flat line is better fit')
 
     # Show initial estimate
-    if plot:
+    if plot:  # pragma: no cover
         p, q, r = tr.detransform(a, b, c)
         ax.plot(x_org, p + q * np.exp(r * x_org),
                 label=f'Initial estimate {p:.4}, {q:.4}, {r:.4}')
@@ -277,7 +274,7 @@ def fit_single(t, v, plot=False):
     # Create initial plot
     known = False
     try:
-        if len(plot) == 3:
+        if len(plot) == 3:  # pragma: no cover
             known = plot
             plot = True
     except TypeError:
@@ -305,7 +302,7 @@ def fit_single(t, v, plot=False):
     e = expfit.SingleExponentialError(x, y)
     with np.errstate(all='ignore'):
         r = expfit.fmin(e, (at0, bt0, ct0))
-        if plot:
+        if plot:  # pragma: no cover
             print(r)
     at, bt, ct = r.x
 
