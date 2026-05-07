@@ -88,6 +88,13 @@ def estimate_initial_single(t, v, transform=True, vet=True,
     else:
         x, y = t, v
 
+    # Straight line?
+    l_straight = expfit.LeastSquaresFit(x, y)
+    abc_straight = l_straight.mu_y, 0.0, 0.0
+    #rs = (np.sqrt(np.sum(y - lstraight.offset - x * lstraight.slope) / n))
+    #if rs < 1e-6:
+    #    return
+
     # Transform to zoom in on the action
     tr2 = expfit.ZoomTransform(x, y)
     x, y = tr2.x, tr2.y
@@ -99,7 +106,7 @@ def estimate_initial_single(t, v, transform=True, vet=True,
         ax.plot(x, y)
 
     if plot or axes is not None:  # pragma: no cover
-        def plot_line(ax, x, ls, color, detransform=False):
+        def plot_line(ax, x, ls, color, detransform=False, label=None):
             xx = np.array((x[0], x[-1]))
             yy = np.array((ls.mu_y + ls.slope * (x[0] - ls.mu_x),
                            ls.mu_y + ls.slope * (x[-1] - ls.mu_x)))
@@ -107,9 +114,12 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             if detransform:
                 xx, yy = tr2.detransform_series(xx, yy)
                 mux, muy = tr2.detransform_series(mux, muy)
-            ax.plot(xx, yy, color=color, zorder=1000,
-                    label=f'Slope {ls.slope:.3}, n={len(x)}')
-            ax.plot(mux, muy, 's', color=color)
+            if label is None:
+                label=f'Slope {ls.slope:.3}, n={len(x)}'
+            else:
+                label=f'Slope {ls.slope:.3}, n={len(x)}, {label}'
+            ax.plot(xx, yy, color=color, zorder=10, label=label)
+            ax.plot(mux, muy, 's', color=color, zorder=10)
 
     def shrink(seg, ls, n_min, start=True, increasing=True):
         x, y = seg
@@ -124,8 +134,14 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             # Test slope
             l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
             if l_new.slope * ls.slope < 0:
+                if plot:  # pragma: no cover
+                    plot_line(ax, x, ls, 'k' if start else 'r',
+                              label='Slope wrong sign')
                 break
             if (abs(l_new.slope) >= abs(ls.slope)) != increasing:
+                if plot:  # pragma: no cover
+                    plot_line(ax, x, ls, 'k' if start else 'r',
+                              label='Slope not increasing/decreasing')
                 break
 
             # Test gradual slope increase / decrease
@@ -133,13 +149,17 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             if r is not None:
                 rr = r / r_new
                 if rr < 0.8 or rr > 1.25:
+                    if plot:  # pragma: no cover
+                        plot_line(ax, x, ls, 'k' if start else 'r',
+                                  label='Slope changed too fast')
                     break
 
             # Accept
             r = r_new
             x, y, ls = x_new, y_new, l_new
             if plot:  # pragma: no cover
-                plot_line(ax, x, ls, 'k' if start else 'r')
+                plot_line(ax, x, ls, 'k' if start else 'r',
+                          label='Minimum size' if len(x) == n_min else None)
 
         return (x, y), ls
 
@@ -150,9 +170,13 @@ def estimate_initial_single(t, v, transform=True, vet=True,
     l0 = expfit.LeastSquaresFit(x, y, vet=False)
     l1 = expfit.LeastSquaresFit(*seg1, vet=False)
     l2 = expfit.LeastSquaresFit(*seg2, vet=False)
-    if plot:  # pragma: no cover
-        plot_line(ax, seg1[0], l1, 'k')
-        plot_line(ax, seg2[0], l2, 'r')
+
+    # For an exponential, one slope must be larger, and one smaller than the
+    # general signal slope
+    a0, a1, a2 = np.fabs((l0.slope, l1.slope, l2.slope))
+    if a1 > a0 and a2 > a0:
+        a, b, c = abc_straight
+        return tr1.detransform(a, b, c) if transform else (a, b, c)
 
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is
@@ -165,15 +189,21 @@ def estimate_initial_single(t, v, transform=True, vet=True,
         l2.offset = l2.mu_y
 
     # Edge case: exactly the same slopes
-    if l1.slope == l2.slope:
-        a, b, c = tr2.detransform(l0.offset, l0.slope, 0.0)
+    if l1.slope == l2.slope and l1 != 0:
+        a, b, c = abc_straight
         return tr1.detransform(a, b, c) if transform else (a, b, c)
 
     # Slopes ok? Then start shrinking
     n_min = 5
+
+    if plot:  # pragma: no cover
+        plot_line(ax, seg1[0], l1, 'k')
     if l1.slope != 0:
         seg1, l1 = shrink(
             seg1, l1, n_min, True, abs(l1.slope) > abs(l2.slope))
+
+    if plot:  # pragma: no cover
+        plot_line(ax, seg2[0], l2, 'r')
     if l2.slope != 0:
         seg2, l2 = shrink(
             seg2, l2, n_min, False, abs(l2.slope) > abs(l1.slope))
@@ -193,7 +223,7 @@ def estimate_initial_single(t, v, transform=True, vet=True,
 
     # Avoid divide by zero if (y1 - y2) == 0: flat line
     if y1 - y2 == 0:
-        a, b, c = tr2.detransform(l0.mu_y, 0.0, 0.0)
+        a, b, c = tr2.detransform(l_straight.mu_y, 0.0, 0.0)
         return tr1.detransform(a, b, c) if transform else (a, b, c)
 
     # Estimate c, as, and bs
@@ -219,10 +249,10 @@ def estimate_initial_single(t, v, transform=True, vet=True,
             a, b = a2, b2
             r = r2
 
-        # Compare with flat line
-        rr = r / expfit.rmse_single(x, y, l0.mu_y, 0, 0)
+        # Compare with straight line
+        rr = r / expfit.rmse_single(x, y, l0.offset, l0.slope, 0)
     if rr > 2:
-        a, b, c = l0.mu_y, 0.0, 0.0
+        a, b, c = l0.offset, l0.slope, 0
 
     # Show initial estimate
     if plot:

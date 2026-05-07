@@ -82,7 +82,7 @@ class ZoomTransform():
             ihi = np.where(var >= f)[0][0]
 
         m = ihi - ilo
-        if m >= 10 and m < 0.2 * n:
+        if m >= n_min and m < 0.2 * n:
             self._x0 = self.x[ilo]
             self._rx = self.x[ihi - 1] - self._x0
             self.x = (self.x[ilo:ihi] - self._x0) / self._rx

@@ -47,14 +47,18 @@ class OptResult:
 
 def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
     """
-    Performs a Levenberg-Marquardt optimisation of ``f`` starting from ``p0``.
+    Performs a Levenberg-Marquardt style optimisation of ``f`` starting from
+    ``p0``.
 
     The function ``f`` is expected to return a tuple
-    ``(error, jacobian, hessian)``.
+    ``(error, jacobian, hessian)``. By default, the Hessian is used to guide
+    the update step, but if this leads to an uninvertible matrix, the more
+    common approximation JTJ is used (where JT is the transpose of the
+    Jacobian). Although the Hessian is more exact, it has been suggested this
+    approximation can be more stable, especially far from the true solution.
 
-    Optimisation stops when the norm of the jacobian is less than ``gtol``,
-    when ``max_iter`` iterations have been performed, or when the problem is
-    ill-conditioned
+    Optimisation stops when the norm of the jacobian is less than ``gtol``
+    or when ``max_iter`` iterations have been performed.
     """
     time = timeit.default_timer()
 
@@ -134,8 +138,8 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
 
 class LeastSquaresFit():
     """
-    Creates a least squares fit ``(a, b)`` where ``y`` is approximated by
-    ``a + b * x``.
+    Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
+    by ``offset + slope * x``.
 
     Properties: ``offset``, ``slope``, ``mu_x``, ``mu_y``.
     """

@@ -142,6 +142,70 @@ class TestSingle(unittest.TestCase):
             ValueError, 'At least 3', expfit.estimate_initial_single,
             [1, 2], [3, 4], 1)
 
+    def test_estimate_initial_straight(self):
+        # Edge cases: straight and flat lines for estimate_initial_single
+
+        rng = np.random.default_rng(71)
+        plot = False
+
+        def estimate(x, y, transform=True, plot=False):
+            ret = expfit.estimate_initial_single(
+                x, y, transform=transform, plot=plot)
+            if plot:
+                import matplotlib.pyplot as plt
+                plt.show()
+            return ret
+
+        # Edge case: perfectly flat line, no noise
+        x = np.linspace(0, 1, 10)
+        y = 3 * np.ones(x.shape)
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertEqual((p, q, r), (3, 0, 0))
+
+        # Flat line with noise
+        x = np.linspace(0, 1, 3000)
+        y = 3 * np.ones(x.shape) + rng.normal(0, 1e-9, x.shape)
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertAlmostEqual(p, 3, delta=1e-10)
+        self.assertAlmostEqual(q, 0, delta=1e-11)
+
+        # Straight line through origin, no noise
+        # Note: the transform amplifies the numerical noise here, causing the
+        # RMSE to be non-zero for the transformed case.
+        x = np.linspace(0, 1, 10)
+        y = 3 * x
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.6)
+        self.assertEqual(p, -q)
+        p, q, r = estimate(x, y, transform=False, plot=True)
+        self.assertEqual(p, np.mean(y))
+        self.assertEqual(q, 0)
+        self.assertEqual(r, 0)
+
+        # Straight line through origin, with noise
+        x = np.linspace(0, 1, 99)
+        y = 3 * x + rng.normal(0, 0.1, x.shape)
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertAlmostEqual(p, -q, delta=0.1)
+        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.1)
+
+        # Straight line with offset and noise
+        x = np.linspace(0, 1, 99)
+        y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertAlmostEqual(p + q, 4, delta=0.5)
+        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.2)
+
+        rng = np.random.default_rng(2)
+        n = 200
+        x = np.linspace(0, 1, n)
+        y = 3 * np.zeros(x.shape)
+        y += rng.normal(0, 1, x.shape)
+        p, q, r = estimate(x, y, plot=plot)
+        self.assertAlmostEqual(p, np.mean(y))
+        self.assertEqual(q, 0)
+        self.assertEqual(r, 0)
+
     def test_single_error(self):
 
         # TODO
