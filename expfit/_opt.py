@@ -104,7 +104,7 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
 
         # Accept and reduce gradient descent factor if improved
         if fs[0] < m:
-            alpha *= 0.1
+            alpha *= 0.5
             p = ps
             m, j, h = fs
             accepted += 1

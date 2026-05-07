@@ -7,13 +7,13 @@
 import numpy as np
 
 
-class UnitTransform():
+class UnitSquareTransform():
     """
     Transforms a time series ``(t, v)`` onto an approximate unit square,
-    assuming that ``v[0]`` and ``v[1]`` are good approximations of the signal's
-    extremes.
+    assuming that ``v[0]`` and ``v[-1]`` are good approximations of the
+    signal's extrema.
 
-    Properties: ``x``, ``y``.
+    Public properties: ``x``, ``y``.
     """
     def __init__(self, t, v, n_min=10):
         # Transform
@@ -47,42 +47,54 @@ class UnitTransform():
 
 class ZoomTransform():
     """
-    Transforms a time series by zooming in on the section containing 90% of the
-    ???????.
+    Transforms a time series to try and zoom in on the action, for very steep
+    exponentials.
 
+    Tests wether there is a segment at the start or end of the signal, in which
+    the range of ``v`` exceeds ``r_factor`` times the range outside this
+    segment. If this segment exists, and has length greather than ``n_min``,
+    the transform returns only that segment. If no such segment is found, it
+    returns the full signal.
 
+    Public properties: ``x``, ``y``, ``ibounds=None``.
     """
-    def __init__(self, t, v, n_min=10):
+    def __init__(self, t, v, r_factor=20, n_min=10):
         self.x = t
         self.y = v
+        self.ibounds = None
         self._x0 = 0
         self._rx = 1
 
-        # Calculate cumulative variance, starting at peak
+        # Calculate total signal range
         n = len(v)
-        mu = np.mean(v)
-        reverse = v[-1] > v[0]
+        r0 = np.max(v) - np.min(v)
 
-        f = 0.80
-        if reverse:
-            var = np.cumsum((v[::-1] - mu)**2) / np.arange(1, n + 1)
-            rng = np.max(var) - np.min(var)
-            if rng == 0:
-                return
-            var = (var[::-1] - np.min(var)) / rng
-            ilo = np.where(var >= 1 - f)[0][0]
-            ihi = n
-        else:
-            var = np.cumsum((v - mu)**2) / np.arange(1, n + 1)
-            rng = np.max(var) - np.min(var)
-            if rng == 0:
-                return
-            var = (var - np.min(var)) / rng
-            ilo = 0
-            ihi = np.where(var >= f)[0][0]
+        # Try zooming in on left or right of signal
+        ilo = ihi = None
+        m = n // 2
+        s1, s2 = v[:m], v[m:]
+        r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+        if r2 != 0 and r1 / r2 > r_factor:
+            while r2 != 0 and r1 / r2 > r_factor and m > 1:
+                m = max(m // 2, 1)
+                s1, s2 = v[:m], v[m:]
+                r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+            ilo, ihi = 0, m
+        elif r1 != 0 and r2 / r1 > r_factor:
+            while r1 != 0 and r2 / r1 > r_factor and m > 1:
+                m = max(m // 2, 1)
+                s1, s2 = v[:-m], v[-m:]
+                r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+            ilo, ihi = n - m, n
 
-        m = ihi - ilo
-        if m >= n_min and m < 0.2 * n:
+        # Concentrated in too small an area? Treat as distortion and ignore
+        if ilo is not None and m < n_min:
+            # print('Rejecting selection: too small')
+            ilo = ihi = None
+
+        # Apply
+        if ilo is not None:
+            self.ibounds = (ilo, ihi)
             self._x0 = self.x[ilo]
             self._rx = self.x[ihi - 1] - self._x0
             self.x = (self.x[ilo:ihi] - self._x0) / self._rx

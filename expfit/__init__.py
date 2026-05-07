@@ -29,7 +29,7 @@ from ._vetting import (  # noqa
 
 from ._trans import (  # noqa
     NoTransform,
-    UnitTransform,
+    UnitSquareTransform,
     ZoomTransform
 )
 
