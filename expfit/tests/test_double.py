@@ -72,7 +72,7 @@ class TestDouble(unittest.TestCase):
         # Test double on double exponential decaying
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
-        plot = True
+        plot = False
 
         # Both decaying
         dod(200, 3, -5, 3, -3, deltas=(.01, .5, 0.1, .2, .2), plot=plot)
@@ -81,6 +81,17 @@ class TestDouble(unittest.TestCase):
         dod(20, 4, -10, 1, -2, deltas=(.1, .1, .1, .1, .1), plot=plot)
         dod(200, 4, -10, 10, -1, duration=1, deltas=(1, .5, 1, .5, .1),
             plot=plot)
+
+        # Hard case: RMSE is fine, but values are off
+        dod(-50, 5, -3, 12, -2, deltas=(.1, 10, 1, 10, 1), plot=plot,
+            fnoise=1e-3)
+        #dod(30, 4, -5, 10, -2, duration=1, deltas=(.1, 1, 1, 1, .01),
+        #    fnoise=0.1, plot=plot)
+        #dod(2, 4, -10, 1, -2, deltas=(.1, .1, .1, .1, .1),
+        #    fnoise=0.1, plot=plot)
+        #dod(-112, 4, -10, 10, -1, duration=1, deltas=(1, .5, 1, .5, .1),
+        #    fnoise=0.1, plot=plot)
+
 
     def test_dodd_edge_cases(self):
         x = np.linspace(0, 1, 10)
