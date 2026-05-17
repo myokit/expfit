@@ -89,6 +89,32 @@ def fit_double_decaying(t, v, plot=False, vet=True):
             lambda p: _rmse_double_decaying(x, y, p),
             (at0, bt0, ct0, dt0, et0))
     at, bt, ct, dt, et = res.x
+    print()
+    print(f'Sci: {at:+.5e} {bt:+.5e} {ct:+.5e} {dt:+.5e} {et:+.5e}')
+    print(res)
+
+    # Fit
+    e = expfit.MultiExponentialError(x, y)
+    with np.errstate(all='ignore'):
+        r = expfit.fmin(e, (at0, bt0, ct0, dt0, et0))
+        #if plot:  # pragma: no cover
+        #    print(r)
+    at, bt, ct, dt, et = r.x
+    print(f'LM:  {at:+.5e} {bt:+.5e} {ct:+.5e} {dt:+.5e} {et:+.5e}')
+    print(r)
+
+    #at, bt, ct, dt, et = res.x
+
+
+
+
+
+
+    #import sys
+    #sys.exit(1)
+
+
+
 
     # Detransform
     a = v[0] + at * rv

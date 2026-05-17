@@ -45,7 +45,7 @@ class OptResult:
         ))
 
 
-def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
+def fmin(f, p0, gtol=1e-7, max_iter=200, verbose=False):
     """
     Performs a Levenberg-Marquardt style optimisation of ``f`` starting from
     ``p0``.
@@ -68,7 +68,7 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
     n = np.prod(p.shape)
     p = p.reshape((1, n))
     eye = np.eye(n)
-    alpha = 0.01
+    alpha = 1000     # Cautious start
 
     err = False
     m, j, h = f(p[0])
@@ -114,10 +114,11 @@ def fmin(f, p0, gtol=1e-6, max_iter=200, verbose=False):
             m, j, h = fs
             accepted += 1
         else:
-            alpha *= 10
-            if alpha > 1e20:  # pragma: no cover
-                err = 'Lambda factor grew too large'
-                break
+            if alpha < 1e20:
+                alpha *= 10
+            #if alpha > 1e20:  # pragma: no cover
+            #    err = 'Lambda factor grew too large'
+            #    break
     time = timeit.default_timer() - time
 
     # Create and return result object

@@ -8,7 +8,12 @@ import numpy as np
 
 
 def rmse_single(x, y, a, b, c):
-    """ Returns the RMSE between ``y`` and ``a + b * exp(c * x)``. """
+    """
+    Returns the RMSE between ``y`` and ``a + b * exp(c * x)``.
+
+    **Note**: the returned RMSE is the root of the MSE returned by
+    :class:`SingleExponentialError`.
+    """
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
 
 
@@ -19,6 +24,27 @@ def rmse_double(x, y, a, b1, c1, b2, c2):
     """
     return np.sqrt(np.sum((
         y - a - b1 * np.exp(c1 * x) - b2 * np.exp(c2 * x))**2))
+
+
+def rmse_multi(x, y, p):
+    """
+    Returns the RMSE
+    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameter set
+    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
+
+    **Note**: the returned RMSE is the root of the MSE returned by
+    :class:`MultiExponentialError`.
+    """
+    d = len(p)
+    assert (d - 1) % 2 == 0 and d > 1
+    m = (d - 1) // 2
+
+    p = np.asarray(p)
+    bs = p[1::2].reshape((m, 1))
+    cs = p[2::2].reshape((m, 1))
+    return np.sqrt(
+        np.sum((p[0] - y + np.sum(bs * np.exp(np.outer(cs, x)), axis=0))**2)
+        / len(x))
 
 
 class SingleExponentialError():
@@ -59,3 +85,69 @@ class SingleExponentialError():
         hes[2, 1] = hes[1, 2]
 
         return mse, jac, hes
+
+
+class MultiExponentialError():
+    """
+    Callable class returning the MSE and its Jacobian and Hessian for a
+    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameter set
+    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
+    """
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        self._ni = 1 / len(x)
+        self._n2 = 2 * self._ni
+
+    def __call__(self, p):
+        d = len(p)
+        assert (d - 1) % 2 == 0 and d > 1
+        m = (d - 1) // 2
+
+        # Unpack
+        p = np.asarray(p)
+        a = p[0]
+        bs = p[1::2].reshape((m, 1))        # (m, 1)
+        cs = p[2::2].reshape((m, 1))        # (m, 1)
+
+        # MSE
+        es = np.exp(np.outer(cs, self._x))      # (m, n)  e^(cx)
+        bes = bs * es                           # (m, n) be^(cx)
+        fs = a - self._y + np.sum(bes, axis=0)  # (n, ) a - y + sum_j(be^(cx))
+        mse = np.sum(fs**2) * self._ni
+
+        # Jacobian
+        jac = np.zeros(d)
+        xes = es * self._x
+        jac[0] = self._n2 * np.sum(fs)
+        jac[1::2] = self._n2 * np.sum(fs * es, axis=1)
+        jac[2::2] = self._n2 * np.sum(fs * xes, axis=1) * bs.T
+
+        # Hessian
+        hes = np.zeros((d, d))
+
+        # aa, ab, ac
+        hes[0, 0] = 2
+        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(es, axis=1)
+        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(xes, axis=1) * bs.T
+        for i in range(m):
+            # bi^2, ci^2, and bi*ci
+            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(es[i]**2)
+            hes[2 + 2 * i, 2 + 2 * i] = \
+                self._n2 * np.sum((fs + bes[i]) * xes[i] * self._x) * bs[i, 0]
+            hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
+                self._n2 * np.sum((fs + bes[i]) * xes[i])
+
+            for j in range(i + 1, m):
+                # bi*bj, ci*cj, bi*cj, bj*ci
+                hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
+                    self._n2 * np.sum(es[i] * es[j])
+                hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
+                    self._n2 * np.sum(xes[i] * xes[j]) * bs[i, 0] * bs[j, 0]
+                hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
+                    self._n2 * np.sum(xes[i] * es[j]) * bs[j, 0]
+                hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
+                    self._n2 * np.sum(xes[i] * es[j]) * bs[i, 0]
+
+        return mse, jac, hes
+

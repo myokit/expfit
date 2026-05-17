@@ -63,14 +63,12 @@ class TestDouble(unittest.TestCase):
         # Test double exponentials on double exponential data
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
-        plot = False
+        plot = True
 
         # Both decaying
-        # This is a good example of it going wrong
         dod(200, 3, -5, 3, -3, digits=(0, -1, -1, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -2, duration=1, digits=(0, -1, -1, -1, 2),
             plot=plot)
-        # Another not working well
         dod(200, 4, -5, 1, -0.5, digits=(0, 0, -1, -1, -1), plot=plot)
         dod(200, 4, -5, 10, -1, duration=1, digits=(-2, -1, -1, -3, -1),
             plot=plot)
