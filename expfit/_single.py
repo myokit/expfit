@@ -285,9 +285,9 @@ def fit_single(t, v, plot=False):
             fig = plt.figure(figsize=(8, 4))
             ax0 = fig.add_subplot()
         else:
-            fig = plt.figure(figsize=(8, 9))
+            fig = plt.figure(figsize=(9, 7.5))
             ax0 = fig.add_subplot(2, 1, 1)
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.4)
+        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.44)
         ax0.set_xlabel('x')
         ax0.set_ylabel('y')
         code, color = ('-', '#92cc92') if len(x) > 10 else ('x-', 'tab:green')
@@ -330,7 +330,7 @@ def fit_single(t, v, plot=False):
                 f'             Fit:  {a:+.5e} {b:+.5e} {c:+.5e}',
                 f'Real-world  Init: {at0:+.5e} {bt0:+.5e} {ct0:+.5e}',
                 f'             Fit:  {at:+.5e} {bt:+.5e} {ct:+.5e}']
-            ax0.text(0.75, -0.32, '\n'.join(lines), transform=ax0.transAxes,
+            ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
                      ha='right', font='monospace')
 
             ax1 = fig.add_subplot(2, 2, 3)

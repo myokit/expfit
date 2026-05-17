@@ -20,7 +20,6 @@ classifiers = [
 
 dependencies = [
     'numpy>=1.18',
-    'scipy>1.2',
 ]
 
 [tool.setuptools.dynamic]
