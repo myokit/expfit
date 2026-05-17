@@ -72,7 +72,7 @@ class TestDouble(unittest.TestCase):
         # Test double on double exponential decaying
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
-        plot = False
+        plot = True
 
         # Both decaying
         dod(200, 3, -5, 3, -3, deltas=(.01, .5, 0.1, .2, .2), plot=plot)

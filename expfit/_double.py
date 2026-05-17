@@ -34,6 +34,7 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         t, v = expfit.vet_series(t, v)
 
     # Transform to unit square, to avoid overflows and get useable numbers
+    # TODO REWRITE THIS USING TRANSFORM CLASS
     rt, rv = (t[-1] - t[0]), (v[-1] - v[0])
     if rv == 0:
         rv = 1
@@ -43,7 +44,7 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.2)
+        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.5)
         grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
 
         ax0 = fig.add_subplot(grd[0, :])
@@ -62,7 +63,7 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     # Assume dominant rate found, next rate will have smaller magnitude, but
     # bigger multiplier to stay visible
     # Start with 2 times smaller, but increase if the rates converge
-    dt0 = 0.5 * bt0
+    dt0 = bt0
     et0 = ct0
     bt0 *= 0.7
     p0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
@@ -90,6 +91,19 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         c0 = ct0 / rt
         d0 = dt0 * rv * np.exp(-et0 * t[0] / rt)
         e0 = et0 / rt
+
+        lines = [
+            f'Transformed Init: {at0:+.5e} {bt0:+.5e} {ct0:+.5e}'
+            f' {dt0:+.5e} {et0:+.5e}',
+            f'             Fit: {at:+.5e} {bt:+.5e} {ct:+.5e}'
+            f' {dt:+.5e} {et:+.5e}',
+            f'Real-world  Init: {a0:+.5e} {b0:+.5e} {c0:+.5e}'
+            f' {d0:+.5e} {e0:+.5e}',
+            f'             Fit: {a:+.5e} {b:+.5e} {c:+.5e}'
+            f' {d:+.5e} {e:+.5e}',
+        ]
+        ax0.text(0.5, -0.30, '\n'.join(lines), transform=ax0.transAxes,
+                 ha='center', font='monospace')
 
         try:
             known = False
