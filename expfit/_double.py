@@ -62,12 +62,12 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     # Assume dominant rate found, next rate will have smaller magnitude, but
     # bigger multiplier to stay visible
     # Start with 2 times smaller, but increase if the rates converge
-    dt0 = bt0 * 0.1
-    bt0 *= 0.9
-    for i in range(-1, -6, -1):
-        et0 = ct0 * 2**i
-        p0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
-
+    dt0 = 0.5 * bt0
+    et0 = ct0
+    bt0 *= 0.7
+    p0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
+    for i in range(1, 6):
+        p0[4] *= 0.5
         e = expfit.MultiExponentialError(x, y)
         with np.errstate(all='ignore'):
             r = expfit.fmin(e, p0, constraint=_decaying)

@@ -176,23 +176,23 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
         ok = fs[0] < m
         if ok and constraint is not None:
             ok = constraint(ps[0])  # Cast back to shape (n, )
-            if verbose and not ok:
+            if verbose and not ok:  # pragma: no cover
                 print('Constraint failed')
         if ok:
-            if verbose:
+            if verbose:  # pragma: no cover
                 print('Accepted')
             alpha *= 0.5
             p = ps
             m, j, h = fs
             accepted += 1
         else:
-            if verbose:
+            if verbose:  # pragma: no cover
                 print('Rejected')
             alpha *= 10
             if alpha > 1e20:  # pragma: no cover
                 err = 'Lambda factor grew too large'
                 break
-        if verbose:
+        if verbose:  # pragma: no cover
             print()
 
     time = timeit.default_timer() - time

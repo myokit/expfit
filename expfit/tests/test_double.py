@@ -68,8 +68,8 @@ class TestDouble(unittest.TestCase):
             if len(deltas) != 3 and ratio is None and rmse is None:
                 raise Exception('No test criteria set')  # pragma: no cover
 
-    def test_double_on_double_decaying(self):
-        # Test double exponentials on double exponential data
+    def test_dodd(self):
+        # Test double on double exponential decaying
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
         plot = False
@@ -82,7 +82,7 @@ class TestDouble(unittest.TestCase):
         dod(200, 4, -10, 10, -1, duration=1, deltas=(1, .5, 1, .5, .1),
             plot=plot)
 
-    def test_double_edge_cases(self):
+    def test_dodd_edge_cases(self):
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
         a, b, c, d, e = expfit.fit_double_decaying(x, y)
