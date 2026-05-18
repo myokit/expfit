@@ -68,32 +68,79 @@ class TestDouble(unittest.TestCase):
             if len(deltas) != 3 and ratio is None and rmse is None:
                 raise Exception('No test criteria set')  # pragma: no cover
 
-    def test_dodd(self):
-        # Test double on double exponential decaying
+    def test_dodde(self):
+        # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(5)
         plot = False
 
-        # Both decaying
-        dod(200, 3, -5, 3, -3, deltas=(.01, .5, 0.1, .2, .2), plot=plot)
-        dod(200, 4, -5, 10, -2, duration=1, deltas=(.1, 1, 1, 1, .01),
-            plot=plot)
-        dod(20, 4, -10, 1, -2, deltas=(.1, .1, .1, .1, .1), plot=plot)
-        dod(200, 4, -10, 10, -1, duration=1, deltas=(1, .5, 1, .5, .1),
-            plot=plot)
+        dod(200, 4, -5, 10, -2, deltas=(.05, .5, .5, .5, .1), plot=plot)
+        dod(0, -4, -8, -10, -2, deltas=(.1, .5, 2, .5, .1), plot=plot)
+
+
+
+
+    def test_dodde_close(self):
+        # Test double on double exponential decaying: similar time constants
+        dod = self.double_decaying_on_double
+        self.r = np.random.default_rng(5)
+        plot = False
+
+        dod(200, 3, -5, 3, -3, deltas=(.01, .5, 0.1, .2, .2), plot=True)
+        dod(-50, 5, -3, 12, -2, deltas=(.1, 10, 1, 10, 1), plot=True)
+
+
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+
+    def test_dodde_separable(self):
+        # Test double on double exponential decaying: similar time constants
+        dod = self.double_decaying_on_double
+        self.r = np.random.default_rng(2)
+        plot = False
 
         # Hard case: RMSE is fine, but values are off
-        dod(-50, 5, -3, 12, -2, deltas=(.1, 10, 1, 10, 1), plot=plot,
-            fnoise=1e-3)
-        #dod(30, 4, -5, 10, -2, duration=1, deltas=(.1, 1, 1, 1, .01),
-        #    fnoise=0.1, plot=plot)
-        #dod(2, 4, -10, 1, -2, deltas=(.1, .1, .1, .1, .1),
-        #    fnoise=0.1, plot=plot)
-        #dod(-112, 4, -10, 10, -1, duration=1, deltas=(1, .5, 1, .5, .1),
-        #    fnoise=0.1, plot=plot)
+        dod(20, 4, -10, 6, -2, deltas=(.01, .1, .1, .1, .01), plot=plot)
+        dod(-87, 40, -20, 30, -3, deltas=(.5, 2, 2, 2, .5), plot=plot)
+        dod(123, -5, -99, -8, -1, deltas=(.1, .1, 15, .01, .05), plot=plot)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+        #dod(123, 5, -30, 8, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)
+
+    def test_dodde_hard(self):
+        # Test cases where it doesn't seem identifiable
+        dod = self.double_decaying_on_double
+        plot = False
+
+        # Noise has strong influence on this one
+        # Note that both tests pass the "ratio" criterium: the obtained
+        # solution has a lower RMSE than the true solution
+        self.r = np.random.default_rng(3)
+        dod(18, 5, -12, 10, -6, deltas=(.1, 5, 20, 5, 1), plot=plot)
+        self.r = np.random.default_rng(1)
+        dod(18, 5, -12, 10, -6, deltas=(.1, .5, .5, .5, .1), plot=plot)
+
+        self.r = np.random.default_rng(3)
+        dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
+        self.r = np.random.default_rng(9)
+        dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
 
 
-    def test_dodd_edge_cases(self):
+    def test_dodde_noisy(self):
+        # Test on noisy signals: rapidly becomes impossible
+        dod = self.double_decaying_on_double
+        self.r = np.random.default_rng(2)
+        plot = False
+
+        dod(20, 4, -10, 6, -2, deltas=(.2, .1, .1, .1, .01), plot=True, fnoise=0.05)
+        dod(-87, 40, -20, 30, -3, deltas=(.5, 2, 2, 2, .5), plot=True, fnoise=0.05)
+        dod(123, -5, -99, -8, -1, deltas=(.1, .1, 15, .01, .05), plot=True, fnoise=0.05)
+
+    def test_dodde_edge_cases(self):
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
         a, b, c, d, e = expfit.fit_double_decaying(x, y)
