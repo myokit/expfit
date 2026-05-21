@@ -23,141 +23,92 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     if vet:
         t, v = expfit.vet_series(t, v)
 
-    # Transform to unit square, to avoid overflows etc
+    # Estimate the dominant rate
     tr = expfit.UnitSquareTransform(t, v)
-    x, y = tr.x, tr.y
-
-    # Create initial plot
-    if plot:  # pragma: no cover
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(9, 7.5))
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.5)
-        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
-
-        ax0 = fig.add_subplot(grd[0, :])
-        ax0.set_xlabel('x')
-        ax0.set_ylabel('y')
-        code, color = ('-', '#92cc92') if len(x) > 10 else ('x-', 'tab:green')
-        ax0.plot(x, y, code, color=color, label='Transformed data')
-
-    # Get an initial estimate, for the dominant rate
-    at0, bt0, ct0 = expfit.estimate_initial_single(x, y, vet=False)
+    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
+    a0, b0, c0 = tr.detransform(q0)
+    del tr, q0
 
     # Catch nans etc.
-    if ct0 == 0:
-        return tr.detransform(at0, bt0, 0, 0, 0)
+    if c0 == 0:
+        return a0, b0, 0, 0, 0
 
     # Catch non-decaying
-    if ct0 > 0:
+    if c0 > 0:
         raise RuntimeError(
             'Initial estimate for c > 0, exponential not decaying')
 
-    # Assume dominant rate found, next rate will have smaller magnitude, but
-    # bigger multiplier to stay visible
+    # Assume dominant rate found, next rate will have smaller magnitude
     # Start with 2 times smaller, but increase if the rates converge
-    dt0 = bt0
-    et0 = ct0
-    bt0 *= 0.7
-    q0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
+    d0 = b0
+    e0 = c0
+    p0 = np.array((a0, b0, c0, d0, e0), dtype=float)
     for i in range(1, 6):
-        q0[4] *= 0.5
-        e = expfit.MultiExponentialError(x, y)
+        p0[4] *= 0.5
+        e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
-            r = expfit.fmin(e, q0, constraint=_decaying)
+            r = expfit.fmin(e, p0, constraint=_decaying)
             if plot:  # pragma: no cover
                 pass #print(r)
-        q = r.x
-        if q[2] / q[4] - 1 > 1e-3 and r.success:
+        p = r.x
+        if p[2] / p[4] - 1 > 1e-3 and r.success:
             break
 
-    # Estimate noise sensitivity
-    if False:
-        m = 5
-        qx = []
-        for i in range(m):
-            with np.errstate(all='ignore'):
-                e = expfit.MultiExponentialError(x[i::m], y[i::m])
-                r = expfit.fmin(e, q, constraint=_decaying)
-                if r.success:
-                    qx.append(r.x)
-
-
     # Mess
-    ci(x, y, q, 2)
-
-
-    # Detransform
-    p = tr.detransform(q)
+    #ci(x, y, q, 2)
 
     if plot:  # pragma: no cover
-        def pstr(p):
-            return ' '.join(f'{i:+.5e}' for i in p)
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(9, 7.5))
+        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.35)
+        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
 
-        p0 = tr.detransform(q0)
-        lines = [
-            f'Transformed Init: {pstr(q0)}',
-            f'             Fit: {pstr(q)}',
-            f' Real world Init: {pstr(p0)}',
-            f'             Fit: {pstr(p)}']
-        ax0.text(0.5, -0.30, '\n'.join(lines), transform=ax0.transAxes,
-                 ha='center', font='monospace')
+        ax0 = fig.add_subplot(grd[0, :])
+        ax0.set_xlabel('t')
+        ax0.set_ylabel('v')
+        code = '-' if len(t) > 10 else 'x-'
+        ax0.plot(t, v, code, color='tab:blue', label='Data')
 
+        # Show parameters
+        pstr = lambda p: ' '.join(f'{i:+.5e}' for i in p)  # noqa
+        ax0.text(0.5, -0.21, f'Init: {pstr(p0)}\n Fit: {pstr(p)}',
+                 transform=ax0.transAxes, ha='center', font='monospace')
 
-
-        try:
-            known = False
-            if len(plot) == 5:
-                pk = plot
-                qk = tr.transform(pk)
-                plot = known = True
-        except TypeError:
-            pass
-
+        # Try showing known solution
         f = expfit.exp
-        ax0.plot(x, f(x, q0[:3]), '#999', label='Initial')
-        if known:
-            ax0.plot(x, f(x, qk[:1]), '#bd5900', ls='--', zorder=3,
-                     label='Known offset')
-            ax0.plot(x, f(x, (0, qk[1], qk[2])), '#1f701f', ls='--', zorder=3,
-                     label='Known 1st',)
-            ax0.plot(x, f(x, (0, qk[3], qk[4])), '#961b1c', ls='--', zorder=3,
-                     label='Known 2nd')
-        ax0.plot(
-            x, f(x, q[:1]), lw=1, color='tab:orange', label='Fit offset')
-        ax0.plot(
-            x, f(x, (0, q[1], q[2])), lw=1, color='tab:green', label='Fit 1st')
-        ax0.plot(
-            x, f(x, (0, q[3], q[4])), lw=1, color='tab:red', label='Fit 2nd')
-        ax0.plot(x, f(x, q), lw=1, color='k', label='Fit')
+        try:
+            assert len(plot) == 5
+        except (TypeError, AssertionError):
+            pass
+        else:
+            ax0.plot(t, f(t, (plot[0], plot[1], plot[2])),
+                     color='tab:green', label='Known 1st',)
+            ax0.plot(t, f(t, (plot[0], plot[3], plot[4])),
+                     color='tab:red', label='Known 2nd')
 
-        if False:
-            for i, r in enumerate(qx):
-                ax0.plot(x, f(x, (0, r[1], r[2])), lw=1, color='tab:green',
-                         label=f'Alt 1st {i + 1}')
-                ax0.plot(x, f(x, (0, r[3], r[4])), lw=1, color='tab:red',
-                         label=f'Alt 2nd {i + 1}')
-                ax0.plot(x, f(x, r), ls='--', lw=1, color='k',
-                         label=f'Alt {i + 1}')
+        # Show fit
+        ax0.plot(t, f(t, p), lw=1, color='k', label='Fit')
+        ax0.plot(t, f(t, (p[0], p[1], p[2])), lw=1, ls='--',
+                 color='#1f701f', label='Fit 1st')
+        ax0.plot(t, f(t, (p[0], p[3], p[4])), lw=1, ls='--',
+                 color='#961b1c', label='Fit 2nd')
         ax0.legend(framealpha=1, ncol=2)
 
-        r = y - f(x, q)
-        ax2 = fig.add_subplot(grd[1, 0])
-        ax2.set_xlabel('x')
-        ax2.set_ylabel('Residuals')
-        ax2.plot(x, r, label='Residuals fit')
-        ax2.legend()
+        # Show single exponential estimate
+        ax1 = fig.add_subplot(grd[1, 0])
+        ax1.set_xlabel('t')
+        ax1.set_ylabel('v')
+        ax1.plot(t, v, code, color='tab:blue', label='Data')
+        ax1.plot(t, f(t, (a0, b0, c0)), 'k--', lw=1, label='Initial')
+        ax1.legend()
 
-        ax3 = fig.add_subplot(grd[1, 1])
-        ax3.set_xlabel('t')
-        ax3.set_ylabel('v')
-        label = 'Untransformed'
-        if known:
-            label = f'{label} (tau1={-1 / pk[2]:.3g}, tau2={-1 / pk[4]:.3g})'
-        ax3.plot(t, v, code, color=color, label=label)
-        ax3.plot(t, f(t, p0[:3]), '-', label=f'Initial (tau={-1 / p0[2]:.3g})')
-        ax3.plot(t, f(t, p), '--',
-                 label=f'Fit (tau1={-1 / p[2]:.3g}, tau2={-1 / p[4]:.3g})')
-        ax3.legend()
+        # Show final fit residuals
+        r = v - f(t, p)
+        ax2 = fig.add_subplot(grd[1, 1])
+        ax2.set_xlabel('t')
+        ax2.set_ylabel('Residuals')
+        ax2.plot(t, r, label='Residuals fit')
+        ax2.legend()
 
     return p
 
