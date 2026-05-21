@@ -38,6 +38,7 @@ from ._err import (  # noqa
     rmse,
     SingleExponentialError,
     MultiExponentialError,
+    ErrorWithFixedParameter,
 )
 
 from ._opt import (  # noqa

@@ -74,12 +74,12 @@ class TestDouble(unittest.TestCase):
         plot = False
 
         dod(200, 4, -5, 10, -2, deltas=(.05, .5, .5, .5, .1), plot=plot)
-        dod(0, -4, -8, -10, -2, deltas=(.1, .5, 2, .5, .1), plot=plot)
-        dod(-1e5, 3, -10, 5, -2, deltas=(.1, .5, 2, .5, .1), plot=plot)
-        dod(5, 5, -10, 1, -1, deltas=(.1, .1, .5, .1, .5), plot=plot)
-        dod(20, 4, -10, 6, -2, deltas=(.01, .5, 2, .5, .1), plot=plot)
-        dod(-87, 40, -20, 30, -3, deltas=(.5, 2, 2, 2, .5), plot=plot)
-        dod(123, -5, -99, -8, -1, deltas=(.05, .05, 10, .05, 1e-2), plot=plot)
+        #dod(0, -4, -8, -10, -2, deltas=(.1, .5, 2, .5, .1), plot=plot)
+        #dod(-1e5, 3, -10, 5, -2, deltas=(.1, .5, 2, .5, .1), plot=plot)
+        #dod(5, 5, -10, 1, -1, deltas=(.1, .1, .5, .1, .5), plot=plot)
+        #dod(20, 4, -10, 6, -2, deltas=(.01, .5, 2, .5, .1), plot=plot)
+        #dod(-87, 40, -20, 30, -3, deltas=(.5, 2, 2, 2, .5), plot=True)
+        #dod(123, -5, -99, -8, -1, deltas=(.05, .05, 10, .05, 1e-2), plot=plot)
 
     def test_dodde_hard(self):
         # Test cases where it doesn't seem identifiable

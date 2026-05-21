@@ -140,3 +140,25 @@ class MultiExponentialError():
 
         return mse, jac, hes
 
+
+class ErrorWithFixedParameter():
+    def __init__(self, error, p, ifix):
+        self._e = error
+        self._p = np.copy(p)
+        self._i = int(ifix)
+
+    def __call__(self, p):
+        self._p[:self._i] = p[:self._i]
+        self._p[self._i + 1:] = p[self._i:]
+        m, j, h = self._e(self._p)
+        j = np.delete(j, self._i, 0)
+        h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
+        return m, j, h
+
+
+
+
+
+
+#
+

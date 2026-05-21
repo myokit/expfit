@@ -65,16 +65,26 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         with np.errstate(all='ignore'):
             r = expfit.fmin(e, q0, constraint=_decaying)
             if plot:  # pragma: no cover
-                print(r)
+                pass #print(r)
         q = r.x
         if q[2] / q[4] - 1 > 1e-3 and r.success:
             break
 
-    #with np.printoptions(linewidth=120):
-    #    print()
-    #    print(r.x)
-    #    print(np.diag(np.linalg.inv(r.hes)))
-    #    print(r.x * np.diag(np.linalg.inv(r.hes)))
+    # Estimate noise sensitivity
+    if False:
+        m = 5
+        qx = []
+        for i in range(m):
+            with np.errstate(all='ignore'):
+                e = expfit.MultiExponentialError(x[i::m], y[i::m])
+                r = expfit.fmin(e, q, constraint=_decaying)
+                if r.success:
+                    qx.append(r.x)
+
+
+    # Mess
+    ci(x, y, q, 2)
+
 
     # Detransform
     p = tr.detransform(q)
@@ -91,6 +101,8 @@ def fit_double_decaying(t, v, plot=False, vet=True):
             f'             Fit: {pstr(p)}']
         ax0.text(0.5, -0.30, '\n'.join(lines), transform=ax0.transAxes,
                  ha='center', font='monospace')
+
+
 
         try:
             known = False
@@ -117,6 +129,15 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax0.plot(
             x, f(x, (0, q[3], q[4])), lw=1, color='tab:red', label='Fit 2nd')
         ax0.plot(x, f(x, q), lw=1, color='k', label='Fit')
+
+        if False:
+            for i, r in enumerate(qx):
+                ax0.plot(x, f(x, (0, r[1], r[2])), lw=1, color='tab:green',
+                         label=f'Alt 1st {i + 1}')
+                ax0.plot(x, f(x, (0, r[3], r[4])), lw=1, color='tab:red',
+                         label=f'Alt 2nd {i + 1}')
+                ax0.plot(x, f(x, r), ls='--', lw=1, color='k',
+                         label=f'Alt {i + 1}')
         ax0.legend(framealpha=1, ncol=2)
 
         r = y - f(x, q)
@@ -140,3 +161,40 @@ def fit_double_decaying(t, v, plot=False, vet=True):
 
     return p
 
+
+def ci(x, y, q, ifix=0, cutoff=1e-3, max_iter=100):
+    e = expfit.MultiExponentialError(x, y)
+    cutoff = e(q)[0] * (1 + cutoff)
+
+    def test(value):
+        t = np.copy(q)
+        t[ifix] = value
+        f = expfit.ErrorWithFixedParameter(e, t, ifix)
+        t = np.delete(t, ifix)
+        with np.errstate(all='ignore'):
+            r = expfit.fmin(f, t, constraint=_decaying)
+        if not r.success:
+            return False
+        return r.error < cutoff
+
+    # Expand until upper bound found
+    d = -1e-3 * np.abs(q[ifix])
+    for i in range(max_iter):
+        if not test(q[ifix] + d):
+            break
+        d *= 2
+    print(f'Expanded from {q[ifix]} to {q[ifix] + d} in {i} iterations')
+
+    # Bisect
+    a, b = q[ifix], q[ifix] + d
+    for i in range(max_iter):
+        c = 0.5 * (a + b)
+        if np.abs((c - a) / d) < 1e-6:
+            break
+        if test(c):
+            a = c
+        else:
+            b = c
+    print(f'Found {a} in {i} iterations')
+
+    print(q[ifix], a)
