@@ -22,16 +22,15 @@ def exp(x, p):
 
 def rmse(x, y, p):
     """
-    Returns the RMSE between ``y`` and ``a + b_1 * exp(c_1 * x) + b_ 2 * ...``.
-
-    Can be called as ``rmse(x, y, a, b, c)`` or ``rmse(x, y, p)``.
+    Returns the RMSE between ``y`` and an exponential
+    ``p[0] + p[1] * exp(p[1] * x) + p[3] * exp(p[4] * x) + ...``.
 
     **Note**: the returned RMSE is the root of the MSE returned by
     :class:`SingleExponentialError` and :class:`MultiExponentialError`
     """
-    p = np.array(p, copy=True)
     # Treat `a` separately: this is  more accurate when a == -b
     # for very large a and b (e.g. straight line)
+    p = np.array(p, copy=True)
     a = p[0]
     p[0] = 0
     return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
@@ -40,7 +39,7 @@ def rmse(x, y, p):
 class SingleExponentialError():
     """
     Callable class returning the MSE and its Jacobian and Hessian for a single
-    exponential ``y = a + b * exp(c * x)`` fit with parameter set
+    exponential ``y = a + b * exp(c * x)`` fit with parameters
     ``p = (a, b, c)``.
     """
     def __init__(self, x, y):
@@ -80,7 +79,7 @@ class SingleExponentialError():
 class MultiExponentialError():
     """
     Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameter set
+    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameters
     ``p = (a, b_1, c_1, b_2, c_2, ...)``.
     """
     def __init__(self, x, y):
