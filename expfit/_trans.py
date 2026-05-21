@@ -26,23 +26,32 @@ class UnitSquareTransform():
         self.x = (t - self._t0) / self._rt
         self.y = (v - self._v0) / self._rv
 
-    def transform(self, a, b, c):
+    def transform(self, *p):
         """
-        Transform ``a``, ``b``, and ``c`` to the unit square parameters.
-        """
-        p = (a - self._v0) / self._rv
-        q = b / self._rv * np.exp(c * self._t0)
-        r = c * self._rt
-        return p, q, r
+        Transform parameters ``p = (a, b, c)`` or more generally
+        ``p = (a, b_1, c_1, b_2, c_2, ...) to the unit square parameters.
 
-    def detransform(self, p, q, r):
+        Can be used as ``transform(a, b, c)`` or ``transform(p)``.
         """
-        Detransform ``p``, ``q``, and ``r`` to the original parameters.
+        p = np.asarray(p[0] if len(p) == 1 else p, dtype=float)
+        q = np.copy(p)
+        q[0] = (p[0] - self._v0) / self._rv
+        q[1::2] = p[1::2] / self._rv * np.exp(p[2::2] * self._t0)
+        q[2::2] = p[2::2] * self._rt
+        return q
+
+    def detransform(self, *q):
         """
-        a = self._v0 + p * self._rv
-        b = q * self._rv * np.exp(-r * self._t0 / self._rt)
-        c = r / self._rt
-        return a, b, c
+        Detransform ``q`` to the original parameter space.
+
+        Can be used as ``detransform(a, b, c)`` or ``detransform(q)``.
+        """
+        q = np.asarray(q[0] if len(q) == 1 else q, dtype=float)
+        p = np.copy(q)
+        p[0] = self._v0 + q[0] * self._rv
+        p[1::2] = q[1::2] * self._rv * np.exp(-q[2::2] * self._t0 / self._rt)
+        p[2::2] = q[2::2] / self._rt
+        return p
 
 
 class ZoomTransform():

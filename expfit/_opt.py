@@ -27,7 +27,7 @@ class OptResult:
         The Jacobian of ``x``.
     ``hes``
         The Hessian of ``x``.
-    ``score``
+    ``error``
         The final error.
     ``gtol``
         The final norm of the Jacobian.
@@ -45,7 +45,7 @@ class OptResult:
     message = 'Not run'
     success = False
     x = None
-    score = None
+    error = None
     jac = None
     hes = None
     gtol = None
@@ -62,8 +62,8 @@ class OptResult:
         return '\n'.join((
             f'     message: {self.message}',
             f'     success: {self.success}',
-            f'  root score: {np.sqrt(self.score)}',
-            f'       score: {self.score}',
+            f'  root error: {np.sqrt(self.error)}',
+            f'       error: {self.error}',
             f'    jacobian: {np.array2string(self.jac, precision=p)}',
             h0 + h1,
             f'           x: {np.array2string(self.x, precision=p)}',
@@ -131,16 +131,19 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     p = p.reshape((1, n))
     eye = np.eye(n)
     alpha = 1000    # Cautious start
+    err = False
+
+    m, j, h = f(p[0])
+    evaluations = 1
+    accepted = 0
 
     # Check if constraint holds for initial position
     if constraint is not None and not constraint(p[0]):
-        raise ValueError('Initial position fails constraint')
+        err = 'Initial position fails constraint'
 
-    err = False
-    m, j, h = f(p[0])
-    evaluations = 0
-    accepted = 0
     for iterations in range(max_iter):
+        if err:
+            break
         if np.linalg.norm(j) < gtol:
             break
 
@@ -191,7 +194,6 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
             alpha *= 10
             if alpha > 1e20:  # pragma: no cover
                 err = 'Lambda factor grew too large'
-                break
         if verbose:  # pragma: no cover
             print()
 
@@ -200,7 +202,7 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     # Create and return result object
     res = OptResult()
     res.x = p[0]
-    res.score = m
+    res.error = m
     res.jac = j
     res.hes = h
     res.gtol = np.linalg.norm(j)

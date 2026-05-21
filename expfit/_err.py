@@ -7,44 +7,34 @@
 import numpy as np
 
 
-def rmse_single(x, y, a, b, c):
+def exp(x, p):
     """
-    Returns the RMSE between ``y`` and ``a + b * exp(c * x)``.
-
-    **Note**: the returned RMSE is the root of the MSE returned by
-    :class:`SingleExponentialError`.
+    Returns an exponential ``p[0] + p[1] * exp(p[2] * x) + p[3] * ...``.
     """
-    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
-
-
-def rmse_double(x, y, a, b1, c1, b2, c2):
-    """
-    Returns the RMSE between ``y`` and
-    ``a + b1 * exp(c1 * x) + b2 * exp(c2 * x)``.
-    """
-    return np.sqrt(np.sum((
-        y - a - b1 * np.exp(c1 * x) - b2 * np.exp(c2 * x))**2))
-
-
-def rmse_multi(x, y, p):
-    """
-    Returns the RMSE
-    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameter set
-    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
-
-    **Note**: the returned RMSE is the root of the MSE returned by
-    :class:`MultiExponentialError`.
-    """
-    d = len(p)
-    assert (d - 1) % 2 == 0 and d > 1
-    m = (d - 1) // 2
-
     p = np.asarray(p)
-    bs = p[1::2].reshape((m, 1))
-    cs = p[2::2].reshape((m, 1))
-    return np.sqrt(
-        np.sum((p[0] - y + np.sum(bs * np.exp(np.outer(cs, x)), axis=0))**2)
-        / len(x))
+    d = len(p)
+    assert (d - 1) % 2 == 0
+    m = (d - 1) // 2
+    b = p[1::2].reshape((m, 1))
+    c = p[2::2].reshape((m, 1))
+    return p[0] + np.sum(b * np.exp(c * x), axis=0)
+
+
+def rmse(x, y, p):
+    """
+    Returns the RMSE between ``y`` and ``a + b_1 * exp(c_1 * x) + b_ 2 * ...``.
+
+    Can be called as ``rmse(x, y, a, b, c)`` or ``rmse(x, y, p)``.
+
+    **Note**: the returned RMSE is the root of the MSE returned by
+    :class:`SingleExponentialError` and :class:`MultiExponentialError`
+    """
+    p = np.array(p, copy=True)
+    # Treat `a` separately: this is  more accurate when a == -b
+    # for very large a and b (e.g. straight line)
+    a = p[0]
+    p[0] = 0
+    return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
 
 
 class SingleExponentialError():

@@ -34,9 +34,8 @@ from ._trans import (  # noqa
 )
 
 from ._err import (  # noqa
-    rmse_single,
-    rmse_double,
-    rmse_multi,
+    exp,
+    rmse,
     SingleExponentialError,
     MultiExponentialError,
 )

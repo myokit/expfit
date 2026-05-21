@@ -9,16 +9,6 @@ import numpy as np
 import expfit
 
 
-def _rmse_double_decaying(x, y, p):
-    rb = p[1] / p[3]    # >0 to keep sign equal
-    rc = p[2] / p[4]    # >1 to keep sign equal, and c > e
-    if rb < 0 or rc < 1 or p[2] > 0:
-        return np.inf  # TODO
-    return np.sqrt(np.sum(
-        (y - p[0] - p[1] * np.exp(p[2] * x) - p[3] * np.exp(p[4] * x))**2
-    ) / len(x))
-
-
 def _decaying(p):
     c = p[2::2]
     return np.all(c < 0) and np.all(c[1:] > c[:-1])
@@ -33,12 +23,9 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     if vet:
         t, v = expfit.vet_series(t, v)
 
-    # Transform to unit square, to avoid overflows and get useable numbers
-    # TODO REWRITE THIS USING TRANSFORM CLASS
-    rt, rv = (t[-1] - t[0]), (v[-1] - v[0])
-    if rv == 0:
-        rv = 1
-    x, y = (t - t[0]) / rt, (v - v[0]) / rv
+    # Transform to unit square, to avoid overflows etc
+    tr = expfit.UnitSquareTransform(t, v)
+    x, y = tr.x, tr.y
 
     # Create initial plot
     if plot:  # pragma: no cover
@@ -58,7 +45,12 @@ def fit_double_decaying(t, v, plot=False, vet=True):
 
     # Catch nans etc.
     if ct0 == 0:
-        return v[0] + at0 * rv, bt0 * rv, 0., 0., 0.
+        return tr.detransform(at0, bt0, 0, 0, 0)
+
+    # Catch non-decaying
+    if ct0 > 0:
+        raise RuntimeError(
+            'Initial estimate for c > 0, exponential not decaying')
 
     # Assume dominant rate found, next rate will have smaller magnitude, but
     # bigger multiplier to stay visible
@@ -66,78 +58,68 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     dt0 = bt0
     et0 = ct0
     bt0 *= 0.7
-    p0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
+    q0 = np.array((at0, bt0, ct0, dt0, et0), dtype=float)
     for i in range(1, 6):
-        p0[4] *= 0.5
+        q0[4] *= 0.5
         e = expfit.MultiExponentialError(x, y)
         with np.errstate(all='ignore'):
-            r = expfit.fmin(e, p0, constraint=_decaying)
+            r = expfit.fmin(e, q0, constraint=_decaying)
             if plot:  # pragma: no cover
                 print(r)
-        at, bt, ct, dt, et = r.x
-        if ct / et - 1 > 1e-3 and r.success:
+        q = r.x
+        if q[2] / q[4] - 1 > 1e-3 and r.success:
             break
 
+    #with np.printoptions(linewidth=120):
+    #    print()
+    #    print(r.x)
+    #    print(np.diag(np.linalg.inv(r.hes)))
+    #    print(r.x * np.diag(np.linalg.inv(r.hes)))
+
     # Detransform
-    a = v[0] + at * rv
-    b = bt * rv * np.exp(-ct * t[0] / rt)
-    c = ct / rt
-    d = dt * rv * np.exp(-et * t[0] / rt)
-    e = et / rt
+    p = tr.detransform(q)
 
     if plot:  # pragma: no cover
-        a0 = v[0] + at0 * rv
-        b0 = bt0 * rv * np.exp(-ct0 * t[0] / rt)
-        c0 = ct0 / rt
-        d0 = dt0 * rv * np.exp(-et0 * t[0] / rt)
-        e0 = et0 / rt
+        def pstr(p):
+            return ' '.join(f'{i:+.5e}' for i in p)
 
+        p0 = tr.detransform(q0)
         lines = [
-            f'Transformed Init: {at0:+.5e} {bt0:+.5e} {ct0:+.5e}'
-            f' {dt0:+.5e} {et0:+.5e}',
-            f'             Fit: {at:+.5e} {bt:+.5e} {ct:+.5e}'
-            f' {dt:+.5e} {et:+.5e}',
-            f'Real-world  Init: {a0:+.5e} {b0:+.5e} {c0:+.5e}'
-            f' {d0:+.5e} {e0:+.5e}',
-            f'             Fit: {a:+.5e} {b:+.5e} {c:+.5e}'
-            f' {d:+.5e} {e:+.5e}',
-        ]
+            f'Transformed Init: {pstr(q0)}',
+            f'             Fit: {pstr(q)}',
+            f' Real world Init: {pstr(p0)}',
+            f'             Fit: {pstr(p)}']
         ax0.text(0.5, -0.30, '\n'.join(lines), transform=ax0.transAxes,
                  ha='center', font='monospace')
 
         try:
             known = False
             if len(plot) == 5:
-                ak, bk, ck, dk, ek = plot
+                pk = plot
+                qk = tr.transform(pk)
                 plot = known = True
-                akt = (ak - v[0]) / rv
-                bkt = bk / rv * np.exp(ck * t[0])
-                ckt = ck * rt
-                dkt = dk / rv * np.exp(ek * t[0])
-                ekt = ek * rt
         except TypeError:
             pass
 
-        print()
-        print(f'Init: {a0:+.5e} {b0:+.5e} {c0:+.5e} {d0:+.5e} {e0:+.5e}')
-        print(f'Fit:  {a:+.5e} {b:+.5e} {c:+.5e} {d:+.5e} {e:+.5e}')
-
-        ax0.plot(x, at0 + bt0 * np.exp(ct0 * x), '-', label='Initial')
+        f = expfit.exp
+        ax0.plot(x, f(x, q0[:3]), '#999', label='Initial')
         if known:
-            ax0.plot(x, akt * np.ones(x.shape), 'k--', label='Known offset',
-                     zorder=10)
-            ax0.plot(
-                x, bkt * np.exp(ckt * x), 'k-.', label='Known 1st', zorder=10)
-            ax0.plot(
-                x, dkt * np.exp(ekt * x), 'k:', label='Known 2nd', zorder=10)
-        ax0.plot([x[0], x[-1]], [at, at], '-', label='Fit offset')
-        ax0.plot(x, bt * np.exp(ct * x), '-', label='Fit 1st')
-        ax0.plot(x, dt * np.exp(et * x), '-', label='Fit 2nd')
-        ax0.plot(x, at + bt * np.exp(ct * x) + dt * np.exp(et * x), '-',
-                 label='Fit')
+            ax0.plot(x, f(x, qk[:1]), '#bd5900', ls='--', zorder=3,
+                     label='Known offset')
+            ax0.plot(x, f(x, (0, qk[1], qk[2])), '#1f701f', ls='--', zorder=3,
+                     label='Known 1st',)
+            ax0.plot(x, f(x, (0, qk[3], qk[4])), '#961b1c', ls='--', zorder=3,
+                     label='Known 2nd')
+        ax0.plot(
+            x, f(x, q[:1]), lw=1, color='tab:orange', label='Fit offset')
+        ax0.plot(
+            x, f(x, (0, q[1], q[2])), lw=1, color='tab:green', label='Fit 1st')
+        ax0.plot(
+            x, f(x, (0, q[3], q[4])), lw=1, color='tab:red', label='Fit 2nd')
+        ax0.plot(x, f(x, q), lw=1, color='k', label='Fit')
         ax0.legend(framealpha=1, ncol=2)
 
-        r = y - (at + bt * np.exp(ct * x) + dt * np.exp(et * x))
+        r = y - f(x, q)
         ax2 = fig.add_subplot(grd[1, 0])
         ax2.set_xlabel('x')
         ax2.set_ylabel('Residuals')
@@ -149,13 +131,12 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax3.set_ylabel('v')
         label = 'Untransformed'
         if known:
-            label = f'{label} (tau1={-1 / ck:.3g}, tau2={-1 / ek:.3g})'
+            label = f'{label} (tau1={-1 / pk[2]:.3g}, tau2={-1 / pk[4]:.3g})'
         ax3.plot(t, v, code, color=color, label=label)
-        ax3.plot(t, a0 + b0 * np.exp(c0 * t), '-',
-                 label=f'Initial (tau={-1 / c0:.3g})')
-        ax3.plot(t, a + b * np.exp(c * t) + d * np.exp(e * t), '--',
-                 label=f'Fit (tau1={-1 / c:.3g}, tau2={-1 / e:.3g})')
+        ax3.plot(t, f(t, p0[:3]), '-', label=f'Initial (tau={-1 / p0[2]:.3g})')
+        ax3.plot(t, f(t, p), '--',
+                 label=f'Fit (tau1={-1 / p[2]:.3g}, tau2={-1 / p[4]:.3g})')
         ax3.legend()
 
-    return a, b, c, d, e
+    return p
 

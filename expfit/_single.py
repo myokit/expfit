@@ -224,9 +224,9 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
 
     # Use start, end, or averaged parameters, depending on RMSE
     with np.errstate(over='ignore', divide='ignore'):
-        r1 = expfit.rmse_single(x, y, a1, b1, c)
-        r2 = expfit.rmse_single(x, y, a2, b2, c)
-        rm = expfit.rmse_single(x, y, am, bm, c)
+        r1 = expfit.rmse(x, y, (a1, b1, c))
+        r2 = expfit.rmse(x, y, (a2, b2, c))
+        rm = expfit.rmse(x, y, (am, bm, c))
         if rm < r1 and rm < r2:
             a, b = am, bm
             r = rm
@@ -238,7 +238,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             r = r2
 
         # Compare with flat line
-        rr = r / expfit.rmse_single(x, y, l0.mu_y, 0, 0)
+        rr = r / expfit.rmse(x, y, (l0.mu_y, 0, 0))
     if rr > 2:
         return fail(seg1, seg2, l1, l2, 'Flat line is better fit')
 
@@ -313,7 +313,7 @@ def fit_single(t, v, plot=False):
         a0, b0, c0 = tr.detransform(at0, bt0, ct0)
 
         fit_param = f'{a:.3}, {b:.3}, {c:.3}'
-        fit_label = f'rmse {np.sqrt(r.score):.4}'
+        fit_label = f'rmse {np.sqrt(r.error):.4}'
         if r.success:
             fit_label = f'Fit ({fit_param}, {r.iterations} iter, {fit_label})'
         else:

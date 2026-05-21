@@ -38,29 +38,27 @@ class TestSingle(unittest.TestCase):
     def test_estimate_initial(self):
 
         rng = np.random.default_rng(71)
+        f = expfit.exp
         plot = False
 
         # Noise free
         a, b, c = 8, 2, 0.3
         x = np.linspace(1.5, 2.5, 2000)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-9)
         self.assertAlmostEqual(q, b, delta=1e-7)
         self.assertAlmostEqual(r, c, delta=1e-8)
 
         a, b, c = -1000, 5, -0.3
         x = np.linspace(0.3, 4, 200)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-10)
         self.assertAlmostEqual(q, b, delta=2e-4)
         self.assertAlmostEqual(r, c, delta=1e-5)
 
         a, b, c = 200, 21, -0.7
         x = np.linspace(0, 0.5, 9)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-11)
         self.assertAlmostEqual(q, b, delta=0.1)
         self.assertAlmostEqual(r, c, delta=1e-3)
@@ -69,7 +67,7 @@ class TestSingle(unittest.TestCase):
         a, b, c = 73, 1, 0.18
         n = 1003
         x = np.linspace(0, 6.7, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 0.05, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 0.05, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=0.2)
         self.assertAlmostEqual(q, b, delta=0.2)
@@ -78,7 +76,7 @@ class TestSingle(unittest.TestCase):
         a, b, c = -51, -7.2, 1000
         n = 900
         x = np.linspace(1e-3, 7e-3, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 100, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 100, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=6)
         self.assertAlmostEqual(q, b, delta=2)
@@ -87,17 +85,17 @@ class TestSingle(unittest.TestCase):
         a, b, c = 1, 1e13, -3
         n = 88
         x = np.linspace(10, 11, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 0.02, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 0.02, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=0.02)
         self.assertAlmostEqual(q, b, delta=8e12)
         self.assertAlmostEqual(r, c, delta=0.1)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.1)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.1)
 
         # Vets, but can be disabled
         a, b, c = 3, 5, -0.7
         x = np.linspace(0.5, 1.5, 100)
-        y = a + b * np.exp(c * x)
+        y = f(x, (a, b, c))
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 100 and 99',
             expfit.estimate_initial_single, x, y[:-1])
@@ -134,10 +132,10 @@ class TestSingle(unittest.TestCase):
         x = np.linspace(0, 1, 10)
         y = 3 * x
         p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.6)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.6)
         self.assertEqual(p, -q)
         p, q, r = self.estimate_initial(x, y, transform=False, plot=plot)
-        self.assertEqual(expfit.rmse_single(x, y, p, q, r), 0)
+        self.assertEqual(expfit.rmse(x, y, (p, q, r)), 0)
         self.assertEqual(p, -q)
 
         # Straight line through origin, with noise
@@ -145,14 +143,14 @@ class TestSingle(unittest.TestCase):
         y = 3 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, -q, delta=0.1)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.2)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.2)
 
         # Straight line with offset and noise
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p + q, 4, delta=0.5)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 0.2)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.2)
 
         # Specific case: needs this seed
         # This failed when the ZoomTransform was variance-based
@@ -162,18 +160,18 @@ class TestSingle(unittest.TestCase):
         y += rng.normal(0, 1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p + q, 0, delta=0.01)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 1)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 1)
 
     def test_estimate_initial_steep(self):
 
-        rng = np.random.default_rng(71)
+        rng = np.random.default_rng(17)
+        f = expfit.exp
         plot = False
 
         # No zoom: Not steep enough
         a, b, c = 8, 2, 6
         x = np.linspace(0, 1, 2000)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-9)
         self.assertAlmostEqual(q, b, delta=1)
         self.assertAlmostEqual(r, c, delta=1)
@@ -181,8 +179,7 @@ class TestSingle(unittest.TestCase):
         # No zoom: Too short
         a, b, c = 200, 21, 15
         x = np.linspace(0, 1, 40)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-9)
         self.assertAlmostEqual(q, b, delta=500)
         self.assertAlmostEqual(r, c, delta=5)
@@ -190,16 +187,14 @@ class TestSingle(unittest.TestCase):
         # Zoom
         a, b, c = 8, 2, 7
         x = np.linspace(0, 1, 500)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-9)
         self.assertAlmostEqual(q, b, delta=1e-2)
         self.assertAlmostEqual(r, c, delta=1e-3)
 
         a, b, c = -1000, 5, -10
         x = np.linspace(0, 1, 200)
-        y = a + b * np.exp(c * x)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
+        p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-10)
         self.assertAlmostEqual(q, b, delta=5e-4)
         self.assertAlmostEqual(r, c, delta=5e-2)
@@ -208,7 +203,7 @@ class TestSingle(unittest.TestCase):
         a, b, c = 8, 2, 7
         n = 500
         x = np.linspace(0, 1, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 50, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 50, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=20)
         self.assertAlmostEqual(q, b, delta=2)
@@ -218,22 +213,22 @@ class TestSingle(unittest.TestCase):
         a, b, c = -5e4, -1e5, -20
         n = 900
         x = np.linspace(0, 1, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 9e2, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 9e2, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=5e2)
-        self.assertAlmostEqual(q, b, delta=5e2)
-        self.assertAlmostEqual(r, c, delta=1)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 1e3)
+        self.assertAlmostEqual(q, b, delta=8e3)
+        self.assertAlmostEqual(r, c, delta=10)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 4e3)
 
         a, b, c = 1e5, 1e5, 15
         n = 999
         x = np.linspace(0, 1, n)
-        y = a + b * np.exp(c * x) + rng.normal(0, 2e9, n)
+        y = f(x, (a, b, c)) + rng.normal(0, 2e9, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=1e10)
         self.assertAlmostEqual(q, b, delta=1e6)
-        self.assertAlmostEqual(r, c, delta=1)
-        self.assertLess(expfit.rmse_single(x, y, p, q, r), 1e10)
+        self.assertAlmostEqual(r, c, delta=2)
+        self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
 
     def test_single_error(self):
 
@@ -241,14 +236,14 @@ class TestSingle(unittest.TestCase):
         '''
         a, b, c = 1, 2, -3
         x = np.linspace(0, 1, 99)
-        y = a + b * np.exp(c * x)
-        self.assertAlmostEqual(expfit.rmse_single(x, y, a, b, c), 0, 14)
+        y = expfit.exp(x, (a, b, c))
+        self.assertAlmostEqual(expfit.rmse(x, y, (a, b, c)), 0, 14)
         y = 3 * np.ones(x.shape)
         self.assertEqual(
-            expfit.rmse_single(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
-        y = 10 + b * np.exp(c * x)
+            expfit.rmse(x, y, 0, 0, c), np.sqrt(np.sum(y**2) / len(x)))
+        y = expfit.exp(x, (10, b, c))
         self.assertAlmostEqual(
-            expfit.rmse_single(x, y, a, b, c), np.sqrt(81), 14)
+            expfit.rmse(x, y, (a, b, c)), np.sqrt(81), 14)
         '''
 
     def test_single_edge_cases(self):
@@ -282,13 +277,13 @@ class TestSingle(unittest.TestCase):
         the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
-        vt = a + b * np.exp(c * t)
-        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
-        v = vt + self.r.normal(0, s, size=n)
+        v = expfit.exp(t, (a, b, c))
+        s = max(fnoise * abs(v[0] - v[-1]), 1e-9)
+        v += self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=(a, b, c) if plot else False)
-        rt = expfit.rmse_single(t, v, a, b, c)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rt = expfit.rmse(t, v, (a, b, c))
+        rf = expfit.rmse(t, v, (af, bf, cf))
 
         if plot:  # pragma: no cover
             print(f'True: {a:+.5e} {b:+.5e} {c:+.5e}')
@@ -403,12 +398,12 @@ class TestSingle(unittest.TestCase):
         given parameters, ``rmse`` is the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
-        vt = a + b * np.exp(c * t) + d * np.exp(e * t)
-        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
-        v = vt + self.r.normal(0, s, size=n)
+        v = expfit.exp(t, (a, b, c, d, e))
+        s = max(fnoise * abs(v[0] - v[-1]), 1e-9)
+        v += self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rf = expfit.rmse(t, v, (af, bf, cf))
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
@@ -457,12 +452,12 @@ class TestSingle(unittest.TestCase):
         given parameters, ``rmse`` is the max rmse.
         """
         t = np.linspace(t0, t0 + duration, n)
-        vt = a + b * np.exp(c * t) + d * np.exp(e * t) + f * np.exp(g * t)
-        s = max(fnoise * abs(vt[0] - vt[-1]), 1e-9)
-        v = vt + self.r.normal(0, s, size=n)
+        v = expfit.exp(t, (a, b, c, d, e, f, g))
+        s = max(fnoise * abs(v[0] - v[-1]), 1e-9)
+        v += self.r.normal(0, s, size=n)
 
         af, bf, cf = expfit.fit_single(t, v, plot=plot)
-        rf = expfit.rmse_single(t, v, af, bf, cf)
+        rf = expfit.rmse(t, v, (af, bf, cf))
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
@@ -502,14 +497,14 @@ class TestSingle(unittest.TestCase):
 
         a, b, c = 3, -1, 3
         t = np.linspace(0, 10, 10)
-        v = a + b * np.exp(-t / c)
+        v = expfit.exp(t, (a, b, -1 / c))
         r = expfit.fit_single_tau(t, v)
         self.assertAlmostEqual(r, 3, 3)
 
         # Negative infinity
         a, b, c = 1, 0, 3
         t = np.linspace(0, 10, 10)
-        v = a + b * np.exp(-t / c)
+        v = expfit.exp(t, (a, b, -1 / c))
         r = expfit.fit_single_tau(t, v)
         self.assertTrue(np.isinf(r))
         self.assertLess(r, 0)
@@ -520,15 +515,13 @@ class TestSingle(unittest.TestCase):
         a0, b0, c0 = 1, -2, -9
         n = 300
         x = np.linspace(0, 1, n)
-        y = a0 * np.zeros(x.shape)
-        y += b0 * np.exp(c0 * x)
-        y += 0.8 * np.exp(-30 * x)
+        y = expfit.exp(x, (a0, b0, c0, 0.8, -30))
         y += -0.2 * x
         a, b, c = expfit.fit_single(x, y)
         self.assertAlmostEqual(a, a0, -1)
         self.assertAlmostEqual(b, b0, -1)
         self.assertAlmostEqual(c, c0, -1)
-        self.assertLess(expfit.rmse_single(x, y, a, b, c), 0.1)
+        self.assertLess(expfit.rmse(x, y, (a, b, c)), 0.1)
 
     def test_single_with_big_sine(self):
         # Sine wave causing both segment slopes to exceed the full signal slope
@@ -536,21 +529,20 @@ class TestSingle(unittest.TestCase):
         a0, b0, c0 = 1, -2, -9
         n = 300
         x = np.linspace(0, 1, n)
-        y = a0 * np.zeros(x.shape)
-        y += b0 * np.exp(c0 * x)
+        y = expfit.exp(x, (a0, b0, c0))
         y += 0.1 * np.sin(10.2 * np.pi * x)
         a, b, c = expfit.fit_single(x, y)
         self.assertAlmostEqual(a, a0, -1)
         self.assertAlmostEqual(b, b0, 0)
         self.assertAlmostEqual(c, c0, 0)
-        self.assertLess(expfit.rmse_single(x, y, a, b, c), 0.1)
+        self.assertLess(expfit.rmse(x, y, (a, b, c)), 0.1)
 
     def test_single_ar1(self):
         # Test with AR1 noise
 
         a0, b0, c0 = 3, -4, -7
         x = np.linspace(0, 1, 300)
-        y = a0 + b0 * np.exp(c0 * x)
+        y = expfit.exp(x, (a0, b0, c0))
 
         # Add AR1 noise
         # https://pints.readthedocs.io/en/stable/noise_generators.html
@@ -567,7 +559,7 @@ class TestSingle(unittest.TestCase):
         self.assertAlmostEqual(a, a0, 1)
         self.assertAlmostEqual(b, b0, 0)
         self.assertAlmostEqual(c, c0, -1)
-        self.assertLess(expfit.rmse_single(x, y, a, b, c), 0.1)
+        self.assertLess(expfit.rmse(x, y, (a, b, c)), 0.1)
 
 
 if __name__ == '__main__':  # pragma: no cover

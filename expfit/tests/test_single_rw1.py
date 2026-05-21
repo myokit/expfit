@@ -32,7 +32,7 @@ class TestSingleRw1(unittest.TestCase):
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
-        self.assertLess(expfit.rmse_single(x, y, *p), 14)
+        self.assertLess(expfit.rmse(x, y, p), 14)
 
 
 y = [
