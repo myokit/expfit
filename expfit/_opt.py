@@ -56,17 +56,21 @@ class OptResult:
 
     def __str__(self):
         p = 5
-        hes = np.array2string(self.hes, precision=p).splitlines()
-        h0 = f'     hessian: {hes[0]}\n'
-        h1 = '\n'.join([f'              {h}' for h in hes[1:]])
+        x = np.asarray(self.x)
+        jac = np.asarray(self.jac)
+        hes = np.asarray(self.hes)
+        hes = np.array2string(hes, precision=p).splitlines()
+        h = f'     hessian: {hes[0]}'
+        if len(hes) > 1:
+            h += ''.join([f'\n              {h}' for h in hes[1:]])
         return '\n'.join((
             f'     message: {self.message}',
             f'     success: {self.success}',
             f'  root error: {np.sqrt(self.error)}',
             f'       error: {self.error}',
-            f'    jacobian: {np.array2string(self.jac, precision=p)}',
-            h0 + h1,
-            f'           x: {np.array2string(self.x, precision=p)}',
+            f'    jacobian: {np.array2string(jac, precision=p)}',
+            h,
+            f'           x: {np.array2string(x, precision=p)}',
             f'        gtol: {self.gtol}',
             f'  iterations: {self.iterations}',
             f' evaluations: {self.evaluations}',
