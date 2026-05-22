@@ -108,7 +108,7 @@ class ZoomTransform():
 
     def transform(self, a, b, c):
         """
-        Transform ``a``, ``b``, and ``c`` to the unit square parameters.
+        Transform ``a``, ``b``, and ``c`` to the zoom transform parameters.
         """
         if self._rx != 1:
             b = b * np.exp(c * self._x0)
@@ -130,24 +130,5 @@ class ZoomTransform():
         """
         if self._rx != 1:
             return self._rx * x + self._x0, y
-        return x, y
-
-
-class NoTransform():
-    """
-    Returns the same data without transforming: useful to replace a
-    transformation when debugging.
-    """
-    def __init__(self, t, v):
-        self.x = t
-        self.y = v
-
-    def transform(self, a, b, c):
-        return a, b, c
-
-    def detransform(self, p, q, r):
-        return p, q, r
-
-    def detransform_series(self, x, y):
         return x, y
 
