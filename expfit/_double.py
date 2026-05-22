@@ -54,9 +54,6 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         if p[2] / p[4] - 1 > 1e-3 and r.success:
             break
 
-    # Mess
-    #ci(x, y, q, 2)
-
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
@@ -120,6 +117,7 @@ def fit_double_decaying(t, v, plot=False, vet=True):
     return p
 
 
+'''
 def ci(x, y, q, ifix=0, cutoff=1e-3, max_iter=100):
     e = expfit.MultiExponentialError(x, y)
     cutoff = e(q)[0] * (1 + cutoff)
@@ -156,3 +154,4 @@ def ci(x, y, q, ifix=0, cutoff=1e-3, max_iter=100):
     print(f'Found {a} in {i} iterations')
 
     print(q[ifix], a)
+'''
