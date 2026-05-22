@@ -211,7 +211,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     # Edge cases for c estimate
     if s1 == s2:
         return fail(seg1, seg2, l1, l2, 'Equal slopes (c=0)')
-    if y1 == y2:
+    if y1 == y2 or np.abs(y1 - y2) < 1e-16:
         return fail(seg1, seg2, l1, l2, 'Equal means (c=inf)')
 
     # Estimate c, as, and bs

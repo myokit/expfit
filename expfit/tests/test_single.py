@@ -92,6 +92,14 @@ class TestSingle(unittest.TestCase):
         self.assertAlmostEqual(r, c, delta=0.1)
         self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.1)
 
+        # Contrived example with equal means (but not equal slope)
+        x = np.array([0, 1, 2, 3])
+        y = np.array([0, 2, -1, 3])
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertEqual(p, 1)
+        self.assertEqual(q, 0)
+        self.assertEqual(r, 0)
+
         # Vets, but can be disabled
         a, b, c = 3, 5, -0.7
         x = np.linspace(0.5, 1.5, 100)
