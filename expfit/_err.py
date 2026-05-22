@@ -142,6 +142,20 @@ class MultiExponentialError():
 
 
 class ErrorWithFixedParameter():
+    """
+    Wraps around an error class and fixes one parameter --- used when finding
+    confidence intervals around a best solution.
+
+    Arguments:
+
+    ``error``
+        The error to wrap.
+    ``p``
+        The best solution
+    ``ifix``
+        The index in the parameter vector of the parameter to hold fixed.
+
+    """
     def __init__(self, error, p, ifix):
         self._e = error
         self._p = np.copy(p)
@@ -154,11 +168,4 @@ class ErrorWithFixedParameter():
         j = np.delete(j, self._i, 0)
         h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
         return m, j, h
-
-
-
-
-
-
-#
 

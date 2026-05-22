@@ -49,7 +49,7 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         with np.errstate(all='ignore'):
             r = expfit.fmin(e, p0, constraint=_decaying)
             if plot:  # pragma: no cover
-                pass #print(r)
+                print(r)
         p = r.x
         if p[2] / p[4] - 1 > 1e-3 and r.success:
             break
