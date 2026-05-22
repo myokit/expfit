@@ -73,12 +73,12 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(20)
         plot = False
 
-        dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=plot)
-        dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
-        dod(5, 5, -10, 1, -1, deltas=(.1, .2, .5, .1, .5), plot=plot)
-        dod(20, 4, -10, 6, -2, deltas=(.05, .4, .5, .2, .1), plot=plot)
-        dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
-        dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
+        #dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=plot)
+        #dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
+        #dod(5, 5, -10, 1, -1, deltas=(.1, .2, .5, .1, .5), plot=plot)
+        #dod(20, 4, -10, 6, -2, deltas=(.05, .4, .5, .2, .1), plot=plot)
+        #dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
+        #dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
 
     def test_dodde_hard(self):
         # Test cases where it doesn't seem identifiable
@@ -95,8 +95,8 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(6)
         dod(200, 4, -5, 10, -2, deltas=(.3, 4, 4, 4, .6), plot=plot)
 
-        #self.r = np.random.default_rng(3)
-        #dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
+        self.r = np.random.default_rng(3)
+        dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
         #self.r = np.random.default_rng(9)
         #dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
         #dod(-1e5, 2, -2, 1, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa

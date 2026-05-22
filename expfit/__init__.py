@@ -45,6 +45,10 @@ from ._opt import (  # noqa
     LeastSquaresFit,
 )
 
+from ._ci import (  # noqa
+    ci,
+)
+
 from ._single import (  # noqa
     estimate_initial_single,
     fit_single,

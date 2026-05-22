@@ -94,8 +94,19 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax0.plot(t, f(t, p), lw=1, color='k', label=label)
         ax0.plot(t, f(t, (p[0], p[1], p[2])), lw=1, ls='--',
                  color='#1f701f', label=f'Fit 1st (tau={1 / p[2]:+.2g})')
+        lo, hi = expfit.ci(t, v, p, 2, constraint=_decaying)
+        print(p[2], lo[2], hi[2])
+        ax0.fill_between(
+            t, f(t, (lo[0], lo[1], lo[2])), f(t, (hi[0], hi[1], hi[2])),
+            color='#1f701f', alpha=0.3)
         ax0.plot(t, f(t, (p[0], p[3], p[4])), lw=1, ls='--',
                  color='#961b1c', label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
+        lo, hi = expfit.ci(t, v, p, 4, constraint=_decaying)
+        print(p[4], lo[4], hi[4])
+        ax0.fill_between(
+            t, f(t, (lo[0], lo[3], lo[4])), f(t, (hi[0], hi[3], hi[4])),
+            color='#961b1c', alpha=0.3)
+
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
@@ -116,42 +127,3 @@ def fit_double_decaying(t, v, plot=False, vet=True):
 
     return p
 
-
-'''
-def ci(x, y, q, ifix=0, cutoff=1e-3, max_iter=100):
-    e = expfit.MultiExponentialError(x, y)
-    cutoff = e(q)[0] * (1 + cutoff)
-
-    def test(value):
-        t = np.copy(q)
-        t[ifix] = value
-        f = expfit.ErrorWithFixedParameter(e, t, ifix)
-        t = np.delete(t, ifix)
-        with np.errstate(all='ignore'):
-            r = expfit.fmin(f, t, constraint=_decaying)
-        if not r.success:
-            return False
-        return r.error < cutoff
-
-    # Expand until upper bound found
-    d = -1e-3 * np.abs(q[ifix])
-    for i in range(max_iter):
-        if not test(q[ifix] + d):
-            break
-        d *= 2
-    print(f'Expanded from {q[ifix]} to {q[ifix] + d} in {i} iterations')
-
-    # Bisect
-    a, b = q[ifix], q[ifix] + d
-    for i in range(max_iter):
-        c = 0.5 * (a + b)
-        if np.abs((c - a) / d) < 1e-6:
-            break
-        if test(c):
-            a = c
-        else:
-            b = c
-    print(f'Found {a} in {i} iterations')
-
-    print(q[ifix], a)
-'''
