@@ -10,7 +10,8 @@ import numpy as np
 import expfit
 
 
-def ci(x, y, p, ifix=0, cutoff=1e-3, max_iter=100, constraint=None):
+def ci(x, y, p, ifix=0, cutoff=5e-2, max_iter=100, constraint=None,
+       verbose=False):
     """
     Finds a confidence interval for a parameter.
 
@@ -35,16 +36,17 @@ def ci(x, y, p, ifix=0, cutoff=1e-3, max_iter=100, constraint=None):
         The RMSE threshold is ``(1 + cutoff) * rmse(p)``.
     ``max_iter``
         The maximum iterations for steps 2 and 3.
+    ``verbose``
+        Set to ``True`` to print debug messages.
 
     Returns two full parameter sets, corresponding to the lower and upper
     bounds.
     """
     e = expfit.MultiExponentialError(x, y)
-    if False:
+    if False:  # pragma: no cover
         # Re-optimise
         r = expfit.fmin(e, p, constraint=constraint)
         p = r.x
-
     cutoff = e(p)[0] * (1 + cutoff)
 
     def test(value):
@@ -61,12 +63,13 @@ def ci(x, y, p, ifix=0, cutoff=1e-3, max_iter=100, constraint=None):
     bounds = []
     for direction in (1, -1):
         # Expand until upper bound found
-        d = 1e-9 * np.abs(p[ifix]) * direction
+        d = 1e-6 * np.abs(p[ifix]) * direction
         for i in range(max_iter):
             if not test(p[ifix] + d)[0]:
                 break
             d *= 2
-        print(f'Expanded from {p[ifix]} to {p[ifix] + d} in {i} iterations')
+        if verbose:  # pragma: no cover
+            print(f'Expanded {p[ifix]} to {p[ifix] + d} in {i} iterations')
 
         # Bisect
         solution = p
@@ -81,7 +84,8 @@ def ci(x, y, p, ifix=0, cutoff=1e-3, max_iter=100, constraint=None):
                 solution = np.insert(q, ifix, a)
             else:
                 b = c
-        print(f'Found {a} in {i} iterations')
+        if verbose:  # pragma: no cover
+            print(f'Found {a} in {i} iterations')
 
         bounds.append(solution)
 

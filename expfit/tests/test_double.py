@@ -45,7 +45,6 @@ class TestDouble(unittest.TestCase):
         rf = expfit.rmse(t, v, (af, bf, cf, df, ef))
 
         if plot:  # pragma: no cover
-            print(f'True: {a:+.5e} {b:+.5e} {c:+.5e} {d:+.5e} {e:+.5e}')
             print(f'RMSE true: {rt}')
             print(f'RMSE fit:  {rf}')
             print(f'ratio: {rf / rt}')
@@ -71,19 +70,19 @@ class TestDouble(unittest.TestCase):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(20)
-        plot = False
+        plot = True
 
-        #dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=plot)
-        #dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
-        #dod(5, 5, -10, 1, -1, deltas=(.1, .2, .5, .1, .5), plot=plot)
-        #dod(20, 4, -10, 6, -2, deltas=(.05, .4, .5, .2, .1), plot=plot)
-        #dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
-        #dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
+        dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=plot)
+        dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
+        dod(5, 5, -10, 1, -1, deltas=(.1, .2, .5, .1, .5), plot=plot)
+        dod(20, 4, -10, 6, -2, deltas=(.05, .4, .5, .2, .1), plot=plot)
+        dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
+        dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
 
     def test_dodde_hard(self):
         # Test cases where it doesn't seem identifiable
         dod = self.double_decaying_on_double
-        plot = False
+        plot = True
 
         # Noise has strong influence on this one
         # Note that both tests pass the "ratio" criterium: the obtained
@@ -96,7 +95,7 @@ class TestDouble(unittest.TestCase):
         dod(200, 4, -5, 10, -2, deltas=(.3, 4, 4, 4, .6), plot=plot)
 
         self.r = np.random.default_rng(3)
-        dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
+        dod(200, -4, -5, -4, -4, deltas=(.05, 5, .5, 5, 2), plot=plot)
         #self.r = np.random.default_rng(9)
         #dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
         #dod(-1e5, 2, -2, 1, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
@@ -134,6 +133,9 @@ class TestDouble(unittest.TestCase):
         y = expfit.exp(x, (1, 2, 3, 4, 5))
         self.assertRaisesRegex(
             RuntimeError, 'not decaying', expfit.fit_double_decaying, x, y)
+
+    def test_dd_tau(self):
+        c1, c2, ci1, ci2 = fit_double_decaying_tau
 
 
 if __name__ == '__main__':  # pragma: no cover

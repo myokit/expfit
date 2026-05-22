@@ -95,18 +95,15 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax0.plot(t, f(t, (p[0], p[1], p[2])), lw=1, ls='--',
                  color='#1f701f', label=f'Fit 1st (tau={1 / p[2]:+.2g})')
         lo, hi = expfit.ci(t, v, p, 2, constraint=_decaying)
-        print(p[2], lo[2], hi[2])
         ax0.fill_between(
             t, f(t, (lo[0], lo[1], lo[2])), f(t, (hi[0], hi[1], hi[2])),
             color='#1f701f', alpha=0.3)
         ax0.plot(t, f(t, (p[0], p[3], p[4])), lw=1, ls='--',
                  color='#961b1c', label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
         lo, hi = expfit.ci(t, v, p, 4, constraint=_decaying)
-        print(p[4], lo[4], hi[4])
         ax0.fill_between(
             t, f(t, (lo[0], lo[3], lo[4])), f(t, (hi[0], hi[3], hi[4])),
             color='#961b1c', alpha=0.3)
-
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
@@ -126,4 +123,28 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax2.legend()
 
     return p
+
+
+def fit_double_decaying_tau(t, v):
+    """
+    Fits a double decaying exponential (see :meth:`fit_double_decaying`),
+    returning two time constants along with confidence intervals.
+
+    Returns ``(c1, c2, ci1, ci2)`` where ``cix`` is a tuple with the interval.
+    """
+    p = fit_double_decaying(t, v)
+    c1 = p[2]
+    c2 = p[4]
+
+    if c1 == 0 or c2 == 0:
+        # Instead of checking sign of zero and returning + or - inf, let numpy
+        # handle it (but silently)
+        with np.errstate(divide='ignore'):
+            return -1 / c1, -1 / c2, (np.nan, np.nan), (np.nan, np.nan)
+
+    lo, hi = expfit.ci(t, v, p, 2, constraint=_decaying)
+    ci1 = np.sort(np.array((lo[2], hi[2])))
+    lo, hi = expfit.ci(t, v, p, 4, constraint=_decaying)
+    ci2 = np.sort(np.array((lo[4], hi[4])))
+    return c1, c2, ci1, ci2
 
