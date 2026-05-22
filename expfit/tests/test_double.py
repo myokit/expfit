@@ -89,11 +89,11 @@ class TestDouble(unittest.TestCase):
         # Note that both tests pass the "ratio" criterium: the obtained
         # solution has a lower RMSE than the true solution
         self.r = np.random.default_rng(3)
-        dod(18, 5, -12, 10, -6, deltas=(.1, 5, 20, 5, 1), plot=plot)
-        self.r = np.random.default_rng(1)
-        dod(18, 5, -12, 10, -6, deltas=(.1, .5, .5, .5, .1), plot=plot)
+        dod(18, 5, -12, 10, -6, deltas=(.05, 10, 30, 10, 2), plot=plot)
+        self.r = np.random.default_rng(2)
+        dod(18, 5, -12, 10, -6, deltas=(.01, 5, 3, 5, 1), plot=plot)
         self.r = np.random.default_rng(6)
-        dod(200, 4, -5, 10, -2, deltas=(.2, 4, 4, 4, .6), plot=plot)
+        dod(200, 4, -5, 10, -2, deltas=(.3, 4, 4, 4, .6), plot=plot)
 
         #self.r = np.random.default_rng(3)
         #dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)

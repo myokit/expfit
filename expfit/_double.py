@@ -66,8 +66,16 @@ def fit_double_decaying(t, v, plot=False, vet=True):
         ax0 = fig.add_subplot(grd[0, :])
         ax0.set_xlabel('t')
         ax0.set_ylabel('v')
+
+        # Show data, prepare to show fit
         code = '-' if len(t) > 10 else 'x-'
         ax0.plot(t, v, code, color='tab:blue', label='Data')
+        f = expfit.exp
+        label = f'rmse {np.sqrt(r.error):.4}'
+        if r.success:
+            label = f'Fit ({r.iterations} iter, {label})'
+        else:
+            label = f'Fit ({r.message}, {label})'
 
         # Show parameters
         pstr = lambda p: ' '.join(f'{i:+.5e}' for i in p)  # noqa
@@ -75,23 +83,22 @@ def fit_double_decaying(t, v, plot=False, vet=True):
                  transform=ax0.transAxes, ha='center', font='monospace')
 
         # Try showing known solution
-        f = expfit.exp
         try:
             assert len(plot) == 5
         except (TypeError, AssertionError):
             pass
         else:
-            ax0.plot(t, f(t, (plot[0], plot[1], plot[2])),
-                     color='tab:green', label='Known 1st',)
-            ax0.plot(t, f(t, (plot[0], plot[3], plot[4])),
-                     color='tab:red', label='Known 2nd')
+            ax0.plot(t, f(t, (plot[0], plot[1], plot[2])), color='tab:green',
+                     label=f'Known 1st (tau={1 / plot[2]:+.2g})',)
+            ax0.plot(t, f(t, (plot[0], plot[3], plot[4])), color='tab:red',
+                     label=f'Known 2nd (tau={1 / plot[4]:+.2g})')
 
         # Show fit
-        ax0.plot(t, f(t, p), lw=1, color='k', label='Fit')
+        ax0.plot(t, f(t, p), lw=1, color='k', label=label)
         ax0.plot(t, f(t, (p[0], p[1], p[2])), lw=1, ls='--',
-                 color='#1f701f', label='Fit 1st')
+                 color='#1f701f', label=f'Fit 1st (tau={1 / p[2]:+.2g})')
         ax0.plot(t, f(t, (p[0], p[3], p[4])), lw=1, ls='--',
-                 color='#961b1c', label='Fit 2nd')
+                 color='#961b1c', label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
