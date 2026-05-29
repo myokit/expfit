@@ -170,15 +170,14 @@ def fitd2(t, v, plot=False, vet=True):
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.35)
-        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
-
-        ax0 = fig.add_subplot(grd[0, :])
-        ax0.set_xlabel('t')
-        ax0.set_ylabel('v')
+        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
+        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
+        ax0 = fig.add_subplot(grd[0, :])
+        ax0.set_xlabel('t')
+        ax0.set_ylabel('v')
         ax0.plot(t, v, code, color='tab:blue', label='Data')
 
         # Show parameters
@@ -237,6 +236,12 @@ def fitd2(t, v, plot=False, vet=True):
         ax2.set_xlabel('t')
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
+
+        # Show covariance matrices
+        cov = p.cov()
+        ax3 = fig.add_subplot(grd[1, 2])
+        print(cov)
+        #ax3.set
 
     return p
 
@@ -367,4 +372,24 @@ class ExponentialFit:
             bounds.append(solution)
 
         return bounds
+
+    def cov(self):
+        """
+        Returns a covariance matrix bassed on the Hessian at the obtained
+        solution.
+
+        Specifically::
+
+            Cov = inverse(-hessian)
+
+        """
+        # Get the Hessian
+        if self._hes is None:
+            # Create and cache an error
+            if self._err is None:
+                self._err = expfit.MultiExponentialError(*self._xy)
+            self._hes = self._err(self._p)[2]
+
+        # Calculate and return
+        return np.linalg.inv(-self._hes)
 
