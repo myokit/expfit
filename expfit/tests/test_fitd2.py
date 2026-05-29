@@ -40,7 +40,7 @@ class TestDouble(unittest.TestCase):
         v += self.r.normal(0, max(fnoise * abs(v[0] - v[-1]), 1e-9), size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        af, bf, cf, df, ef = expfit.fit_double_decaying(t, v, plot=plot_params)
+        af, bf, cf, df, ef = expfit.fitd2(t, v, plot=plot_params)
         rt = expfit.rmse(t, v, (a, b, c, d, e))
         rf = expfit.rmse(t, v, (af, bf, cf, df, ef))
 
@@ -66,11 +66,11 @@ class TestDouble(unittest.TestCase):
             if len(deltas) != 3 and ratio is None and rmse is None:
                 raise Exception('No test criteria set')  # pragma: no cover
 
-    def test_dodde(self):
+    def test_fitd2(self):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(20)
-        plot = True
+        plot = False
 
         dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=plot)
         dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
@@ -79,10 +79,10 @@ class TestDouble(unittest.TestCase):
         dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
         dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
 
-    def test_dodde_hard(self):
+    def test_fitd2_hard(self):
         # Test cases where it doesn't seem identifiable
         dod = self.double_decaying_on_double
-        plot = True
+        plot = False
 
         # Noise has strong influence on this one
         # Note that both tests pass the "ratio" criterium: the obtained
@@ -106,7 +106,7 @@ class TestDouble(unittest.TestCase):
         #dod(-1e5, 3, -15, 5, -14, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
         #dod(5, 3, -10, 1, -6, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
 
-    def test_dodde_noisy(self):
+    def test_fitd2_noisy(self):
         # Test on noisy signals: rapidly becomes impossible
         #dod = self.double_decaying_on_double
         self.r = np.random.default_rng(2)
@@ -116,12 +116,12 @@ class TestDouble(unittest.TestCase):
         #dod(-87, 40, -20, 30, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True, fnoise=0.05)  # noqa
         #dod(123, -5, -99, -8, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True, fnoise=0.05)  # noqa
 
-    def test_dodde_edge_cases(self):
+    def test_fitd2_edge_cases(self):
 
         # Case where scaling to unit square would give a  divide-by-zero
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)
-        a, b, c, d, e = expfit.fit_double_decaying(x, y)
+        a, b, c, d, e = expfit.fitd2(x, y)
         self.assertEqual(a, 0)
         self.assertEqual(b, 0)
         self.assertEqual(c, 0)
@@ -132,10 +132,10 @@ class TestDouble(unittest.TestCase):
         x = np.linspace(0, 1, 77)
         y = expfit.exp(x, (1, 2, 3, 4, 5))
         self.assertRaisesRegex(
-            RuntimeError, 'not decaying', expfit.fit_double_decaying, x, y)
+            RuntimeError, 'not decaying', expfit.fitd2, x, y)
 
-    def test_dd_tau(self):
-        c1, c2, ci1, ci2 = fit_double_decaying_tau
+    #def test_taud2(self):
+    #    c1, c2, ci1, ci2 = fitd2_tau
 
 
 if __name__ == '__main__':  # pragma: no cover

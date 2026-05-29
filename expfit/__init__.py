@@ -24,12 +24,16 @@ from ._expfit_version import (  # noqa
 #
 
 from ._vetting import (  # noqa
-    vet_series
+    vet_series,
 )
 
 from ._trans import (  # noqa
     UnitSquareTransform,
-    ZoomTransform
+    ZoomTransform,
+)
+
+from ._est import (  # noqa
+    estimate_initial_single,
 )
 
 from ._err import (  # noqa
@@ -49,13 +53,13 @@ from ._ci import (  # noqa
     ci,
 )
 
-from ._single import (  # noqa
-    estimate_initial_single,
-    fit_single,
-    fit_single_tau,
+from ._fit import (  # noqa
+    fit1,
+    fitd2,
 )
 
-from ._double import (  # noqa
-    fit_double_decaying,
+from ._tau import (  # noqa
+    tau1,
+    #taud2,
 )
 

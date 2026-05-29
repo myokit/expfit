@@ -28,7 +28,7 @@ class TestSingleRw1(unittest.TestCase):
         plot = False
 
         x = np.arange(0, len(y))
-        p = expfit.fit_single(x, y, plot=plot)
+        p = expfit.fit1(x, y, plot=plot)
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
