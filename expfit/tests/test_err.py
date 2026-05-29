@@ -49,9 +49,8 @@ def mse_jac_hes_fd(x, y, p, dp=1e-6):
 
 
 class TestError(unittest.TestCase):
-    """
-    Tests transformations.
-    """
+    """ Tests the different error classes. """
+
     def test_exp(self):
         x = np.linspace(0, 1, 123)
         a, b, c = 1, 2, 3

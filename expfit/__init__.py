@@ -49,11 +49,8 @@ from ._opt import (  # noqa
     LeastSquaresFit,
 )
 
-from ._ci import (  # noqa
-    ci,
-)
-
 from ._fit import (  # noqa
+    ExponentialFit,
     fit1,
     fitd2,
 )

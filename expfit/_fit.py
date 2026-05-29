@@ -9,6 +9,13 @@ import numpy as np
 import expfit
 
 
+C1 = 'tab:red'
+D1 = '#961b1c'
+C2 = 'tab:purple'
+D2 = '#5b3383'
+# '#1f701f'
+
+
 def _decaying(p):
     """ Constraint for fitting decaying exponentials. """
 
@@ -33,7 +40,6 @@ def fit1(t, v, plot=False):
 
     # Transform to unit square, to avoid overflows etc
     tr = expfit.UnitSquareTransform(t, v)
-    x, y = tr.x, tr.y
 
     # Create initial plot
     known = False
@@ -51,57 +57,58 @@ def fit1(t, v, plot=False):
         else:
             fig = plt.figure(figsize=(9, 7.5))
             ax0 = fig.add_subplot(2, 1, 1)
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.44)
+        fig.subplots_adjust(0.11, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.44)
         ax0.set_xlabel('x')
         ax0.set_ylabel('y')
-        code, color = ('-', '#92cc92') if len(x) > 10 else ('x-', 'tab:green')
-        ax0.plot(x, y, code, color=color, label='Transformed data')
+        ls, color = ('-', '#92cc92') if len(tr.x) > 10 else ('x-', 'tab:green')
+        ax0.plot(tr.x, tr.y, ls, color=color, label='Transformed data')
     else:
         ax0 = None
 
-    # Get an initial estimate
-    at0, bt0, ct0 = expfit.estimate_initial_single(x, y, axes=ax0, vet=False)
+    # Get an initial estimate (in transformed space)
+    at0, bt0, ct0 = expfit.estimate_initial_single(
+        tr.x, tr.y, axes=ax0, vet=False)
 
-    # Fit
-    e = expfit.SingleExponentialError(x, y)
+    # Fit (in transformed space)
+    e = expfit.SingleExponentialError(tr.x, tr.y)
     with np.errstate(all='ignore'):
         r = expfit.fmin(e, (at0, bt0, ct0))
         if plot:  # pragma: no cover
             print(r)
     at, bt, ct = r.x
 
-    # Detransform obtained parameters
-    a, b, c = tr.detransform(at, bt, ct)
+    # Detransform obtained parameters, create result
+    p = ExponentialFit(t, v, tr.detransform(at, bt, ct))
 
     if plot:  # pragma: no cover
-        a0, b0, c0 = tr.detransform(at0, bt0, ct0)
+        p0 = ExponentialFit(t, v, tr.detransform(at0, bt0, ct0))
+        q0 = ExponentialFit(tr.x, tr.y, (at0, bt0, ct0))
+        q = ExponentialFit(tr.x, tr.y, (at, bt, ct))
 
-        fit_param = f'{a:.3}, {b:.3}, {c:.3}'
-        fit_label = f'rmse {np.sqrt(r.error):.4}'
+        strest = ', '.join(f'{i:.3}' for i in q0)
+        strq = ', '.join(f'{i:.3}' for i in q)
+        stre = f'rmse {np.sqrt(r.error):.4}'
         if r.success:
-            fit_label = f'Fit ({fit_param}, {r.iterations} iter, {fit_label})'
+            strfit = f'{strq}, {r.iterations} iter, {stre}'
         else:
-            fit_label = f'Fit ({fit_param}, {r.message}, {fit_label})'
+            strfit = f'{strq}, {r.message}, {stre}'
 
-        ax0.plot(x, at0 + bt0 * np.exp(ct0 * x), '-',
-                 label=f'Initial ({a0:.3}, {b0:.3}, {c0:.3})')
-        ax0.plot(x, at + bt * np.exp(ct * x), '--', label=fit_label)
+        e = expfit.exp
+        ax0.plot(tr.x, e(tr.x, q0), '-', label=f'Initial ({strest})')
+        ax0.plot(tr.x, e(tr.x, q), '--', label=f'Fit ({strfit})')
         ax0.legend()
 
         if plot != 'simple':
-            lines = [
-                f'Transformed Init: {a0:+.5e} {b0:+.5e} {c0:+.5e}',
-                f'             Fit:  {a:+.5e} {b:+.5e} {c:+.5e}',
-                f'Real-world  Init: {at0:+.5e} {bt0:+.5e} {ct0:+.5e}',
-                f'             Fit:  {at:+.5e} {bt:+.5e} {ct:+.5e}']
+            lines = [f'Transformed Init: {q0}', f'             Fit:  {q}',
+                     f'Real-world  Init: {p0}', f'             Fit:  {p}']
             ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
                      ha='right', font='monospace')
 
             ax1 = fig.add_subplot(2, 2, 3)
             ax1.set_xlabel('x')
-            ax1.set_ylabel('Residuals')
-            ax1.plot(x, y - (at0 + bt0 * np.exp(ct0 * x)), label='Initial')
-            ax1.plot(x, y - (at + bt * np.exp(ct * x)), label='Fit')
+            ax1.set_ylabel('Residuals (transformed)')
+            ax1.plot(tr.x, tr.y - e(tr.x, q0), label='Initial')
+            ax1.plot(tr.x, tr.y - e(tr.x, q), label='Fit')
             ax1.legend()
 
             ax2 = fig.add_subplot(2, 2, 4)
@@ -111,14 +118,14 @@ def fit1(t, v, plot=False):
             with np.errstate(divide='ignore'):
                 if known:
                     label = f'{label} (tau={-1 / known[2]:+.3f})'
-                ax2.plot(t, v, code, color=color, label=label)
-                ax2.plot(t, a0 + b0 * np.exp(c0 * t), '-',
-                         label=f'Initial (c={c0:+.3f}, tau={-1 / c0:+.3f})')
-                ax2.plot(t, a + b * np.exp(c * t), '--',
-                         label=f'fFit (c={c:+.3f}, tau={-1 / c:+.3f})')
+                ax2.plot(t, v, ls, color=color, label=label)
+                strc0 = f'c={p0[2]:+.3f}, tau={-1 / p0[2]:+.3f}'
+                strc = f'c={p[2]:+.3f}, tau={-1 / p[2]:+.3f}'
+                ax2.plot(t, e(t, p0), '-', label=f'Initial ({strc0})')
+                ax2.plot(t, e(t, p), '--', label=f'fFit ({strc})')
             ax2.legend()
 
-    return a, b, c
+    return p
 
 
 def fitd2(t, v, plot=False, vet=True):
@@ -130,26 +137,25 @@ def fitd2(t, v, plot=False, vet=True):
     if vet:
         t, v = expfit.vet_series(t, v)
 
-    # Estimate the dominant rate
+    # Estimate the dominant rate (in transformed space)
     tr = expfit.UnitSquareTransform(t, v)
     q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
     a0, b0, c0 = tr.detransform(q0)
     del tr, q0
 
-    # Catch nans etc.
+    # Avoid nans etc.
     if c0 == 0:
-        return a0, b0, 0, 0, 0
+        return ExponentialFit(t, v, (a0, b0, 0, 0, 0))
 
     # Catch non-decaying
     if c0 > 0:
         raise RuntimeError(
             'Initial estimate for c > 0, exponential not decaying')
 
+    # Fit double (in untransformed space)
     # Assume dominant rate found, next rate will have smaller magnitude
     # Start with 2 times smaller, but increase if the rates converge
-    d0 = b0
-    e0 = c0
-    p0 = np.array((a0, b0, c0, d0, e0), dtype=float)
+    p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
     for i in range(1, 6):
         p0[4] *= 0.5
         e = expfit.MultiExponentialError(t, v)
@@ -157,9 +163,9 @@ def fitd2(t, v, plot=False, vet=True):
             r = expfit.fmin(e, p0, constraint=_decaying)
             if plot:  # pragma: no cover
                 print(r)
-        p = r.x
-        if p[2] / p[4] - 1 > 1e-3 and r.success:
+        if r.x[2] / r.x[4] - 1 > 1e-3 and r.success:
             break
+    p = ExponentialFit(t, v, r.x, constraint=_decaying, hessian=r.hes)
 
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
@@ -171,46 +177,48 @@ def fitd2(t, v, plot=False, vet=True):
         ax0.set_xlabel('t')
         ax0.set_ylabel('v')
 
-        # Show data, prepare to show fit
+        # Show data
         code = '-' if len(t) > 10 else 'x-'
         ax0.plot(t, v, code, color='tab:blue', label='Data')
-        f = expfit.exp
-        label = f'rmse {np.sqrt(r.error):.4}'
-        if r.success:
-            label = f'Fit ({r.iterations} iter, {label})'
-        else:
-            label = f'Fit ({r.message}, {label})'
 
         # Show parameters
-        pstr = lambda p: ' '.join(f'{i:+.5e}' for i in p)  # noqa
-        ax0.text(0.5, -0.21, f'Init: {pstr(p0)}\n Fit: {pstr(p)}',
+        p0 = ExponentialFit(t, v, p0)
+        ax0.text(0.5, -0.21, f'Init: {p0}\n Fit: {p}',
                  transform=ax0.transAxes, ha='center', font='monospace')
 
         # Try showing known solution
+        e = expfit.exp
         try:
             assert len(plot) == 5
         except (TypeError, AssertionError):
             pass
         else:
-            ax0.plot(t, f(t, (plot[0], plot[1], plot[2])), color='tab:green',
+            ax0.plot(t, e(t, (plot[0], plot[1], plot[2])), color=C1,
                      label=f'Known 1st (tau={1 / plot[2]:+.2g})',)
-            ax0.plot(t, f(t, (plot[0], plot[3], plot[4])), color='tab:red',
+            ax0.plot(t, e(t, (plot[0], plot[3], plot[4])), color=C2,
                      label=f'Known 2nd (tau={1 / plot[4]:+.2g})')
 
         # Show fit
-        ax0.plot(t, f(t, p), lw=1, color='k', label=label)
-        ax0.plot(t, f(t, (p[0], p[1], p[2])), lw=1, ls='--',
-                 color='#1f701f', label=f'Fit 1st (tau={1 / p[2]:+.2g})')
-        lo, hi = expfit.ci(t, v, p, 2, constraint=_decaying)
-        ax0.fill_between(
-            t, f(t, (lo[0], lo[1], lo[2])), f(t, (hi[0], hi[1], hi[2])),
-            color='#1f701f', alpha=0.3)
-        ax0.plot(t, f(t, (p[0], p[3], p[4])), lw=1, ls='--',
-                 color='#961b1c', label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
-        lo, hi = expfit.ci(t, v, p, 4, constraint=_decaying)
-        ax0.fill_between(
-            t, f(t, (lo[0], lo[3], lo[4])), f(t, (hi[0], hi[3], hi[4])),
-            color='#961b1c', alpha=0.3)
+        label = f'rmse {np.sqrt(r.error):.4}'
+        if r.success:
+            label = f'Fit ({r.iterations} iter, {label})'
+        else:
+            label = f'Fit ({r.message}, {label})'
+        ax0.plot(t, e(t, p), lw=1, color='k', label=label)
+
+        # First exponential
+        ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1,
+                 label=f'Fit 1st (tau={1 / p[2]:+.2g})')
+        lo, hi = p.ci(2)
+        ax0.fill_between(t, e(t, (lo[0], lo[1], lo[2])),
+                         e(t, (hi[0], hi[1], hi[2])), color=D1, alpha=0.1)
+
+        # Second exponential
+        ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2,
+                 label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
+        lo, hi = p.ci(4)
+        ax0.fill_between(t, e(t, (lo[0], lo[3], lo[4])),
+                         e(t, (hi[0], hi[3], hi[4])), color=D2, alpha=0.1)
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
@@ -218,16 +226,145 @@ def fitd2(t, v, plot=False, vet=True):
         ax1.set_xlabel('t')
         ax1.set_ylabel('v')
         ax1.plot(t, v, code, color='tab:blue', label='Data')
-        ax1.plot(t, f(t, (a0, b0, c0)), 'k--', lw=1, label='Initial')
+        ax1.plot(t, e(t, (a0, b0, c0)), 'k:', lw=1,
+                 label='Initial single estimate')
+        ax1.plot(t, e(t, p0), 'k--', lw=1,
+                 label='Initial double estimate')
         ax1.legend()
 
         # Show final fit residuals
-        r = v - f(t, p)
         ax2 = fig.add_subplot(grd[1, 1])
         ax2.set_xlabel('t')
         ax2.set_ylabel('Residuals')
-        ax2.plot(t, r, label='Residuals fit')
-        ax2.legend()
+        ax2.plot(t, v - e(t, p))
 
     return p
+
+
+class ExponentialFit:
+    """
+    The result of fitting an exponential.
+
+    This can be used as a sequence of parameters, for example::
+
+        a, b, c = expfit.fit1(t, v)
+
+    but also as an object, to access additional methods::
+
+        p = expfit.fit1(t, v)
+        lower, upper = p.ci(2)
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series.
+    ``p``
+        The (assumed) optimal parameters.
+    ``constraint``
+        An optional constraint used in deriving the parameters. Will be used in
+        :meth:`ci` if given.
+    ``hessian``
+        An optional precalculated Hessian at ``p``.
+
+    """
+    def __init__(self, x, y, p, constraint=None, hessian=None):
+        self._xy = x, y
+        self._p = tuple(p)
+        self._n = len(self._p)
+        self._constraint = constraint
+        self._hes = hessian
+        self._err = None
+
+    def __len__(self):
+        return self._n
+
+    def __getitem__(self, subscript):
+        return self._p.__getitem__(subscript)
+
+    def __str__(self):
+        return ' '.join(f'{i:+.5e}' for i in self._p)
+
+    def ci(self, i, cutoff=5e-2, max_iter=100, verbose=False):
+        """
+        Finds and returns a confidence interval for the parameter at index
+        ``i``.
+
+        The method works by:
+
+        1. Setting a threshold MSE as ``(1 + cutoff) * mse(p)``
+        2. Fixing the parameter at its original value plus an offset,
+           reoptimising, and increasing until the RMSE goes above the
+           threshold.
+        3. Performing bisection search to find the offset at which the
+           threshold was crossed.
+
+        Arguments:
+
+        ``i``
+            The index of the chosen parameter.
+        ``cutoff``
+            The cut-off used to determine the MSE threshold.
+        ``max_iter``
+            The maximum iterations for steps 2 and 3.
+        ``verbose``
+            Set to ``True`` to print debug messages.
+
+        Returns two full parameter sets, corresponding to the lower and upper
+        bounds.
+        """
+        # Create and cache an error
+        if self._err is None:
+            self._err = expfit.MultiExponentialError(*self._xy)
+
+        # Set cut-off
+        cutoff = self._err(self._p)[0] * (1 + cutoff)
+
+        def test(value):
+            """ Test the given ``value`` has an error below cut-off. """
+            # Create a partial parameter array, omitting i
+            p_full = np.array(self._p)
+            p_full[i] = value
+            p = np.delete(p_full, i)
+
+            # Test the constraint, if given
+            if self._constraint is not None and not self._constraint(p_full):
+                return False, p
+
+            # Evaluate the error and compare
+            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
+            with np.errstate(all='ignore'):
+                r = expfit.fmin(f, p, constraint=self._constraint)
+            return r.success and r.error < cutoff, r.x
+
+        bounds = []
+        for direction in (1, -1):
+            # Expand until upper bound found
+            d = 1e-6 * np.abs(self._p[i]) * direction
+            for j in range(max_iter):
+                if not test(self._p[i] + d)[0]:
+                    break
+                d *= 2
+            if verbose:  # pragma: no cover
+                print(f'Expanded {self._p[i]} to {self._p[i] + d}'
+                      f' in {j} iterations')
+
+            # Bisect
+            solution = self._p
+            a, b = self._p[i], self._p[i] + d
+            for j in range(max_iter):
+                c = 0.5 * (a + b)
+                if np.abs((c - a) / d) < 1e-6:
+                    break
+                ok, p = test(c)
+                if ok:
+                    a = c
+                    solution = np.insert(p, i, a)
+                else:
+                    b = c
+            if verbose:  # pragma: no cover
+                print(f'Found {a} in {j} iterations')
+
+            bounds.append(solution)
+
+        return bounds
 
