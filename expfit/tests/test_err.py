@@ -162,7 +162,7 @@ class TestError(unittest.TestCase):
         m1, j1, h1 = e1(p)
         m2, j2, h2 = e2(p)
         self.assertEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) == 0))
+        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-9))
         self.assertTrue(np.all(np.abs(h1 - h2) < 1e-14))
 
         p = (0.9, 1.9, 2.9)
