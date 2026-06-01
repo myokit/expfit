@@ -72,12 +72,12 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(20)
         plot = False
 
-        dod(0, -4, -8, -10, -2, deltas=(.05, 1, 2, 1, .1), plot=True)
-        #dod(-1e5, 3, -10, 5, -2, deltas=(.05, .5, .5, .5, .2), plot=plot)
-        #dod(5, 5, -10, 1, -1, deltas=(.1, .2, .5, .1, .5), plot=plot)
-        #dod(20, 4, -10, 6, -2, deltas=(.05, .4, .5, .2, .1), plot=plot)
-        #dod(-87, 40, -20, 30, -3, deltas=(.6, 3, 2, 3, .2), plot=plot)
-        #dod(123, -5, -99, -8, -1, deltas=(.2, .2, 15, .1, .05), plot=plot)
+        dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=plot)
+        dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
+        dod(5, 1, -1, 5, -10, deltas=(.1, .1, .5, .2, .5), plot=plot)
+        dod(20, 6, -2, 4, -10, deltas=(.05, .2, .1, .4, .5), plot=plot)
+        dod(-87, 30, -3, 40, -20, deltas=(.6, 3, .2, 3, 2), plot=plot)
+        dod(123, -8, -1, -5, -99, deltas=(.2, .1, .05, .2, 15), plot=plot)
 
     def test_fitd2_hard(self):
         # Test cases where it doesn't seem identifiable
@@ -88,33 +88,33 @@ class TestDouble(unittest.TestCase):
         # Note that both tests pass the "ratio" criterium: the obtained
         # solution has a lower RMSE than the true solution
         self.r = np.random.default_rng(3)
-        dod(18, 5, -12, 10, -6, deltas=(.05, 10, 30, 10, 2), plot=plot)
+        dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
         self.r = np.random.default_rng(2)
-        dod(18, 5, -12, 10, -6, deltas=(.01, 5, 3, 5, 1), plot=plot)
+        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot)
         self.r = np.random.default_rng(6)
-        dod(200, 4, -5, 10, -2, deltas=(.3, 4, 4, 4, .6), plot=plot)
-
+        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot)
         self.r = np.random.default_rng(3)
-        dod(200, -4, -5, -4, -4, deltas=(.05, 5, .5, 5, 2), plot=plot)
-        #self.r = np.random.default_rng(9)
-        #dod(200, -4, -5, -4, -4, deltas=(.05, .5, .5, .5, .1), plot=True)
-        #dod(-1e5, 2, -2, 1, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(200, 3, -5, 3, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(-50, 5, -3, 12, -2, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(-1e5, 2, -2, 5, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(-1e5, 3, -4, 5, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(-1e5, 3, -15, 5, -14, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
-        #dod(5, 3, -10, 1, -6, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True)  # noqa
+        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot)
+        self.r = np.random.default_rng(9)
+        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot)
+        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot)
+        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot)
+        dod(500, 1, -6, 3, -10, deltas=(.5, 1, 10, 2, 2), plot=plot)
 
     def test_fitd2_noisy(self):
-        # Test on noisy signals: rapidly becomes impossible
-        #dod = self.double_decaying_on_double
+        # Test on (Gaussian) noisy signals: rapidly becomes impossible
+        dod = self.double_decaying_on_double
         self.r = np.random.default_rng(2)
-        #plot = False
+        plot = False
 
-        #dod(20, 4, -10, 6, -2, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True, fnoise=0.05)  # noqa
-        #dod(-87, 40, -20, 30, -3, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True, fnoise=0.05)  # noqa
-        #dod(123, -5, -99, -8, -1, deltas=(1e-9, 1e-9, 1e-9, 1e-9, 1e-9), plot=True, fnoise=0.05)  # noqa
+        dod(20, 6, -2, 4, -10, deltas=(.1, .1, .01, .5, .5), plot=plot,
+            fnoise=0.05)
+        dod(21, 6, -2, 4, -20, deltas=(.5, 1, 1, 1, 20), plot=plot,
+            fnoise=0.1)
+        dod(-87, 30, -3, 40, -20, deltas=(.5, .5, .1, 2, 2), plot=plot,
+            fnoise=0.05)
+        dod(123, -8, -1, -5, -99, deltas=(.5, .5, .1, 1, 20), plot=plot,
+            fnoise=0.05)
 
     def test_fitd2_edge_cases(self):
 

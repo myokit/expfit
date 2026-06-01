@@ -18,9 +18,8 @@ D2 = '#5b3383'
 
 def _decaying(p):
     """ Constraint for fitting decaying exponentials. """
-
-    c = p[2::2]
-    return np.all(c < 0) and np.all(c[1:] > c[:-1])
+    t = -1 / p[2::2]
+    return np.all(t >= 0) and np.all(t[1:] < t[:-1])
 
 
 def fit1(t, v, plot=False):
@@ -153,25 +152,26 @@ def fitd2(t, v, plot=False, vet=True):
             'Initial estimate for c > 0, exponential not decaying')
 
     # Fit double (in untransformed space)
-    # Assume dominant rate found, next rate will have smaller magnitude
-    # Start with 2 times smaller, but increase if the rates converge
+    # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    for i in range(1, 6):
-        p0[4] *= 0.5
+    for i in range(1, 10):
+        p0[2] *= 0.707106781
+        p0[4] *= 1.414213562
         e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
             r = expfit.fmin(e, p0, constraint=_decaying)
             if plot:  # pragma: no cover
                 print(r)
-        if r.x[2] / r.x[4] - 1 > 1e-3 and r.success:
+        if r.x[4] / r.x[2] > 1.1 and r.success:
             break
+
     p = ExponentialFit(t, v, r.x, constraint=_decaying, hessian=r.hes)
 
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
         fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
-        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
+        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
@@ -193,9 +193,9 @@ def fitd2(t, v, plot=False, vet=True):
             pass
         else:
             ax0.plot(t, e(t, (plot[0], plot[1], plot[2])), color=C1,
-                     label=f'Known 1st (tau={1 / plot[2]:+.2g})',)
+                     label=f'Known 1st (tau={-1 / plot[2]:.2g})',)
             ax0.plot(t, e(t, (plot[0], plot[3], plot[4])), color=C2,
-                     label=f'Known 2nd (tau={1 / plot[4]:+.2g})')
+                     label=f'Known 2nd (tau={-1 / plot[4]:.2g})')
 
         # Show fit
         label = f'rmse {np.sqrt(r.error):.4}'
@@ -206,18 +206,24 @@ def fitd2(t, v, plot=False, vet=True):
         ax0.plot(t, e(t, p), lw=1, color='k', label=label)
 
         # First exponential
-        ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1,
-                 label=f'Fit 1st (tau={1 / p[2]:+.2g})')
         lo, hi = p.ci(2)
+        tau, tlo, thi = -1 / p[2], -1 / hi[2], -1 / lo[2]
+        b = f'Fit 1st (tau={tau:.2g}, [{tlo:.2g}, {thi:.2g}])'
+        ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
         ax0.fill_between(t, e(t, (lo[0], lo[1], lo[2])),
                          e(t, (hi[0], hi[1], hi[2])), color=D1, alpha=0.1)
+        ax0.plot(t, e(t, (lo[0], lo[1], lo[2])), lw=0.4, color=D1)
+        ax0.plot(t, e(t, (hi[0], hi[1], hi[2])), lw=0.4, color=D1)
 
         # Second exponential
-        ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2,
-                 label=f'Fit 2nd (tau={1 / p[4]:+.2g})')
         lo, hi = p.ci(4)
+        tau, tlo, thi = -1 / p[4], -1 / hi[4], -1 / lo[4]
+        b = f'Fit 2nd (tau={tau:.2g} [{tlo:.2g}, {thi:.2g}])'
+        ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
         ax0.fill_between(t, e(t, (lo[0], lo[3], lo[4])),
                          e(t, (hi[0], hi[3], hi[4])), color=D2, alpha=0.1)
+        ax0.plot(t, e(t, (lo[0], lo[3], lo[4])), lw=0.4, color=D2)
+        ax0.plot(t, e(t, (hi[0], hi[3], hi[4])), lw=0.4, color=D2)
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
@@ -225,9 +231,9 @@ def fitd2(t, v, plot=False, vet=True):
         ax1.set_xlabel('t')
         ax1.set_ylabel('v')
         ax1.plot(t, v, code, color='tab:blue', label='Data')
-        ax1.plot(t, e(t, (a0, b0, c0)), 'k:', lw=1,
-                 label='Initial single estimate')
-        ax1.plot(t, e(t, p0), 'k--', lw=1,
+        ax1.plot(t, e(t, (a0, b0, c0)), 'k--', lw=1.5,
+                 label=f'Initial single estimate (tau={-1 / c0:.2g})')
+        ax1.plot(t, e(t, p0), 'k:', lw=1.5,
                  label='Initial double estimate')
         ax1.legend()
 
@@ -237,11 +243,13 @@ def fitd2(t, v, plot=False, vet=True):
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
 
+        '''
         # Show covariance matrices
         cov = p.cov()
         ax3 = fig.add_subplot(grd[1, 2])
         print(cov)
         #ax3.set
+        '''
 
     return p
 
@@ -289,14 +297,14 @@ class ExponentialFit:
     def __str__(self):
         return ' '.join(f'{i:+.5e}' for i in self._p)
 
-    def ci(self, i, cutoff=5e-2, max_iter=100, verbose=False):
+    def ci(self, i, cutoff=0.005, max_iter=100, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i``.
 
         The method works by:
 
-        1. Setting a threshold MSE as ``(1 + cutoff) * mse(p)``
+        1. Setting a threshold RMSE as ``(1 + cutoff) * RMSE(p)``
         2. Fixing the parameter at its original value plus an offset,
            reoptimising, and increasing until the RMSE goes above the
            threshold.
@@ -308,7 +316,7 @@ class ExponentialFit:
         ``i``
             The index of the chosen parameter.
         ``cutoff``
-            The cut-off used to determine the MSE threshold.
+            The cut-off used to determine the RMSE threshold.
         ``max_iter``
             The maximum iterations for steps 2 and 3.
         ``verbose``
@@ -322,7 +330,7 @@ class ExponentialFit:
             self._err = expfit.MultiExponentialError(*self._xy)
 
         # Set cut-off
-        cutoff = self._err(self._p)[0] * (1 + cutoff)
+        cutoff = np.sqrt(self._err(self._p)[0]) * (1 + cutoff)
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -339,7 +347,7 @@ class ExponentialFit:
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             with np.errstate(all='ignore'):
                 r = expfit.fmin(f, p, constraint=self._constraint)
-            return r.success and r.error < cutoff, r.x
+            return r.success and np.sqrt(r.error) < cutoff, r.x
 
         bounds = []
         for direction in (1, -1):
@@ -373,6 +381,7 @@ class ExponentialFit:
 
         return bounds
 
+    '''
     def cov(self):
         """
         Returns a covariance matrix bassed on the Hessian at the obtained
@@ -380,7 +389,7 @@ class ExponentialFit:
 
         Specifically::
 
-            Cov = inverse(-hessian)
+            Cov = inverse(hessian)
 
         """
         # Get the Hessian
@@ -392,4 +401,5 @@ class ExponentialFit:
 
         # Calculate and return
         return np.linalg.inv(-self._hes)
+    '''
 
