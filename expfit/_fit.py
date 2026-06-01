@@ -171,7 +171,7 @@ def fitd2(t, v, plot=False, vet=True):
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
         fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
-        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
+        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
@@ -278,8 +278,30 @@ def fitd2(t, v, plot=False, vet=True):
         print(-1 / (p[4] - t2), -1 / (p[4] + t2))
         print()
         '''
+        e = expfit.MultiExponentialError(t, v)
+        f = lambda p: e(p)[0]
+        ax3 = fig.add_subplot(grd[1, 2])
+        found_vs_known(ax3, f, plot, p)
+
 
     return p
+
+
+def found_vs_known(ax, f, found, known, padding=0.25, evaluations=200):
+    """
+    ...
+    """
+    found, known = np.array(found), np.array(known)
+    s = np.linspace(-padding, 1 + padding, evaluations)
+    r = known - found
+    x = [found + sj * r for sj in s]
+    y = [f(i) for i in x]
+    ax.plot(s, y, color='green')
+    ax.axvline(0, color='#1f77b4', label='Found')
+    ax.axvline(1, color='#7f7f7f', label='Known')
+    ax.legend()
+
+
 
 
 '''
