@@ -171,7 +171,7 @@ def fitd2(t, v, plot=False, vet=True):
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
         fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
-        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
+        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
@@ -242,7 +242,10 @@ def fitd2(t, v, plot=False, vet=True):
         ax2.set_xlabel('t')
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
+        print('Sigma MSE      ', r.error)
+        print('Sigma residuals', np.std(v - e(t, p))**2)
 
+        '''
         # Show covariance matrices
         ax3 = fig.add_subplot(grd[1, 2])
 
@@ -261,9 +264,25 @@ def fitd2(t, v, plot=False, vet=True):
         ax3.set_xlabel('c1')
         ax3.set_ylabel('c2')
 
+        err = np.diag(cov)
+        t1 = 1.96 * np.sqrt(err[2])
+        t2 = 1.96 * np.sqrt(err[4])
+        print()
+        print(t1)
+        print(t2)
+        print()
+        print(1 / t1)
+        print(1 / t2)
+        print()
+        print(-1 / (p[2] - t1), -1 / (p[2] + t1))
+        print(-1 / (p[4] - t2), -1 / (p[4] + t2))
+        print()
+        '''
+
     return p
 
 
+'''
 def cov_ellipse(ax, mu, cov, n=50):
     """
     """
@@ -275,7 +294,6 @@ def cov_ellipse(ax, mu, cov, n=50):
 
     ax.plot(mu[0] + xy[:, 0], mu[1] + xy[:, 1])
 
-    '''
     d = np.sqrt(r[0])
     ax.plot(mu[0] + np.array([0, v[0, 0] * d]),
             mu[1] + np.array([0, v[1, 0] * d]),
@@ -285,7 +303,7 @@ def cov_ellipse(ax, mu, cov, n=50):
             mu[1] + np.array([0, v[1, 1] * d]),
             label=f'$\\rho$={r[1]:.2g}')
     ax.legend()
-    '''
+'''
 
 
 class ExponentialFit:
@@ -370,15 +388,15 @@ class ExponentialFit:
             # Create a partial parameter array, omitting i
             p_full = np.array(self._p)
             p_full[i] = value
-            p = np.delete(p_full, i)
 
             # Test the constraint, if given
             if self._constraint is not None and not self._constraint(p_full):
-                return False, p
+                return False, np.delete(p_full, i)
 
             # Evaluate the error and compare
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             with np.errstate(all='ignore'):
+                p = np.delete(p_full, i)
                 r = expfit.fmin(f, p, constraint=self._constraint)
             return r.success and np.sqrt(r.error) < cutoff, r.x
 
@@ -414,6 +432,7 @@ class ExponentialFit:
 
         return bounds
 
+    '''
     def cov(self):
         """
         Returns a covariance matrix bassed on the Hessian at the obtained
@@ -433,4 +452,4 @@ class ExponentialFit:
 
         # Covariance matrix and return
         return np.linalg.inv(hes) * 2 * mse / self._n
-
+    '''

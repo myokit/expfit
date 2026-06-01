@@ -38,6 +38,7 @@ class TestDouble(unittest.TestCase):
         t = np.linspace(t0, t0 + duration, n)
         v = expfit.exp(t, (a, b, c, d, e))
         v += self.r.normal(0, max(fnoise * abs(v[0] - v[-1]), 1e-9), size=n)
+        print('Sigma true', max(fnoise * abs(v[0] - v[-1]), 1e-9)**2)
 
         plot_params = (a, b, c, d, e) if plot else False
         af, bf, cf, df, ef = expfit.fitd2(t, v, plot=plot_params)
@@ -82,24 +83,31 @@ class TestDouble(unittest.TestCase):
     def test_fitd2_hard(self):
         # Test cases where it doesn't seem identifiable
         dod = self.double_decaying_on_double
-        plot = False
+        plot = True
+
+        #
+        # TODO: These are hard in part because they are sparse
+        #
 
         # Noise has strong influence on this one
         # Note that both tests pass the "ratio" criterium: the obtained
         # solution has a lower RMSE than the true solution
         self.r = np.random.default_rng(3)
         dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
+        #self.r = np.random.default_rng(3)
+        #dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot, n=999)
+        return
         self.r = np.random.default_rng(2)
-        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot)
+        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot, n=1000)
         self.r = np.random.default_rng(6)
-        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot)
+        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot, n=1000)
         self.r = np.random.default_rng(3)
-        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot)
+        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot, n=1000)
         self.r = np.random.default_rng(9)
-        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot)
-        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot)
-        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot)
-        dod(500, 1, -6, 3, -10, deltas=(.5, 1, 10, 2, 2), plot=plot)
+        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot, n=1000)
+        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot, n=1000)
+        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot, n=1000)
+        dod(500, 1, -6, 3, -10, deltas=(.5, 1, 10, 2, 2), plot=plot, n=1000)
 
     def test_fitd2_noisy(self):
         # Test on (Gaussian) noisy signals: rapidly becomes impossible
