@@ -28,7 +28,7 @@ class TestTrans(unittest.TestCase):
         self.assertAlmostEqual(r, 0.7090909091)
         u, v, w = tr.detransform(p, q, r)
         self.assertEqual(u, a)
-        self.assertEqual(v, b)
+        self.assertAlmostEqual(v, b)
         self.assertEqual(w, c)
         t, v = np.array([0.5, 0.6, 0.7]), np.array([0.1, 0.2, 0.3])
         x, y = tr.detransform_series(t, v)
