@@ -165,13 +165,13 @@ def fitd2(t, v, plot=False, vet=True):
         if r.x[4] / r.x[2] > 1.1 and r.success:
             break
 
-    p = ExponentialFit(t, v, r.x, constraint=_decaying, hessian=r.hes)
+    p = ExponentialFit(t, v, r.x, constraint=_decaying)
 
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(9, 7.5))
         fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
-        grd = fig.add_gridspec(2, 2, height_ratios=(2, 1))
+        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
@@ -243,15 +243,49 @@ def fitd2(t, v, plot=False, vet=True):
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
 
-        '''
         # Show covariance matrices
-        cov = p.cov()
         ax3 = fig.add_subplot(grd[1, 2])
-        print(cov)
-        #ax3.set
-        '''
+
+        cov = p.cov()
+        cv = cov[2::2, 2::2]
+        cov_ellipse(ax3, p[2::2], cv)
+        xlim, ylim = ax3.get_xlim(), ax3.get_ylim()
+        rx, ry = xlim[1] - xlim[0], ylim[1] - ylim[0]
+        if rx > ry:
+            m = ylim[1] + ylim[0]
+            ax3.set_ylim(0.5 * (m - rx), 0.5 * (m + rx))
+        else:
+            m = xlim[1] + xlim[0]
+            print(0.5 * m)
+            ax3.set_xlim(0.5 * (m - ry), 0.5 * (m + ry))
+        ax3.set_xlabel('c1')
+        ax3.set_ylabel('c2')
 
     return p
+
+
+def cov_ellipse(ax, mu, cov, n=50):
+    """
+    """
+    r, v = np.linalg.eig(cov)
+
+    t = np.linspace(0, 2 * np.pi, n)
+    xy = np.sqrt(r.reshape((1, 2))) * np.array([np.cos(t), np.sin(t)]).T
+    xy = np.dot(xy, v.T)
+
+    ax.plot(mu[0] + xy[:, 0], mu[1] + xy[:, 1])
+
+    '''
+    d = np.sqrt(r[0])
+    ax.plot(mu[0] + np.array([0, v[0, 0] * d]),
+            mu[1] + np.array([0, v[1, 0] * d]),
+            label=f'$\\rho$={r[0]:.2g}')
+    d = np.sqrt(r[1])
+    ax.plot(mu[0] + np.array([0, v[0, 1] * d]),
+            mu[1] + np.array([0, v[1, 1] * d]),
+            label=f'$\\rho$={r[1]:.2g}')
+    ax.legend()
+    '''
 
 
 class ExponentialFit:
@@ -280,12 +314,11 @@ class ExponentialFit:
         An optional precalculated Hessian at ``p``.
 
     """
-    def __init__(self, x, y, p, constraint=None, hessian=None):
+    def __init__(self, x, y, p, constraint=None):
         self._xy = x, y
         self._p = tuple(p)
         self._n = len(self._p)
         self._constraint = constraint
-        self._hes = hessian
         self._err = None
 
     def __len__(self):
@@ -381,7 +414,6 @@ class ExponentialFit:
 
         return bounds
 
-    '''
     def cov(self):
         """
         Returns a covariance matrix bassed on the Hessian at the obtained
@@ -389,17 +421,16 @@ class ExponentialFit:
 
         Specifically::
 
-            Cov = inverse(hessian)
+            Cov = (2 * mse / n) * inverse(hessian)
 
         """
-        # Get the Hessian
-        if self._hes is None:
-            # Create and cache an error
-            if self._err is None:
-                self._err = expfit.MultiExponentialError(*self._xy)
-            self._hes = self._err(self._p)[2]
+        # Create and cache an error
+        if self._err is None:
+            self._err = expfit.MultiExponentialError(*self._xy)
 
-        # Calculate and return
-        return np.linalg.inv(-self._hes)
-    '''
+        # Calculate MSE and Hessian
+        mse, jac, hes = self._err(self._p)
+
+        # Covariance matrix and return
+        return np.linalg.inv(hes) * 2 * mse / self._n
 
