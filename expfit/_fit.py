@@ -207,8 +207,9 @@ def fitd2(t, v, plot=False, vet=True):
 
         # First exponential
         lo, hi = p.ci(2)
+        cif = 1 / p.ci_fisher(2)
         tau, tlo, thi = -1 / p[2], -1 / hi[2], -1 / lo[2]
-        b = f'Fit 1st (tau={tau:.2g}, [{tlo:.2g}, {thi:.2g}])'
+        b = f'Fit 1st (tau={tau:.2g}, PL[{tlo:.2g}, {thi:.2g}], FI±{cif:.2g})'
         ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
         ax0.fill_between(t, e(t, (lo[0], lo[1], lo[2])),
                          e(t, (hi[0], hi[1], hi[2])), color=D1, alpha=0.1)
@@ -217,8 +218,9 @@ def fitd2(t, v, plot=False, vet=True):
 
         # Second exponential
         lo, hi = p.ci(4)
+        cif = 1 / p.ci_fisher(4)
         tau, tlo, thi = -1 / p[4], -1 / hi[4], -1 / lo[4]
-        b = f'Fit 2nd (tau={tau:.2g} [{tlo:.2g}, {thi:.2g}])'
+        b = f'Fit 2nd (tau={tau:.2g} PL[{tlo:.2g}, {thi:.2g}], FI±{cif:.2g})'
         ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
         ax0.fill_between(t, e(t, (lo[0], lo[3], lo[4])),
                          e(t, (hi[0], hi[3], hi[4])), color=D2, alpha=0.1)
@@ -232,10 +234,10 @@ def fitd2(t, v, plot=False, vet=True):
         ax1.set_ylabel('v')
         ax1.plot(t, v, code, color='tab:blue', label='Data')
         ax1.plot(t, e(t, (a0, b0, c0)), 'k--', lw=1.5,
-                 label=f'Initial single estimate (tau={-1 / c0:.2g})')
+                 label=f'Init. single ($\\tau$={-1 / c0:.2g})')
         ax1.plot(t, e(t, p0), 'k:', lw=1.5,
-                 label='Initial double estimate')
-        ax1.legend()
+                 label='Init. double')
+        ax1.legend(frameon=False)
 
         # Show final fit residuals
         ax2 = fig.add_subplot(grd[1, 1])
@@ -277,34 +279,34 @@ def fitd2(t, v, plot=False, vet=True):
         print(-1 / (p[2] - t1), -1 / (p[2] + t1))
         print(-1 / (p[4] - t2), -1 / (p[4] + t2))
         print()
-        '''
-        e = expfit.MultiExponentialError(t, v)
-        f = lambda p: e(p)[0]
+        #'''
         ax3 = fig.add_subplot(grd[1, 2])
-        found_vs_known(ax3, f, p, plot)
+        found_vs_true(ax3, expfit.MultiExponentialError(t, v), p, plot)
 
 
     return p
 
 
-def found_vs_known(ax, f, found, known, padding=0.25, evaluations=200):
+def found_vs_true(ax, error, found, known, padding=0.25, evaluations=200):
     """
-    ...
+    Plots the RMSE between a ``found`` and ``known`` (true) value.
     """
     found, known = np.array(found), np.array(known)
+    f = lambda p: np.sqrt(error(p)[0])
     s = np.linspace(-padding, 1 + padding, evaluations)
     r = known - found
     x = [found + sj * r for sj in s]
-    y = [f(i) for i in x]
+    y = [np.sqrt(f(i)) for i in x]
     ax.plot(s, y, color='green')
     ax.axvline(0, color='#1f77b4', label='Found')
     ax.axvline(1, color='#7f7f7f', label='Known')
+    ax.set_ylabel('RMSE')
     ax.legend()
 
 
 
 
-'''
+
 def cov_ellipse(ax, mu, cov, n=50):
     """
     """
@@ -316,6 +318,7 @@ def cov_ellipse(ax, mu, cov, n=50):
 
     ax.plot(mu[0] + xy[:, 0], mu[1] + xy[:, 1])
 
+    '''
     d = np.sqrt(r[0])
     ax.plot(mu[0] + np.array([0, v[0, 0] * d]),
             mu[1] + np.array([0, v[1, 0] * d]),
@@ -325,7 +328,7 @@ def cov_ellipse(ax, mu, cov, n=50):
             mu[1] + np.array([0, v[1, 1] * d]),
             label=f'$\\rho$={r[1]:.2g}')
     ax.legend()
-'''
+    '''
 
 
 class ExponentialFit:
@@ -357,12 +360,14 @@ class ExponentialFit:
     def __init__(self, x, y, p, constraint=None):
         self._xy = x, y
         self._p = tuple(p)
-        self._n = len(self._p)
+        self._np = len(self._p)
+        self._nt = len(x)
         self._constraint = constraint
         self._err = None
+        self._cov = None
 
     def __len__(self):
-        return self._n
+        return self._np
 
     def __getitem__(self, subscript):
         return self._p.__getitem__(subscript)
@@ -370,26 +375,44 @@ class ExponentialFit:
     def __str__(self):
         return ' '.join(f'{i:+.5e}' for i in self._p)
 
-    def ci(self, i, cutoff=0.005, max_iter=100, verbose=False):
+    def ci(self, i, chi2=2.706, max_iter=100, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
-        ``i``.
+        ``i`` using a profile likelihood ratio method.
 
         The method works by:
 
-        1. Setting a threshold RMSE as ``(1 + cutoff) * RMSE(p)``
+        1. Setting a threshold MSE as ``(1 + cut-off) * MSE(p_best)``
         2. Fixing the parameter at its original value plus an offset,
-           reoptimising, and increasing until the RMSE goes above the
+           reoptimising, and increasing until the MSE goes above the
            threshold.
         3. Performing bisection search to find the offset at which the
-           threshold was crossed.
+           threshold is crossed.
+
+        The cut-off is set based on the assumption of an additive Normal
+        noise term (``data = model + N(0, sigma^2)``), and then rewriting in
+        terms of the MSE, leading to::
+
+            cut-off = chi2 / n
+
+        where chi2 is a percentile from a chi-squared distribution with one
+        degree of freedom. The default value is ``chi2 = 2.706`` for 95%
+        confidence that the true value is in the interval. To obtain a wider
+        bound, set e.g. ``chi2 = 3.841`` for 95% confidence. Other values can
+        be obtained from tables or e.g. with scipy (if installed)::
+
+            import scipy
+
+            # 90% confidence interval
+            chi2 = scipy.stats.chi2.ppf(0.90, 1)
 
         Arguments:
 
         ``i``
             The index of the chosen parameter.
-        ``cutoff``
-            The cut-off used to determine the RMSE threshold.
+        ``chi2``
+            The chi-squared distribution value used to determine the cut-off.
+            The default value gives a 90% confidence region.
         ``max_iter``
             The maximum iterations for steps 2 and 3.
         ``verbose``
@@ -403,22 +426,8 @@ class ExponentialFit:
             self._err = expfit.MultiExponentialError(*self._xy)
 
         # Set cut-off
-        cutoff = self._err(self._p)[0] * (1 + cutoff)
+        cutoff = (1 + chi2 / self._nt) * self._err(self._p)[0]
         print('Cut off', cutoff)
-
-        # Set new cutoff
-        chi2_99 = 6.6348966010212145
-        chi2_95 = 3.841458820694124
-        chi2_90 = 2.705543454095404
-        chi2_10 = 0.01579077409343122
-        chi2_05 = 0.003932140000019522
-        chi2_01 = 0.00015708785790970184
-
-        n = len(self._xy[0])
-        err0 = self._err(self._p)[0]
-        cutoff = (1 + chi2_10 / n) * err0
-        print('New off', cutoff)
-
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -469,7 +478,30 @@ class ExponentialFit:
 
         return bounds
 
-    '''
+    def ci_fisher(self, i, perc=1.645):
+        """
+        Finds and returns a confidence interval for the parameter at index
+        ``i`` using a Fisher information method.
+
+            import scipy
+
+            # 90% confidence interval
+            perc = scipy.stats.norm.ppf(0.95)
+
+        Arguments:
+
+        ``i``
+            The index of the chosen parameter.
+        ``perc``
+            The Normal percentile point used to determine the interval.
+            The default value gives a 90% confidence region.
+
+        Returns a single value ``x``, for an interval of ``mu - x, mu + x``.
+        """
+        if self._cov is None:
+            self.cov()
+        return perc * np.sqrt(self._cov[i, i])
+
     def cov(self):
         """
         Returns a covariance matrix bassed on the Hessian at the obtained
@@ -477,16 +509,17 @@ class ExponentialFit:
 
         Specifically::
 
-            Cov = (2 * mse / n) * inverse(hessian)
+            Cov = (2 * MSE(p_best) / n) * inverse(Hessian(p_best))
 
         """
-        # Create and cache an error
-        if self._err is None:
-            self._err = expfit.MultiExponentialError(*self._xy)
+        if self._cov is None:
+            # Calculate MSE and Hessian
+            if self._err is None:
+                self._err = expfit.MultiExponentialError(*self._xy)
+            mse, jac, hes = self._err(self._p)
 
-        # Calculate MSE and Hessian
-        mse, jac, hes = self._err(self._p)
+            # Calculate covariance matrix and return
+            self._cov = np.linalg.inv(hes) * 2 * mse / self._nt
 
-        # Covariance matrix and return
-        return np.linalg.inv(hes) * 2 * mse / self._n
-    '''
+        return self._cov
+

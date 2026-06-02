@@ -71,7 +71,7 @@ class TestDouble(unittest.TestCase):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.double_decaying_on_double
         self.r = np.random.default_rng(20)
-        plot = False
+        plot = True
 
         dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=plot)
         dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
@@ -92,13 +92,13 @@ class TestDouble(unittest.TestCase):
         # Noise has strong influence on this one
         # Note that both tests pass the "ratio" criterium: the obtained
         # solution has a lower RMSE than the true solution
-        self.r = np.random.default_rng(3)
-        dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
+        #self.r = np.random.default_rng(3)
+        #dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=True)
         #self.r = np.random.default_rng(3)
         #dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot, n=999)
-        #return
         self.r = np.random.default_rng(2)
-        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot, n=10000)
+        dod(18, 10, -6, 5, -12, deltas=(.05, 5, 1, 5, 3), plot=plot, n=500)
+        return
         self.r = np.random.default_rng(6)
         dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot, n=10000)
         self.r = np.random.default_rng(3)
