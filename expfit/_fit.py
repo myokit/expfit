@@ -500,7 +500,17 @@ class ExponentialFit:
         """
         if self._cov is None:
             self.cov()
-        return perc * np.sqrt(self._cov[i, i])
+
+        mse, jac, hes = self._err(self._p)
+
+        jii = hes[i, i] * self._nt / (2 * mse)
+        print(perc * np.sqrt(1 / jii))
+        print(perc * np.sqrt(self._cov[i, i]))
+
+
+
+        return hes[i, i]
+
 
     def cov(self):
         """
