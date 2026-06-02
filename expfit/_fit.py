@@ -281,7 +281,7 @@ def fitd2(t, v, plot=False, vet=True):
         e = expfit.MultiExponentialError(t, v)
         f = lambda p: e(p)[0]
         ax3 = fig.add_subplot(grd[1, 2])
-        found_vs_known(ax3, f, plot, p)
+        found_vs_known(ax3, f, p, plot)
 
 
     return p
@@ -403,7 +403,22 @@ class ExponentialFit:
             self._err = expfit.MultiExponentialError(*self._xy)
 
         # Set cut-off
-        cutoff = np.sqrt(self._err(self._p)[0]) * (1 + cutoff)
+        cutoff = self._err(self._p)[0] * (1 + cutoff)
+        print('Cut off', cutoff)
+
+        # Set new cutoff
+        chi2_99 = 6.6348966010212145
+        chi2_95 = 3.841458820694124
+        chi2_90 = 2.705543454095404
+        chi2_10 = 0.01579077409343122
+        chi2_05 = 0.003932140000019522
+        chi2_01 = 0.00015708785790970184
+
+        n = len(self._xy[0])
+        err0 = self._err(self._p)[0]
+        cutoff = (1 + chi2_10 / n) * err0
+        print('New off', cutoff)
+
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -420,7 +435,7 @@ class ExponentialFit:
             with np.errstate(all='ignore'):
                 p = np.delete(p_full, i)
                 r = expfit.fmin(f, p, constraint=self._constraint)
-            return r.success and np.sqrt(r.error) < cutoff, r.x
+            return r.success and r.error < cutoff, r.x
 
         bounds = []
         for direction in (1, -1):

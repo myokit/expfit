@@ -96,18 +96,18 @@ class TestDouble(unittest.TestCase):
         dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
         #self.r = np.random.default_rng(3)
         #dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot, n=999)
-        return
+        #return
         self.r = np.random.default_rng(2)
-        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot, n=1000)
+        dod(18, 10, -6, 5, -12, deltas=(.01, 5, 1, 5, 3), plot=plot, n=10000)
         self.r = np.random.default_rng(6)
-        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot, n=1000)
+        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot, n=10000)
         self.r = np.random.default_rng(3)
-        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot, n=1000)
+        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot, n=10000)
         self.r = np.random.default_rng(9)
-        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot, n=1000)
-        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot, n=1000)
-        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot, n=1000)
-        dod(500, 1, -6, 3, -10, deltas=(.5, 1, 10, 2, 2), plot=plot, n=1000)
+        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot, n=10000)
+        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot, n=10000)
+        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot, n=10000)
+        dod(500, 1, -6, 3, -10, deltas=(.5, 1, 10, 2, 2), plot=plot, n=10000)
 
     def test_fitd2_noisy(self):
         # Test on (Gaussian) noisy signals: rapidly becomes impossible
