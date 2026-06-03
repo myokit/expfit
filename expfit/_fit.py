@@ -222,10 +222,11 @@ def fitd2(t, v, plot=False):
 
         # First exponential
         lo1, hi1 = p.ci(2)
-        cif1 = 1 / p.ci_fisher(2)
+        cif1 = p.ci_fisher(2)
         tau1, tlo1, thi1 = -1 / p[2], -1 / hi1[2], -1 / lo1[2]
+        tclo1, tchi1 = -1 / (p[2] - cif1), -1 / (p[2] + cif1)
         b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
-             f' FI±{cif1:.2g})')
+             f' FI[{tclo1:.2g}, {tchi1:.2g}])')
         ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
         ax0.fill_between(t, e(t, (lo1[0], lo1[1], lo1[2])),
                          e(t, (hi1[0], hi1[1], hi1[2])), color=D1, alpha=0.1)
@@ -236,10 +237,13 @@ def fitd2(t, v, plot=False):
 
         # Second exponential
         lo2, hi2 = p.ci(4)
-        cif2 = 1 / p.ci_fisher(4)
+        cif2 = p.ci_fisher(4)
         tau2, tlo2, thi2 = -1 / p[4], -1 / hi2[4], -1 / lo2[4]
+        tclo2, tchi2 = -1 / (p[4] - cif2), -1 / (p[4] + cif2)
+        b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
+             f' FI[{tclo1:.2g}, {tchi1:.2g}])')
         b = (f'Fit 2nd (tau={tau2:.2g} PL[{tlo2:.2g}, {thi2:.2g}],'
-             f' FI±{cif2:.2g})')
+             f' FI[{tclo2:.2g}, {tchi2:.2g}])')
         ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
         ax0.fill_between(t, e(t, (lo2[0], lo2[3], lo2[4])),
                          e(t, (hi2[0], hi2[3], hi2[4])), color=D2, alpha=0.1)
@@ -268,96 +272,50 @@ def fitd2(t, v, plot=False):
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
 
-        if False:
-            # Show MSE profile for tau 1
-            ax4 = fig.add_subplot(grd[0, 2])
-            ax4.set_xlabel('tau 1')
-            ax4.set_ylabel('MSE')
-            values, errors = p.pl(2, lo1[2], hi1[2])
-            ax4.plot(-1 / values, errors)
-            ax4.axvline(-1 / p[2], color='gray', zorder=1)
+        # Show MSE profile for tau 1
+        ax4 = fig.add_subplot(grd[0, 2])
+        ax4.set_xlabel('tau 1')
+        ax4.set_ylabel('MSE')
+        values, errors = p.pl(2, lo1[2], hi1[2])
+        ax4.plot(-1 / values, errors)
+        ax4.axvline(tau1, color='gray', zorder=1)
+        ax4.axvline(tlo1, color='k', lw=1)
+        ax4.axvline(thi1, color='k', lw=1)
+        ax4.axvline(tclo1, color='k', lw=1, ls='--')
+        ax4.axvline(tchi1, color='k', lw=1, ls='--')
 
-            # Add parabola based on Hessian
-            x = np.linspace(values[0], values[-1], 100)
-            a = r.hes[2, 2] * 0.5
-            b = r.jac[2] - 2 * a * p[2]
-            c = r.error - p[2] * (b + a * p[2])
-            ylim = ax4.get_ylim()
-            ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
-            ax4.set_ylim(ylim)
-            xticks = np.array([values[0], values[len(values) // 2], values[-1]])
-            ax4.set_xticks(-1 / xticks)
+        # Add parabola based on Hessian
+        x = np.linspace(values[0], values[-1], 100)
+        a = r.hes[2, 2] * 0.5
+        b = r.jac[2] - 2 * a * p[2]
+        c = r.error - p[2] * (b + a * p[2])
+        ylim = ax4.get_ylim()
+        ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
+        ax4.set_ylim(ylim)
+        xticks = np.array([values[0], values[len(values) // 2], values[-1]])
+        ax4.set_xticks(-1 / xticks)
 
-            # Show MSE profile for tau 2
-            ax5 = fig.add_subplot(grd[1, 2])
-            ax5.set_xlabel('tau 2')
-            ax5.set_ylabel('MSE')
-            values, errors = p.pl(4, lo2[4], hi2[4])
-            ax5.plot(-1 / values, errors)
-            ax5.axvline(-1 / p[4], color='gray', zorder=1)
+        # Show MSE profile for tau 2
+        ax5 = fig.add_subplot(grd[1, 2])
+        ax5.set_xlabel('tau 2')
+        ax5.set_ylabel('MSE')
+        values, errors = p.pl(4, lo2[4], hi2[4])
+        ax5.plot(-1 / values, errors)
+        ax5.axvline(-1 / p[4], color='gray', zorder=1)
+        ax5.axvline(tlo2, color='k', lw=1)
+        ax5.axvline(thi2, color='k', lw=1)
+        ax5.axvline(tclo2, color='k', lw=1, ls='--')
+        ax5.axvline(tchi2, color='k', lw=1, ls='--')
 
-            # Add parabola based on Hessian
-            x = np.linspace(values[0], values[-1], 100)
-            a = r.hes[4, 4] * 0.5
-            b = r.jac[4] - 2 * a * p[4]
-            c = r.error - p[4] * (b + a * p[4])
-            ylim = ax5.get_ylim()
-            ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
-            ax5.set_ylim(ylim)
-            ax4.set_xticks(-1 / xticks)
-        else:
-            # Show MSE profile for tau 1
-            ax4 = fig.add_subplot(grd[0, 2])
-            ax4.set_xlabel('tau 1')
-            ax4.set_ylabel('log likelihood')
-            values, errors = p.pl(2, lo1[2], hi1[2])
-            n = len(t)
-            logls = (-0.5 * n * np.log(2 * np.pi)
-                     - n * np.log(r.error)
-                     - 0.5 * n / r.error * errors)
-            ax4.plot(-1 / values, logls)
-            ax4.axvline(-1 / p[2], color='gray', zorder=1)
-
-            j = 0.5 * n / r.error * r.hes
-            c = np.linalg.inv(j)
-            ci = 1.645 * np.sqrt(c[i, i])
-            #ax4.axvline(-1 / (p[2] - ci))
-            #ax4.axvline(-1 / (p[2] + ci))
-
-
-            # Add parabola based on Hessian
-            #x = np.linspace(values[0], values[-1], 100)
-            #a = r.hes[2, 2] * 0.5
-            #b = r.jac[2] - 2 * a * p[2]
-            #c = r.error - p[2] * (b + a * p[2])
-            #ylim = ax4.get_ylim()
-            #ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
-            #ax4.set_ylim(ylim)
-            #xticks = np.array([values[0], values[len(values) // 2], values[-1]])
-            #ax4.set_xticks(-1 / xticks)
-
-            # Show MSE profile for tau 2
-            ax5 = fig.add_subplot(grd[1, 2])
-            ax5.set_xlabel('tau 2')
-            ax5.set_ylabel('log likelihood')
-            values, errors = p.pl(4, lo2[4], hi2[4])
-            n = len(t)
-            logls = (-0.5 * n * np.log(2 * np.pi)
-                     - n * np.log(r.error)
-                     - 0.5 * n / r.error * errors)
-            ax5.plot(-1 / values, logls)
-            ax5.axvline(-1 / p[4], color='gray', zorder=1)
-
-            # Add parabola based on Hessian
-            #x = np.linspace(values[0], values[-1], 100)
-            #a = r.hes[4, 4] * 0.5
-            #b = r.jac[4] - 2 * a * p[4]
-            #c = r.error - p[4] * (b + a * p[4])
-            #ylim = ax5.get_ylim()
-            #ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
-            #ax5.set_ylim(ylim)
-            #ax4.set_xticks(-1 / xticks)
-
+        # Add parabola based on Hessian
+        x = np.linspace(values[0], values[-1], 100)
+        a = r.hes[4, 4] * 0.5
+        b = r.jac[4] - 2 * a * p[4]
+        c = r.error - p[4] * (b + a * p[4])
+        ylim = ax5.get_ylim()
+        ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
+        ax5.set_ylim(ylim)
+        ax4.set_xticks(-1 / xticks)
 
         # Show error comparison with known
         if known:
@@ -366,7 +324,6 @@ def fitd2(t, v, plot=False):
             fig.align_ylabels((ax3, ax4, ax5))
         else:
             fig.align_ylabels((ax3, ax4))
-
 
         '''
         # Show covariance matrices

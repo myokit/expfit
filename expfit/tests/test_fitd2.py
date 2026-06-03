@@ -68,10 +68,9 @@ class TestDouble(unittest.TestCase):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.d2_on_double
         self.r = np.random.default_rng(20)
-        plot = True
+        plot = False
 
         dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=plot)
-        return
         dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
         dod(5, 1, -1, 5, -10, deltas=(.1, .1, .5, .2, .5), plot=plot)
         dod(20, 6, -2, 4, -10, deltas=(.05, .2, .1, .4, .5), plot=plot)
