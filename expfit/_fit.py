@@ -221,9 +221,9 @@ def fitd2(t, v, plot=False):
         ax0.plot(t, e(t, p), lw=1, color='k', label=label)
 
         # First exponential
-        lo1, hi1 = p.ci(2)
+        lo1, hi1 = p.ci_profile(2)
         cif1 = p.ci_fisher(2)
-        tau1, tlo1, thi1 = -1 / p[2], -1 / hi1[2], -1 / lo1[2]
+        tau1, tlo1, thi1 = -1 / p[2], -1 / lo1[2], -1 / hi1[2]
         tclo1, tchi1 = -1 / (p[2] - cif1), -1 / (p[2] + cif1)
         b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
              f' FI[{tclo1:.2g}, {tchi1:.2g}])')
@@ -236,9 +236,9 @@ def fitd2(t, v, plot=False):
         ax0.plot(t, e(t, hi1), 'tab:green', ls='--', lw=0.4)
 
         # Second exponential
-        lo2, hi2 = p.ci(4)
+        lo2, hi2 = p.ci_profile(4)
         cif2 = p.ci_fisher(4)
-        tau2, tlo2, thi2 = -1 / p[4], -1 / hi2[4], -1 / lo2[4]
+        tau2, tlo2, thi2 = -1 / p[4], -1 / lo2[4], -1 / hi2[4]
         tclo2, tchi2 = -1 / (p[4] - cif2), -1 / (p[4] + cif2)
         b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
              f' FI[{tclo1:.2g}, {tchi1:.2g}])')
@@ -276,7 +276,7 @@ def fitd2(t, v, plot=False):
         ax4 = fig.add_subplot(grd[0, 2])
         ax4.set_xlabel('tau 1')
         ax4.set_ylabel('MSE')
-        values, errors = p.pl(2, lo1[2], hi1[2])
+        values, errors = p.profile(2, lo1[2], hi1[2])
         ax4.plot(-1 / values, errors)
         ax4.axvline(tau1, color='gray', zorder=1)
         ax4.axvline(tlo1, color='k', lw=1)
@@ -299,7 +299,7 @@ def fitd2(t, v, plot=False):
         ax5 = fig.add_subplot(grd[1, 2])
         ax5.set_xlabel('tau 2')
         ax5.set_ylabel('MSE')
-        values, errors = p.pl(4, lo2[4], hi2[4])
+        values, errors = p.profile(4, lo2[4], hi2[4])
         ax5.plot(-1 / values, errors)
         ax5.axvline(-1 / p[4], color='gray', zorder=1)
         ax5.axvline(tlo2, color='k', lw=1)
@@ -347,16 +347,6 @@ def fitd2(t, v, plot=False):
         err = np.diag(cov)
         t1 = 1.96 * np.sqrt(err[2])
         t2 = 1.96 * np.sqrt(err[4])
-        print()
-        print(t1)
-        print(t2)
-        print()
-        print(1 / t1)
-        print(1 / t2)
-        print()
-        print(-1 / (p[2] - t1), -1 / (p[2] + t1))
-        print(-1 / (p[4] - t2), -1 / (p[4] + t2))
-        print()
         #'''
 
     return p
@@ -379,6 +369,7 @@ def found_vs_true(ax, error, found, known, padding=0.25, evaluations=200):
     ax.legend()
 
 
+'''
 def cov_ellipse(ax, mu, cov, n=50):
     """
     """
@@ -390,7 +381,7 @@ def cov_ellipse(ax, mu, cov, n=50):
 
     ax.plot(mu[0] + xy[:, 0], mu[1] + xy[:, 1])
 
-    '''
+    """
     d = np.sqrt(r[0])
     ax.plot(mu[0] + np.array([0, v[0, 0] * d]),
             mu[1] + np.array([0, v[1, 0] * d]),
@@ -400,7 +391,8 @@ def cov_ellipse(ax, mu, cov, n=50):
             mu[1] + np.array([0, v[1, 1] * d]),
             label=f'$\\rho$={r[1]:.2g}')
     ax.legend()
-    '''
+    """
+'''
 
 
 class ExponentialFit:
@@ -414,7 +406,7 @@ class ExponentialFit:
     but also as an object, to access additional methods::
 
         p = expfit.fit1(t, v)
-        lower, upper = p.ci(2)
+        lower, upper = p.ci_profile(2)
 
     Arguments:
 
@@ -423,10 +415,12 @@ class ExponentialFit:
     ``p``
         The (assumed) optimal parameters.
     ``constraint``
-        An optional constraint used in deriving the parameters. Will be used in
-        :meth:`ci` if given.
+        An optional constraint used in deriving the parameters.
 
     """
+    # Allow different error class to be set, for testing
+    _err_class = expfit.MultiExponentialError
+
     def __init__(self, x, y, p, constraint=None):
         self._xy = x, y
         self._p = tuple(p)
@@ -445,7 +439,7 @@ class ExponentialFit:
     def __str__(self):
         return ' '.join(f'{i:+.5e}' for i in self._p)
 
-    def ci(self, i, chi2=2.706, max_iter=100, verbose=False):
+    def ci_profile(self, i, chi2=2.706, max_iter=100, verbose=True):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -493,10 +487,12 @@ class ExponentialFit:
         """
         # Create and cache an error
         if self._err is None:
-            self._err = expfit.MultiExponentialError(*self._xy)
+            self._err = self._err_class(*self._xy)
 
         # Set cut-off
         cutoff = (1 + chi2 / self._nt) * self._err(self._p)[0]
+        if verbose:
+            print('Cut off', cutoff)
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -505,19 +501,26 @@ class ExponentialFit:
             p_full[i] = value
 
             # Test the constraint, if given
-            if self._cst is not None and not self._cst(p_full):
-                return False, np.delete(p_full, i)
+            c = None
+            if self._cst is not None:
+                if not self._cst(p_full):
+                    return False, np.delete(p_full, i)
+
+                # Create a fixed version
+                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
 
             # Evaluate the error and compare
-            c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)
             with np.errstate(all='ignore'):
                 r = expfit.fmin(f, p, constraint=c)
+            #if not r.success:
+            #    print(r)
+
             return r.success and r.error < cutoff, r.x
 
         bounds = []
-        for direction in (1, -1):
+        for direction in (-1, 1):
             # Expand until upper bound found
             d = 1e-6 * np.abs(self._p[i]) * direction
             for j in range(max_iter):
@@ -586,11 +589,13 @@ class ExponentialFit:
 
             Cov = (2 * MSE(p_best) / n) * inverse(Hessian(p_best))
 
+        This is equivalent to the inverse Fisher information matrix, under the
+        assumption of an added Gaussian noise term.
         """
         if self._cov is None:
             # Calculate MSE and Hessian
             if self._err is None:
-                self._err = expfit.MultiExponentialError(*self._xy)
+                self._err = self._err_class(*self._xy)
             mse, jac, hes = self._err(self._p)
 
             # Calculate covariance matrix and return
@@ -598,10 +603,12 @@ class ExponentialFit:
 
         return self._cov
 
-    def pl(self, i, lo, hi, evals=25):
+    def profile(self, i, lo, hi, evals=25):
         """
-        Evaluates a profile log-likelihood for the i-th parameter, ranging from
-        ``lo`` to ``hi``.
+        Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
+
+        For each value, the optimisation is re-run, keeping the i-th parameter
+        fixed.
 
         Arguments:
 
@@ -612,18 +619,20 @@ class ExponentialFit:
         ``hi``
             The maximum value to test for parameter ``i``.
 
-        Returns a tuple ``(values, errors)`` containing the scanned values and
-        the corresponding MSEs.
+        Returns a tuple ``(values, errors)`` containing the tested parameter
+        values and their MSEs.
         """
         if self._err is None:
-            self._err = expfit.MultiExponentialError(*self._xy)
+            self._err = self._err_class(*self._xy)
 
         p_full = np.array(self._p)
         values = np.linspace(lo, hi, evals)
         errors = np.zeros(evals)
         for j, val in enumerate(values):
             p_full[i] = val
-            c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
+            c = None
+            if self._cst is not None:
+                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)
             with np.errstate(all='ignore'):

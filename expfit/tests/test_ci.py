@@ -38,83 +38,93 @@ class Linear1d():
         return e, jac, hes
 
 
+def fit(x, y):
+    """
+    Fit the series ``(x, y)`` with a linear model, returning an object that can
+    do CI.
+    """
+    x, y = expfit.vet_series(x, y)
+    f = Linear1d(x, y)
+    with np.errstate(all='ignore'):
+        r = expfit.fmin(f, (1, 1))
+    r = expfit.ExponentialFit(x, y, r.x)
+    r._err_class = Linear1d
+    return r
+
+
 class TestCI(unittest.TestCase):
     """ Tests the confidence interval methods on a linear error """
 
-    def test_least_squares(self):
-        # Test linear least squares
+    def test_ci(self):
 
-        x = np.array([-5, -2, 0, 0.1, 3, 8, 13])
-        y = 4 + 13 * x
-        ls = expfit.LeastSquaresFit(x, y)
-        self.assertEqual(ls.offset, 4)
-        self.assertEqual(ls.slope, 13)
-        self.assertEqual(ls.mu_x, np.mean(x))
-        self.assertEqual(ls.mu_y, np.mean(y))
+        import matplotlib.pyplot as plt
 
-        self.assertRaisesRegex(
-            ValueError, 'At least 2 points', expfit.LeastSquaresFit, [1], [2])
+        rng = np.random.default_rng(1)
+        x = np.linspace(0, 10, 51)
+        at, bt = 5, 3
+        y = at + bt * x + rng.normal(0, 2, size=x.shape)
+        a, b = p = fit(x, y)
 
-        # Test vetting occurs but can be switched off
-        x, y = [3, 2], [1, 1]
-        self.assertRaisesRegex(
-            ValueError, 'strictly increasing', expfit.LeastSquaresFit, x, y)
-        self.assertRaises(
-            TypeError, expfit.LeastSquaresFit, x, y, vet=False)
+        fig = plt.figure(figsize=(11, 7.5))
+        fig.subplots_adjust(0.075, 0.06, 0.99, 0.99, hspace=0.15)
+        grid = fig.add_gridspec(2, 2, height_ratios=(3, 1))
 
-        # Test string
-        self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
+        ax0 = fig.add_subplot(grid[0, :])
+        ax0.plot(x, y, 'o', label=f'Data (n={len(x)}, a={at}, b={bt})')
+        ax0.plot(x, a + b * x, label=f'a + b x (a={a:.2g} b={b:.2g})')
+        ax0.legend()
 
-    def test_opt(self):
+        cip = p.ci_profile(0)
+        cif = p.ci_fisher(0)
+        alo1, ahi1 = cip[0][0], cip[1][0]
+        alo2, ahi2 = p[0] - cif, p[0] + cif
+        alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
+        #xx, yy = p.profile(0, alo, ahi, 25)
 
-        # Find minimum of quadratic
-        f = Poly2(2, 3, 4)
-        self.assertEqual(f(3), (31, [15], [[4]]))
-        r = expfit.fmin(f, [10])
-        self.assertTrue(r.success)
-        self.assertEqual(r.x.shape, (1, ))
-        self.assertAlmostEqual(r.x[0], -0.75)
-        self.assertAlmostEqual(r.error, 23 / 8)
+        f = Linear1d(x, y)
+        print(cip[0], f(cip[0])[0])
+        print(cip[1], f(cip[1])[0])
 
-        # Test output
-        x = str(r).splitlines()
-        self.assertEqual(len(x), 12)
-        self.assertEqual(x[0], '     message: Optimisation successful')
-        self.assertEqual(x[1], '     success: True')
-        self.assertEqual(x[2], '  root error: 1.695582495781317')
-        self.assertEqual(x[3], '       error: 2.875')
-        self.assertTrue(x[4].startswith('    jacobian: [1'))
-        self.assertEqual(x[5], '     hessian: [[4]]')
-        self.assertEqual(x[6], '           x: [-0.75]')
-        self.assertTrue(x[7].startswith('        gtol: 1'))
-        self.assertEqual(x[8], f'  iterations: {r.iterations}')
-        self.assertEqual(x[9], f' evaluations: {r.evaluations}')
-        self.assertEqual(x[10], f'    accepted: {r.accepted}')
-        self.assertTrue(x[11].startswith('        time: 0.0'))
+        ax1 = fig.add_subplot(grid[1, 0])
+        ax1.set_xlabel('a')
+        ax1.set_ylabel('MSE')
+        #ax1.plot(xx, yy)
+        ax1.axvline(p[0], color='gray', label='True')
+        ax1.axvline(alo1, color='k', lw=1,
+                    label=f'PL ({alo1:.2g}, {ahi1:.2g})')
+        ax1.axvline(ahi1, color='k', lw=1)
+        ax1.axvline(alo2, color='k', lw=1, ls='--',
+                    label=f'FIM ({alo2:.2g}, {ahi2:.2g})')
+        ax1.axvline(ahi2, color='k', lw=1, ls='--')
+        ax1.legend(loc='lower right', framealpha=1)
 
-        # Test 2d output
-        r.jac = [1, 2]
-        r.hes = [[3, 4], [5, 6]]
-        x = str(r).splitlines()
-        self.assertEqual(len(x), 13)
-        self.assertEqual(x[4], '    jacobian: [1 2]')
-        self.assertEqual(x[5], '     hessian: [[3 4]')
-        self.assertEqual(x[6], '               [5 6]]')
+        '''
+        cip = p.ci_profile(1)
+        cif = p.ci_fisher(1)
+        alo1, ahi1 = cip[0][1], cip[1][1]
+        alo2, ahi2 = p[1] - cif, p[1] + cif
+        alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
+        xx, yy = p.profile(1, alo, ahi, 25)
 
-        # Find minimum of 4th order
-        f = Poly4(3, 2, 5, 7)
-        self.assertEqual(f(2), (73, [109], [[148]]))
-        r = expfit.fmin(f, [10])
-        self.assertTrue(r.success)
-        self.assertEqual(r.x.shape, (1, ))
-        self.assertAlmostEqual(r.x[0], -0.600471416)
-        self.assertGreater(f(r.x[0] + 1e-8)[0], r.error)
-        self.assertGreater(f(r.x[0] - 1e-8)[0], r.error)
+        ax2 = fig.add_subplot(grid[1, 1])
+        ax2.set_xlabel('b')
+        ax2.set_ylabel('MSE')
+        ax2.plot(xx, yy)
+        ax2.axvline(p[1], color='gray', label='True')
+        ax2.axvline(alo1, color='k', lw=1,
+                    label=f'PL ({alo1:.2g}, {ahi1:.2g})')
+        ax2.axvline(ahi1, color='k', lw=1)
+        ax2.axvline(alo2, color='k', lw=1, ls='--',
+                    label=f'FIM ({alo2:.2g}, {ahi2:.2g})')
+        ax2.axvline(ahi2, color='k', lw=1, ls='--')
+        ax2.legend(loc='lower right', framealpha=1)
+        '''
 
-        # Failing constraint
-        r = expfit.fmin(f, [10], constraint=lambda p: False)
-        self.assertFalse(r.success)
-        self.assertEqual(r.message, 'Initial position fails constraint')
+        plt.show()
+
+
+
+
 
 
 if __name__ == '__main__':  # pragma: no cover
