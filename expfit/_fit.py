@@ -16,12 +16,6 @@ D2 = '#5b3383'
 # '#1f701f'
 
 
-def _decaying(p):
-    """ Constraint for fitting decaying exponentials. """
-    t = -1 / p[2::2]
-    return np.all(t >= 0) and np.all(t[1:] < t[:-1])
-
-
 def fit1(t, v, plot=False):
     """
     Fits an exponential ``a + b * exp(c * t)`` to the time series ``(t, v)``,
@@ -34,6 +28,15 @@ def fit1(t, v, plot=False):
         a, b, c = expfit.fit_single(t, v)
         print(a, b, c)
 
+    Arguments:
+
+    ``t``, ``v``
+        The time series
+    ``plot``
+        Optional parameter to create a plot of the method's workings. Can be a
+        boolean or the string "simple" for a reduced plot.
+
+    Returns an :class:`ExponentialFit`.
     """
     t, v = expfit.vet_series(t, v)
 
@@ -127,14 +130,23 @@ def fit1(t, v, plot=False):
     return p
 
 
-def fitd2(t, v, plot=False, vet=True):
+def fitd2(t, v, plot=False):
     """
     Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
     where ``b0`` and ``b1`` have the same sign, ``c0`` and ``c1`` are both
     negative, and ``c1 > c0``.
+
+    Arguments:
+
+    ``t``, ``v``
+        The time series
+    ``plot``
+        Optional parameter to create a plot of the method's workings. Can be a
+        boolean or an array of known (true) parameters.
+
+    Returns an :class:`ExponentialFit`.
     """
-    if vet:
-        t, v = expfit.vet_series(t, v)
+    t, v = expfit.vet_series(t, v)
 
     # Estimate the dominant rate (in transformed space)
     tr = expfit.UnitSquareTransform(t, v)
@@ -154,44 +166,47 @@ def fitd2(t, v, plot=False, vet=True):
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
+    ct = expfit.DecayingConstraint()
     for i in range(1, 10):
         p0[2] *= 0.707106781
         p0[4] *= 1.414213562
         e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
-            r = expfit.fmin(e, p0, constraint=_decaying)
+            r = expfit.fmin(e, p0, constraint=ct)
             if plot:  # pragma: no cover
                 print(r)
         if r.x[4] / r.x[2] > 1.1 and r.success:
             break
 
-    p = ExponentialFit(t, v, r.x, constraint=_decaying)
+    p = ExponentialFit(t, v, r.x, constraint=ct)
 
     if plot:  # pragma: no cover
         import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(9, 7.5))
-        fig.subplots_adjust(0.095, 0.06, 0.995, 0.995, wspace=0.4, hspace=0.35)
-        grd = fig.add_gridspec(2, 3, height_ratios=(2, 1))
+        fig = plt.figure(figsize=(11, 7.5))
+        fig.subplots_adjust(0.075, 0.06, 0.99, 0.95, wspace=0.37, hspace=0.3)
+        grd = fig.add_gridspec(3, 3, width_ratios=(2, 2, 1))
 
         # Show data
         code = '-' if len(t) > 10 else 'x-'
-        ax0 = fig.add_subplot(grd[0, :])
+        ax0 = fig.add_subplot(grd[:2, :2])
         ax0.set_xlabel('t')
         ax0.set_ylabel('v')
-        ax0.plot(t, v, code, color='tab:blue', label='Data')
+        ax0.plot(t, v, code, color='tab:blue', label=f'Data (n={len(t)})')
 
         # Show parameters
         p0 = ExponentialFit(t, v, p0)
-        ax0.text(0.5, -0.21, f'Init: {p0}\n Fit: {p}',
+        ax0.text(0.5, 1.015, f'Init: {p0}\n Fit: {p}',
                  transform=ax0.transAxes, ha='center', font='monospace')
 
         # Try showing known solution
         e = expfit.exp
+        known = False
         try:
             assert len(plot) == 5
+            known = True
         except (TypeError, AssertionError):
             pass
-        else:
+        if known:
             ax0.plot(t, e(t, (plot[0], plot[1], plot[2])), color=C1,
                      label=f'Known 1st (tau={-1 / plot[2]:.2g})',)
             ax0.plot(t, e(t, (plot[0], plot[3], plot[4])), color=C2,
@@ -206,30 +221,38 @@ def fitd2(t, v, plot=False, vet=True):
         ax0.plot(t, e(t, p), lw=1, color='k', label=label)
 
         # First exponential
-        lo, hi = p.ci(2)
-        cif = 1 / p.ci_fisher(2)
-        tau, tlo, thi = -1 / p[2], -1 / hi[2], -1 / lo[2]
-        b = f'Fit 1st (tau={tau:.2g}, PL[{tlo:.2g}, {thi:.2g}], FI±{cif:.2g})'
+        lo1, hi1 = p.ci(2)
+        cif1 = 1 / p.ci_fisher(2)
+        tau1, tlo1, thi1 = -1 / p[2], -1 / hi1[2], -1 / lo1[2]
+        b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
+             f' FI±{cif1:.2g})')
         ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
-        ax0.fill_between(t, e(t, (lo[0], lo[1], lo[2])),
-                         e(t, (hi[0], hi[1], hi[2])), color=D1, alpha=0.1)
-        ax0.plot(t, e(t, (lo[0], lo[1], lo[2])), lw=0.4, color=D1)
-        ax0.plot(t, e(t, (hi[0], hi[1], hi[2])), lw=0.4, color=D1)
+        ax0.fill_between(t, e(t, (lo1[0], lo1[1], lo1[2])),
+                         e(t, (hi1[0], hi1[1], hi1[2])), color=D1, alpha=0.1)
+        ax0.plot(t, e(t, (lo1[0], lo1[1], lo1[2])), lw=0.4, color=D1)
+        ax0.plot(t, e(t, (hi1[0], hi1[1], hi1[2])), lw=0.4, color=D1)
+        ax0.plot(t, e(t, lo1), 'tab:green', ls='--', lw=0.4)
+        ax0.plot(t, e(t, hi1), 'tab:green', ls='--', lw=0.4)
 
         # Second exponential
-        lo, hi = p.ci(4)
-        cif = 1 / p.ci_fisher(4)
-        tau, tlo, thi = -1 / p[4], -1 / hi[4], -1 / lo[4]
-        b = f'Fit 2nd (tau={tau:.2g} PL[{tlo:.2g}, {thi:.2g}], FI±{cif:.2g})'
+        lo2, hi2 = p.ci(4)
+        cif2 = 1 / p.ci_fisher(4)
+        tau2, tlo2, thi2 = -1 / p[4], -1 / hi2[4], -1 / lo2[4]
+        b = (f'Fit 2nd (tau={tau2:.2g} PL[{tlo2:.2g}, {thi2:.2g}],'
+             f' FI±{cif2:.2g})')
         ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
-        ax0.fill_between(t, e(t, (lo[0], lo[3], lo[4])),
-                         e(t, (hi[0], hi[3], hi[4])), color=D2, alpha=0.1)
-        ax0.plot(t, e(t, (lo[0], lo[3], lo[4])), lw=0.4, color=D2)
-        ax0.plot(t, e(t, (hi[0], hi[3], hi[4])), lw=0.4, color=D2)
+        ax0.fill_between(t, e(t, (lo2[0], lo2[3], lo2[4])),
+                         e(t, (hi2[0], hi2[3], hi2[4])), color=D2, alpha=0.1)
+        ax0.plot(t, e(t, (lo2[0], lo2[3], lo2[4])), lw=0.4, color=D2)
+        ax0.plot(t, e(t, (hi2[0], hi2[3], hi2[4])), lw=0.4, color=D2)
+        ax0.plot(t, e(t, lo2), 'tab:green', ls='--', lw=0.4)
+        ax0.plot(t, e(t, hi2), 'tab:green', ls='--', lw=0.4)
+
+        # Finalise main panel
         ax0.legend(framealpha=1, ncol=2)
 
         # Show single exponential estimate
-        ax1 = fig.add_subplot(grd[1, 0])
+        ax1 = fig.add_subplot(grd[2, 0])
         ax1.set_xlabel('t')
         ax1.set_ylabel('v')
         ax1.plot(t, v, code, color='tab:blue', label='Data')
@@ -240,12 +263,110 @@ def fitd2(t, v, plot=False, vet=True):
         ax1.legend(frameon=False)
 
         # Show final fit residuals
-        ax2 = fig.add_subplot(grd[1, 1])
+        ax2 = fig.add_subplot(grd[2, 1])
         ax2.set_xlabel('t')
         ax2.set_ylabel('Residuals')
         ax2.plot(t, v - e(t, p))
-        print('Sigma MSE      ', r.error)
-        print('Sigma residuals', np.std(v - e(t, p))**2)
+
+        if False:
+            # Show MSE profile for tau 1
+            ax4 = fig.add_subplot(grd[0, 2])
+            ax4.set_xlabel('tau 1')
+            ax4.set_ylabel('MSE')
+            values, errors = p.pl(2, lo1[2], hi1[2])
+            ax4.plot(-1 / values, errors)
+            ax4.axvline(-1 / p[2], color='gray', zorder=1)
+
+            # Add parabola based on Hessian
+            x = np.linspace(values[0], values[-1], 100)
+            a = r.hes[2, 2] * 0.5
+            b = r.jac[2] - 2 * a * p[2]
+            c = r.error - p[2] * (b + a * p[2])
+            ylim = ax4.get_ylim()
+            ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
+            ax4.set_ylim(ylim)
+            xticks = np.array([values[0], values[len(values) // 2], values[-1]])
+            ax4.set_xticks(-1 / xticks)
+
+            # Show MSE profile for tau 2
+            ax5 = fig.add_subplot(grd[1, 2])
+            ax5.set_xlabel('tau 2')
+            ax5.set_ylabel('MSE')
+            values, errors = p.pl(4, lo2[4], hi2[4])
+            ax5.plot(-1 / values, errors)
+            ax5.axvline(-1 / p[4], color='gray', zorder=1)
+
+            # Add parabola based on Hessian
+            x = np.linspace(values[0], values[-1], 100)
+            a = r.hes[4, 4] * 0.5
+            b = r.jac[4] - 2 * a * p[4]
+            c = r.error - p[4] * (b + a * p[4])
+            ylim = ax5.get_ylim()
+            ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
+            ax5.set_ylim(ylim)
+            ax4.set_xticks(-1 / xticks)
+        else:
+            # Show MSE profile for tau 1
+            ax4 = fig.add_subplot(grd[0, 2])
+            ax4.set_xlabel('tau 1')
+            ax4.set_ylabel('log likelihood')
+            values, errors = p.pl(2, lo1[2], hi1[2])
+            n = len(t)
+            logls = (-0.5 * n * np.log(2 * np.pi)
+                     - n * np.log(r.error)
+                     - 0.5 * n / r.error * errors)
+            ax4.plot(-1 / values, logls)
+            ax4.axvline(-1 / p[2], color='gray', zorder=1)
+
+            j = 0.5 * n / r.error * r.hes
+            c = np.linalg.inv(j)
+            ci = 1.645 * np.sqrt(c[i, i])
+            #ax4.axvline(-1 / (p[2] - ci))
+            #ax4.axvline(-1 / (p[2] + ci))
+
+
+            # Add parabola based on Hessian
+            #x = np.linspace(values[0], values[-1], 100)
+            #a = r.hes[2, 2] * 0.5
+            #b = r.jac[2] - 2 * a * p[2]
+            #c = r.error - p[2] * (b + a * p[2])
+            #ylim = ax4.get_ylim()
+            #ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
+            #ax4.set_ylim(ylim)
+            #xticks = np.array([values[0], values[len(values) // 2], values[-1]])
+            #ax4.set_xticks(-1 / xticks)
+
+            # Show MSE profile for tau 2
+            ax5 = fig.add_subplot(grd[1, 2])
+            ax5.set_xlabel('tau 2')
+            ax5.set_ylabel('log likelihood')
+            values, errors = p.pl(4, lo2[4], hi2[4])
+            n = len(t)
+            logls = (-0.5 * n * np.log(2 * np.pi)
+                     - n * np.log(r.error)
+                     - 0.5 * n / r.error * errors)
+            ax5.plot(-1 / values, logls)
+            ax5.axvline(-1 / p[4], color='gray', zorder=1)
+
+            # Add parabola based on Hessian
+            #x = np.linspace(values[0], values[-1], 100)
+            #a = r.hes[4, 4] * 0.5
+            #b = r.jac[4] - 2 * a * p[4]
+            #c = r.error - p[4] * (b + a * p[4])
+            #ylim = ax5.get_ylim()
+            #ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
+            #ax5.set_ylim(ylim)
+            #ax4.set_xticks(-1 / xticks)
+
+
+        # Show error comparison with known
+        if known:
+            ax3 = fig.add_subplot(grd[2, 2])
+            found_vs_true(ax3, expfit.MultiExponentialError(t, v), p, plot)
+            fig.align_ylabels((ax3, ax4, ax5))
+        else:
+            fig.align_ylabels((ax3, ax4))
+
 
         '''
         # Show covariance matrices
@@ -280,9 +401,6 @@ def fitd2(t, v, plot=False, vet=True):
         print(-1 / (p[4] - t2), -1 / (p[4] + t2))
         print()
         #'''
-        ax3 = fig.add_subplot(grd[1, 2])
-        found_vs_true(ax3, expfit.MultiExponentialError(t, v), p, plot)
-
 
     return p
 
@@ -299,12 +417,9 @@ def found_vs_true(ax, error, found, known, padding=0.25, evaluations=200):
     y = [np.sqrt(f(i)) for i in x]
     ax.plot(s, y, color='green')
     ax.axvline(0, color='#1f77b4', label='Found')
-    ax.axvline(1, color='#7f7f7f', label='Known')
+    ax.axvline(1, color='#7f7f7f', label='True')
     ax.set_ylabel('RMSE')
     ax.legend()
-
-
-
 
 
 def cov_ellipse(ax, mu, cov, n=50):
@@ -353,8 +468,6 @@ class ExponentialFit:
     ``constraint``
         An optional constraint used in deriving the parameters. Will be used in
         :meth:`ci` if given.
-    ``hessian``
-        An optional precalculated Hessian at ``p``.
 
     """
     def __init__(self, x, y, p, constraint=None):
@@ -362,7 +475,7 @@ class ExponentialFit:
         self._p = tuple(p)
         self._np = len(self._p)
         self._nt = len(x)
-        self._constraint = constraint
+        self._cst = constraint
         self._err = None
         self._cov = None
 
@@ -427,7 +540,6 @@ class ExponentialFit:
 
         # Set cut-off
         cutoff = (1 + chi2 / self._nt) * self._err(self._p)[0]
-        print('Cut off', cutoff)
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -436,14 +548,15 @@ class ExponentialFit:
             p_full[i] = value
 
             # Test the constraint, if given
-            if self._constraint is not None and not self._constraint(p_full):
+            if self._cst is not None and not self._cst(p_full):
                 return False, np.delete(p_full, i)
 
             # Evaluate the error and compare
+            c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
+            p = np.delete(p_full, i)
             with np.errstate(all='ignore'):
-                p = np.delete(p_full, i)
-                r = expfit.fmin(f, p, constraint=self._constraint)
+                r = expfit.fmin(f, p, constraint=c)
             return r.success and r.error < cutoff, r.x
 
         bounds = []
@@ -454,6 +567,10 @@ class ExponentialFit:
                 if not test(self._p[i] + d)[0]:
                     break
                 d *= 2
+            if j == 0:  # pragma: no cover
+                raise RuntimeError('CI method failed: expansion had no'
+                                   ' successful optimiser runs.')
+
             if verbose:  # pragma: no cover
                 print(f'Expanded {self._p[i]} to {self._p[i] + d}'
                       f' in {j} iterations')
@@ -471,10 +588,11 @@ class ExponentialFit:
                     solution = np.insert(p, i, a)
                 else:
                     b = c
-            if verbose:  # pragma: no cover
-                print(f'Found {a} in {j} iterations')
-
             bounds.append(solution)
+
+            if verbose:  # pragma: no cover
+                print(f'Found {a} in {j} iterations'
+                      f' (MSE {self._err(solution)[0]:.3g})')
 
         return bounds
 
@@ -500,17 +618,7 @@ class ExponentialFit:
         """
         if self._cov is None:
             self.cov()
-
-        mse, jac, hes = self._err(self._p)
-
-        jii = hes[i, i] * self._nt / (2 * mse)
-        print(perc * np.sqrt(1 / jii))
-        print(perc * np.sqrt(self._cov[i, i]))
-
-
-
-        return hes[i, i]
-
+        return perc * np.sqrt(self._cov[i, i])
 
     def cov(self):
         """
@@ -532,4 +640,37 @@ class ExponentialFit:
             self._cov = np.linalg.inv(hes) * 2 * mse / self._nt
 
         return self._cov
+
+    def pl(self, i, lo, hi, evals=25):
+        """
+        Evaluates a profile log-likelihood for the i-th parameter, ranging from
+        ``lo`` to ``hi``.
+
+        Arguments:
+
+        ``i``
+            The index of the chosen parameter.
+        ``lo``
+            The minimum value to test for parameter ``i``.
+        ``hi``
+            The maximum value to test for parameter ``i``.
+
+        Returns a tuple ``(values, errors)`` containing the scanned values and
+        the corresponding MSEs.
+        """
+        if self._err is None:
+            self._err = expfit.MultiExponentialError(*self._xy)
+
+        p_full = np.array(self._p)
+        values = np.linspace(lo, hi, evals)
+        errors = np.zeros(evals)
+        for j, val in enumerate(values):
+            p_full[i] = val
+            c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
+            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
+            p = np.delete(p_full, i)
+            with np.errstate(all='ignore'):
+                r = expfit.fmin(f, p, constraint=c)
+                errors[j] = r.error
+        return values, errors
 

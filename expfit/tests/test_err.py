@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests the error methods and classes
+# Tests for the error methods and classes
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Basic tests for the optimiser, including error (the real tests are the fits)
+# Tests for the confidence interval methods
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
@@ -12,32 +12,34 @@ import numpy as np
 import expfit
 
 
-class Poly2():
-    """ Quadratic to optimise in x """
-    def __init__(self, a, b, c):
-        self._abc = a, b, c
+class Linear1d():
+    """
+    Callable class returning the MSE and its Jacobian and Hessian for a line
+    through the origin ``y = a + b * x``.
+    """
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        self._m = 1 / len(x)
 
-    def __call__(self, x):
-        x = x[0] if isinstance(x, np.ndarray) else float(x)
-        a, b, c = self._abc
-        return (a * x**2 + b * x + c, [2 * a * x + b], [[2 * a]])
+        self._h = np.zeros((2, 2))
+        self._h[0, 0] = 2
+        self._h[1, 1] = 2 * self._m * np.sum(self._x**2)
+        self._h[1, 0] = self._h[0, 1] = 2 * self._m * np.sum(self._x)
+
+    def __call__(self, p):
+        a, b = p
+
+        r = a + b * self._x - self._y  # Sign matters for jac
+        e = self._m * np.sum(r**2)
+        jac = np.array([2 * self._m * np.sum(r),
+                        2 * self._m * np.sum(r * self._x)])
+        hes = np.copy(self._h)
+        return e, jac, hes
 
 
-class Poly4():
-    """ Fourth order polynomial to optimise in x """
-    def __init__(self, a, b, c, d):
-        self._abcd = a, b, c, d
-
-    def __call__(self, x):
-        x = x[0] if isinstance(x, np.ndarray) else float(x)
-        a, b, c, d = self._abcd
-        return (a * x**4 + b * x**2 + c * x + d,
-                [4 * a * x**3 + 2 * b * x + c],
-                [[12 * a * x**2 + 2 * b]])
-
-
-class TestOpt(unittest.TestCase):
-    """ Tests optimisers """
+class TestCI(unittest.TestCase):
+    """ Tests the confidence interval methods on a linear error """
 
     def test_least_squares(self):
         # Test linear least squares

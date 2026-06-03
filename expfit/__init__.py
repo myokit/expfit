@@ -37,11 +37,13 @@ from ._est import (  # noqa
 )
 
 from ._err import (  # noqa
+    ConstraintWithFixedParameter,
+    DecayingConstraint,
+    ErrorWithFixedParameter,
     exp,
+    MultiExponentialError,
     rmse,
     SingleExponentialError,
-    MultiExponentialError,
-    ErrorWithFixedParameter,
 )
 
 from ._opt import (  # noqa

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests the single-exponential fit methods.
+# Tests for single exponential fitting
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

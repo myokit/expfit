@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Real-world test case for single fits, case 1
+# Real-world test case for single fits
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

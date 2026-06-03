@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests the transformation classes
+# Tests for the transformation classes used in single exponential fits
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

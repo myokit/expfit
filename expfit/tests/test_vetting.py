@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests the sequence vetting and conversion to nd array method
+# Tests for the sequence vetting methods
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests the initial estimate methods.
+# Tests for the initial single exponential estimate
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.

@@ -143,8 +143,9 @@ class MultiExponentialError():
 
 class ErrorWithFixedParameter():
     """
-    Wraps around an error class and fixes one parameter --- used when finding
-    confidence intervals around a best solution.
+    Wraps around an error class and fixes one parameter.
+
+    This is used in profiling methods.
 
     Arguments:
 
@@ -168,4 +169,36 @@ class ErrorWithFixedParameter():
         j = np.delete(j, self._i, 0)
         h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
         return m, j, h
+
+
+class DecayingConstraint():
+    """ Constraint for fitting decaying exponentials. """
+    def __call__(self, p):
+        t = -1 / p[2::2]
+        return np.all(t >= 0) and np.all(t[1:] < t[:-1])
+
+
+class ConstraintWithFixedParameter():
+    """
+    Wraps around a constraint and fixes one parameter.
+
+    Arguments:
+
+    ``error``
+        The error to wrap.
+    ``p``
+        The best solution
+    ``ifix``
+        The index in the parameter vector of the parameter to hold fixed.
+
+    """
+    def __init__(self, constraint, p, ifix):
+        self._c = constraint
+        self._p = np.copy(p)
+        self._i = int(ifix)
+
+    def __call__(self, p):
+        self._p[:self._i] = p[:self._i]
+        self._p[self._i + 1:] = p[self._i:]
+        return self._c(self._p)
 
