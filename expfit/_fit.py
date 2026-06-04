@@ -165,7 +165,7 @@ def fitd2(t, v, plot=False):
             'Initial estimate for c > 0, exponential not decaying')
 
     # Calculate area, to determine new b constants
-    A0 = np.trapezoid(v - a0, t)
+    A0 = trapezoid(v - a0, t)
 
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
@@ -338,4 +338,12 @@ def plot_vs_true(ax, fit, known, padding=0.25,
     ax.axhline(emax, color='tab:red', lw=1, ls=':', label='CI cut-off')
     ax.set_ylabel('MSE')
     ax.legend()
+
+
+def trapezoid(y, x):
+    """ For compatibility with numpy < 2 """
+    try:
+        return np.trapezoid(y, x)
+    except AttributeError:
+        return np.trapz(y, x)
 
