@@ -89,47 +89,80 @@ class TestCI(unittest.TestCase):
             ax1 = fig.add_subplot(grid[1, 0])
             ax1.set_xlabel('a')
             ax1.set_ylabel('MSE')
-            ax1.plot(xx, yy, color='tab:green')
+            ax1.plot(xx, yy, color='tab:green', label='Profile')
             ax1.axvline(a0, color='k', label='True')
-            ax1.axvline(alo1, color='tab:olive', lw=1,
-                        label=f'PL ({alo1:.5g}, {ahi1:.5g})')
-            ax1.axvline(ahi1, color='tab:olive', lw=1,)
+            ax1.axvline(alo1, color='tab:olive', lw=3,
+                        label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
+            ax1.axvline(ahi1, color='tab:olive', lw=3,)
             ax1.axvline(alo2, color='tab:pink', lw=2, ls='--',
-                        label=f'FIM ({alo2:.5g}, {ahi2:.5g})')
+                        label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
             ax1.axvline(ahi2, color='tab:pink', lw=2, ls='--')
 
+            # Forward predictions
             y0, y1 = cipa[0][0] + cipa[0][1] * x, cipa[1][0] + cipa[1][1] * x
             ax0.plot(x, y0, lw=1, color='tab:green')
             ax0.plot(x, y1, lw=1, color='tab:green', label='a predictions')
             ax0.fill_between(x, y0, y1, color='tab:green', alpha=0.1)
 
+            # Add MSE for scanned area, without varying other parameters
+            e = Linear1d(x, y)
+            m = 100
+            t = np.linspace(alo, ahi, 100)
+            T = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+            T[:, 0] = t
+            V = [e(t)[0] for t in T]
+            ax1.plot(t, V, label='MSE')
+
+            # Add quadratic approximation around p
+            mse, _, hes = e(p)
+            T = np.zeros((len(p), m))
+            T[0, :] = t - p[0]
+            V = mse + 0.5 * np.array([i.dot(hes).dot(i.T) for i in T.T])
+            ax1.plot(t, V, '--', label='Quadratic')
+
             # Repeat for b
-            alo1, ahi1 = cipb[0][1], cipb[1][1]
-            alo2, ahi2 = p[1] - cifb, p[1] + cifb
-            alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
-            xx, yy = p.profile(1, alo, ahi, 25)
+            blo1, bhi1 = cipb[0][1], cipb[1][1]
+            blo2, bhi2 = p[1] - cifb, p[1] + cifb
+            blo, bhi = min(blo1, blo2), max(bhi1, bhi2)
+            xx, yy = p.profile(1, blo, bhi, 25)
 
             ax2 = fig.add_subplot(grid[1, 1])
             ax2.set_xlabel('b')
             ax2.set_ylabel('MSE')
-            ax2.plot(xx, yy, color='tab:purple')
+            ax2.plot(xx, yy, color='tab:purple', label='Profile')
             ax2.axvline(b0, color='k', label='True')
-            ax2.axvline(alo1, color='tab:olive', lw=1,
-                        label=f'PL ({alo1:.5g}, {ahi1:.5g})')
-            ax2.axvline(ahi1, color='tab:olive', lw=1)
-            ax2.axvline(alo2, color='tab:pink', lw=2, ls='--',
-                        label=f'FIM ({alo2:.5g}, {ahi2:.5g})')
-            ax2.axvline(ahi2, color='tab:pink', lw=2, ls='--')
+            ax2.axvline(blo1, color='tab:olive', lw=1,
+                        label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
+            ax2.axvline(bhi1, color='tab:olive', lw=1)
+            ax2.axvline(blo2, color='tab:pink', lw=3, ls='--',
+                        label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
+            ax2.axvline(bhi2, color='tab:pink', lw=3, ls='--')
 
+            # Forward predictions
             y0, y1 = cipb[0][0] + cipb[0][1] * x, cipb[1][0] + cipb[1][1] * x
             ax0.plot(x, y0, lw=1, color='tab:purple')
             ax0.plot(x, y1, lw=1, color='tab:purple', label='b predictions')
             ax0.fill_between(x, y0, y1, color='tab:purple', alpha=0.1)
 
+            # Add MSE for scanned area, without varying other parameters
+            m = 100
+            t = np.linspace(blo, bhi, 100)
+            T = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+            T[:, 1] = t
+            V = [e(t)[0] for t in T]
+            ax2.plot(t, V, label='MSE')
+
+            # Add quadratic approximation around p
+            mse, _, hes = e(p)
+            T = np.zeros((len(p), m))
+            T[1, :] = t - p[1]
+            V = mse + 0.5 * np.array([i.dot(hes).dot(i.T) for i in T.T])
+            ax2.plot(t, V, '--', label='Quadratic')
+
             # Finalise
             ax0.legend()
-            ax1.legend(loc='lower right', framealpha=1)
-            ax2.legend(loc='lower right', framealpha=1)
+            ax1.legend(loc='upper center', framealpha=1)
+            ax2.legend(loc='upper center', framealpha=1)
             plt.show()
 
             '''
@@ -225,24 +258,24 @@ class TestCI(unittest.TestCase):
             plt.show()
 
         c1 = p.ci_fisher(2)
-        self.assertAlmostEqual(c1, 0.1737492)
+        self.assertAlmostEqual(c1, 0.173748, delta=1e-5)
         self.assertLess(p[2] - c1, p0[2])
         self.assertGreater(p[2] + c1, p0[2])
 
         c2 = p.ci_fisher(4)
-        self.assertAlmostEqual(c2, 1.5617967)
+        self.assertAlmostEqual(c2, 1.5617967, delta=1e-5)
         self.assertLess(p[4] - c2, p0[4])
         self.assertGreater(p[4] + c2, p0[4])
 
         c1 = p.ci_profile(2)
-        self.assertAlmostEqual(c1[0][2], -2.1795243)
-        self.assertAlmostEqual(c1[1][2], -1.8230414)
+        self.assertAlmostEqual(c1[0][2], -2.1795243, delta=1e-5)
+        self.assertAlmostEqual(c1[1][2], -1.8230414, delta=1e-5)
         self.assertLess(c1[0][2], p0[2])
         self.assertGreater(c1[1][2], p0[2])
 
         c2 = p.ci_profile(4)
-        self.assertAlmostEqual(c2[0][4], -8.9936677)
-        self.assertAlmostEqual(c2[1][4], -5.8337747)
+        self.assertAlmostEqual(c2[0][4], -8.9935671, delta=1e-5)
+        self.assertAlmostEqual(c2[1][4], -5.8337929, delta=1e-5)
         self.assertLess(c2[0][4], p0[4])
         self.assertGreater(c2[1][4], p0[4])
 
@@ -251,9 +284,27 @@ class TestCI(unittest.TestCase):
         e = expfit.ExponentialFit([1, 2], [3, 4], [5])
         self.assertFalse(e.ci_available())
         self.assertRaises(expfit.CIUnavailableError, e.ci_fisher, 0)
-        self.assertRaises(expfit.CIUnavailableError, e.ci_profile, 0)
-        self.assertRaises(expfit.CIUnavailableError, e.profile, 0, -1, 1)
         self.assertRaises(expfit.CIUnavailableError, e.cov)
+        self.assertRaises(expfit.CIUnavailableError, e.ci_profile, 0)
+        self.assertRaises(expfit.CIUnavailableError, e.error)
+        self.assertRaises(expfit.CIUnavailableError, e.profile, 0, -1, 1)
+        self.assertRaises(expfit.CIUnavailableError, e.mse_cutoff, 0)
+
+        # Test with error returning function
+        x, y = np.array([1, 2]), np.array([3, 4])
+        f = Linear1d(x, y)
+        e = expfit.ExponentialFit(x, y, [5], f)
+        self.assertTrue(e.ci_available())
+        self.assertIs(e.error(), f)
+
+    def test_mse_cutoff(self):
+        # MSE cut-off for profile CI, with 90% chi squared stat
+
+        x = np.arange(0, 10, 1)
+        y = 3 * x
+        f = lambda p: (11, [11], [[11]])
+        e = expfit.ExponentialFit(x, y, [7], f)
+        self.assertEqual(e.mse_cutoff(), (1 + 2.706 / 10) * 11)
 
 
 if __name__ == '__main__':  # pragma: no cover

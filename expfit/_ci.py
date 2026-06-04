@@ -138,7 +138,7 @@ class ExponentialFit:
             c = None
             if self._cst is not None:
                 if not self._cst(p_full):  # pragma: no cover
-                    return False, np.delete(p_full, i)
+                    return False, np.delete(p_full, i), np.nan
 
                 # Create a fixed version
                 c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
@@ -236,6 +236,26 @@ class ExponentialFit:
 
         return self._cov
 
+    def error(self):
+        """
+        Returns the error class used to derive this result.
+        """
+        if self._err is None:
+            raise CIUnavailableError()
+        return self._err
+
+    def mse_cutoff(self, chi2=2.706):
+        """
+        Returns the maximum MSE for a given confidence level (assuming
+        Normally distruted noise), as used by :meth:`ci_profile`.
+        """
+        if self._err is None:
+            raise CIUnavailableError()
+
+        # TODO CONFIDENCE LEVEL CLASS
+
+        return (1 + chi2 / self._nt) * self._err(self._p)[0]
+
     def profile(self, i, lo, hi, evals=25):
         """
         Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
@@ -275,6 +295,10 @@ class ExponentialFit:
 
 
 class CIUnavailableError(RuntimeError):
+    """
+    Raised if confidence intervals are requested but the fit result does not
+    support this.
+    """
     def __init__(self):
         super().__init__('CI methods unavailable for this exponential fit')
 

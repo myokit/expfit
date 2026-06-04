@@ -164,13 +164,25 @@ def fitd2(t, v, plot=False):
         raise RuntimeError(
             'Initial estimate for c > 0, exponential not decaying')
 
+    # Calculate area, to determine new b constants
+    A0 = np.trapezoid(v - a0, t)
+
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
     ct = expfit.DecayingConstraint()
     for i in range(1, 10):
+        # Increase the difference between dominant and second exponential.
         p0[2] *= 0.707106781
         p0[4] *= 1.414213562
+
+        # Set b constants to get same area under the curve as original estimate
+        A = (p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0])) +
+             p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
+        p0[1] = b0 * (A0 / A)
+        p0[3] = b0 * (A0 / A)
+
+        # Fit
         e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
             r = expfit.lm(e, p0, constraint=ct)
@@ -284,17 +296,22 @@ def fitd2(t, v, plot=False):
         ax4.axvline(thi1, color='k', lw=1)
         ax4.axvline(tclo1, color='k', lw=1, ls='--')
         ax4.axvline(tchi1, color='k', lw=1, ls='--')
-
-        # Add parabola based on Hessian
-        x = np.linspace(values[0], values[-1], 100)
-        a = r.hes[2, 2] * 0.5
-        b = r.jac[2] - 2 * a * p[2]
-        c = r.error - p[2] * (b + a * p[2])
         ylim = ax4.get_ylim()
-        ax4.plot(-1 / x, a * x**2 + b * x + c, '-')
+
+        # Add MSE for scanned area, without varying other parameters
+        m = 100
+        x = np.linspace(lo1[2], hi1[2], 100)
+        X = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+        X[:, 2] = x
+        Y = [expfit.rmse(t, v, i)**2 for i in X]
+        ax4.plot(-1 / x, Y, label='MSE')
+
+        # Add quadratic approximation around p
+        X = np.zeros((len(p), m))
+        X[2, :] = x - p[2]
+        Z = r.error + 0.5 * np.array([i.dot(r.hes).dot(i.T) for i in X.T])
+        ax4.plot(-1 / x, Z, '--')
         ax4.set_ylim(ylim)
-        xticks = np.array([values[0], values[len(values) // 2], values[-1]])
-        ax4.set_xticks(-1 / xticks)
 
         # Show MSE profile for tau 2
         ax5 = fig.add_subplot(grd[1, 2])
@@ -307,21 +324,27 @@ def fitd2(t, v, plot=False):
         ax5.axvline(thi2, color='k', lw=1)
         ax5.axvline(tclo2, color='k', lw=1, ls='--')
         ax5.axvline(tchi2, color='k', lw=1, ls='--')
-
-        # Add parabola based on Hessian
-        x = np.linspace(values[0], values[-1], 100)
-        a = r.hes[4, 4] * 0.5
-        b = r.jac[4] - 2 * a * p[4]
-        c = r.error - p[4] * (b + a * p[4])
         ylim = ax5.get_ylim()
-        ax5.plot(-1 / x, a * x**2 + b * x + c, '-')
+
+        # Add MSE for scanned area, without varying other parameters
+        m = 100
+        x = np.linspace(lo1[4], hi1[4], 100)
+        X = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+        X[:, 4] = x
+        Y = [expfit.rmse(t, v, i)**2 for i in X]
+        ax5.plot(-1 / x, Y, label='MSE')
+
+        # Add quadratic approximation around p
+        X = np.zeros((len(p), m))
+        X[4, :] = x - p[4]
+        Z = r.error + 0.5 * np.array([i.dot(r.hes).dot(i.T) for i in X.T])
+        ax5.plot(-1 / x, Z, '--')
         ax5.set_ylim(ylim)
-        ax4.set_xticks(-1 / xticks)
 
         # Show error comparison with known
         if known:
             ax3 = fig.add_subplot(grd[2, 2])
-            found_vs_true(ax3, expfit.MultiExponentialError(t, v), p, plot)
+            found_vs_true(ax3, p, plot)
             fig.align_ylabels((ax3, ax4, ax5))
         else:
             fig.align_ylabels((ax4, ax5))
@@ -353,21 +376,23 @@ def fitd2(t, v, plot=False):
     return p
 
 
-def found_vs_true(ax, error, found, known, padding=0.25,
+def found_vs_true(ax, fit, known, padding=0.25,
                   evaluations=200):  # pragma: no cover
     """
-    Plots the RMSE between a ``found`` and ``known`` (true) value.
+    Plots the MSE between a ``found`` and ``known`` (true) value.
     """
-    found, known = np.array(found), np.array(known)
-    f = lambda p: np.sqrt(error(p)[0])
+    found, known = np.array(fit), np.array(known)
+    e = fit.error()
     s = np.linspace(-padding, 1 + padding, evaluations)
     r = known - found
     x = [found + sj * r for sj in s]
-    y = [np.sqrt(f(i)) for i in x]
+    y = [e(i)[0] for i in x]
     ax.plot(s, y, color='green')
     ax.axvline(0, color='#1f77b4', label='Found')
     ax.axvline(1, color='#7f7f7f', label='True')
-    ax.set_ylabel('RMSE')
+    emax = fit.mse_cutoff()
+    ax.axhline(emax, color='tab:red', lw=1, ls=':', label='CI cut-off')
+    ax.set_ylabel('MSE')
     ax.legend()
 
 
