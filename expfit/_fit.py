@@ -173,14 +173,14 @@ def fitd2(t, v, plot=False):
         e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
             r = expfit.fmin(e, p0, constraint=ct)
-            if plot:  # pragma: no cover
+            if plot is not False:  # pragma: no cover
                 print(r)
         if r.x[4] / r.x[2] > 1.1 and r.success:
             break
 
     p = ExponentialFit(t, v, r.x, constraint=ct)
 
-    if plot:  # pragma: no cover
+    if plot is not False:  # pragma: no cover
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(11, 7.5))
         fig.subplots_adjust(0.075, 0.06, 0.99, 0.95, wspace=0.37, hspace=0.3)
@@ -323,7 +323,7 @@ def fitd2(t, v, plot=False):
             found_vs_true(ax3, expfit.MultiExponentialError(t, v), p, plot)
             fig.align_ylabels((ax3, ax4, ax5))
         else:
-            fig.align_ylabels((ax3, ax4))
+            fig.align_ylabels((ax4, ax5))
 
         '''
         # Show covariance matrices
@@ -352,7 +352,8 @@ def fitd2(t, v, plot=False):
     return p
 
 
-def found_vs_true(ax, error, found, known, padding=0.25, evaluations=200):
+def found_vs_true(ax, error, found, known, padding=0.25,
+                  evaluations=200):  # pragma: no cover
     """
     Plots the RMSE between a ``found`` and ``known`` (true) value.
     """
@@ -439,7 +440,7 @@ class ExponentialFit:
     def __str__(self):
         return ' '.join(f'{i:+.5e}' for i in self._p)
 
-    def ci_profile(self, i, chi2=2.706, max_iter=100, verbose=True):
+    def ci_profile(self, i, chi2=2.706, max_iter=100, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -491,8 +492,8 @@ class ExponentialFit:
 
         # Set cut-off
         cutoff = (1 + chi2 / self._nt) * self._err(self._p)[0]
-        if verbose:
-            print('Cut off', cutoff)
+        if verbose:  # pragma: no cover
+            print(f'Cut off: {cutoff}')
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -503,7 +504,7 @@ class ExponentialFit:
             # Test the constraint, if given
             c = None
             if self._cst is not None:
-                if not self._cst(p_full):
+                if not self._cst(p_full):  # pragma: no cover
                     return False, np.delete(p_full, i)
 
                 # Create a fixed version
@@ -513,16 +514,16 @@ class ExponentialFit:
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)
             with np.errstate(all='ignore'):
-                r = expfit.fmin(f, p, constraint=c)
-            #if not r.success:
-            #    print(r)
-
-            return r.success and r.error < cutoff, r.x
+                r = expfit.fmin(f, p, constraint=c, verbose=False)
+            #return r.success and r.error < cutoff, r.x
+            return r.error < cutoff, r.x
 
         bounds = []
         for direction in (-1, 1):
             # Expand until upper bound found
             d = 1e-6 * np.abs(self._p[i]) * direction
+            if verbose:  # pragma: no cover
+                print(f'Initial d={d}')
             for j in range(max_iter):
                 if not test(self._p[i] + d)[0]:
                     break
@@ -532,7 +533,7 @@ class ExponentialFit:
                                    ' successful optimiser runs.')
 
             if verbose:  # pragma: no cover
-                print(f'Expanded {self._p[i]} to {self._p[i] + d}'
+                print(f'Expanded {self._p[i]:.5g} to {self._p[i] + d:.5g}'
                       f' in {j} iterations')
 
             # Bisect
@@ -551,8 +552,8 @@ class ExponentialFit:
             bounds.append(solution)
 
             if verbose:  # pragma: no cover
-                print(f'Found {a} in {j} iterations'
-                      f' (MSE {self._err(solution)[0]:.3g})')
+                print(f'Found {a:.5g} in {j} iterations'
+                      f' (MSE {self._err(solution)[0]:.5g})')
 
         return bounds
 
@@ -622,7 +623,7 @@ class ExponentialFit:
         Returns a tuple ``(values, errors)`` containing the tested parameter
         values and their MSEs.
         """
-        if self._err is None:
+        if self._err is None:  # pragma: no cover
             self._err = self._err_class(*self._xy)
 
         p_full = np.array(self._p)
@@ -631,7 +632,7 @@ class ExponentialFit:
         for j, val in enumerate(values):
             p_full[i] = val
             c = None
-            if self._cst is not None:
+            if self._cst is not None:  # pragma: no cover
                 c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)

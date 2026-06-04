@@ -194,12 +194,10 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
             accepted += 1
         else:
             if verbose:  # pragma: no cover
-                print(f'Rejected (fs[0], m)')
-
-            if alpha < 1e20:  # pragma: no cover
-                alpha *= 10
-            #if alpha > 1e99:  # pragma: no cover
-            #    err = 'Lambda factor grew too large'
+                print(f'Rejected ({fs[0]}, {m})')
+            alpha *= 10
+            if alpha > 1e20:  # pragma: no cover
+                err = 'Lambda factor grew too large'
         if verbose:  # pragma: no cover
             print()
 

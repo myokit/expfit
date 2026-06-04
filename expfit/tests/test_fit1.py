@@ -349,6 +349,20 @@ class TestSingle(unittest.TestCase):
         self.assertAlmostEqual(c, c0, -1)
         self.assertLess(expfit.rmse(x, y, (a, b, c)), 0.1)
 
+    def test_fit1_return(self):
+        # Test return type
+
+        a0, b0, c0 = 3, -3, -4
+        x = np.linspace(0, 1, 300)
+        y = expfit.exp(x, (a0, b0, c0))
+        r = np.random.default_rng(5)
+        y += r.normal(0, 1)
+        p = expfit.fit1(x, y)
+        self.assertIsInstance(p, expfit.ExponentialFit)
+
+        r = expfit.ExponentialFit(x, y, [1, 2, 3])
+        self.assertEqual(str(r), '+1.00000e+00 +2.00000e+00 +3.00000e+00')
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
