@@ -296,22 +296,6 @@ def fitd2(t, v, plot=False):
         ax4.axvline(thi1, color='k', lw=1)
         ax4.axvline(tclo1, color='k', lw=1, ls='--')
         ax4.axvline(tchi1, color='k', lw=1, ls='--')
-        ylim = ax4.get_ylim()
-
-        # Add MSE for scanned area, without varying other parameters
-        m = 100
-        x = np.linspace(lo1[2], hi1[2], 100)
-        X = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
-        X[:, 2] = x
-        Y = [expfit.rmse(t, v, i)**2 for i in X]
-        ax4.plot(-1 / x, Y, label='MSE')
-
-        # Add quadratic approximation around p
-        X = np.zeros((len(p), m))
-        X[2, :] = x - p[2]
-        Z = r.error + 0.5 * np.array([i.dot(r.hes).dot(i.T) for i in X.T])
-        ax4.plot(-1 / x, Z, '--')
-        ax4.set_ylim(ylim)
 
         # Show MSE profile for tau 2
         ax5 = fig.add_subplot(grd[1, 2])
@@ -324,60 +308,20 @@ def fitd2(t, v, plot=False):
         ax5.axvline(thi2, color='k', lw=1)
         ax5.axvline(tclo2, color='k', lw=1, ls='--')
         ax5.axvline(tchi2, color='k', lw=1, ls='--')
-        ylim = ax5.get_ylim()
-
-        # Add MSE for scanned area, without varying other parameters
-        m = 100
-        x = np.linspace(lo1[4], hi1[4], 100)
-        X = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
-        X[:, 4] = x
-        Y = [expfit.rmse(t, v, i)**2 for i in X]
-        ax5.plot(-1 / x, Y, label='MSE')
-
-        # Add quadratic approximation around p
-        X = np.zeros((len(p), m))
-        X[4, :] = x - p[4]
-        Z = r.error + 0.5 * np.array([i.dot(r.hes).dot(i.T) for i in X.T])
-        ax5.plot(-1 / x, Z, '--')
-        ax5.set_ylim(ylim)
 
         # Show error comparison with known
         if known:
             ax3 = fig.add_subplot(grd[2, 2])
-            found_vs_true(ax3, p, plot)
+            plot_vs_true(ax3, p, plot)
             fig.align_ylabels((ax3, ax4, ax5))
         else:
             fig.align_ylabels((ax4, ax5))
 
-        '''
-        # Show covariance matrices
-        ax3 = fig.add_subplot(grd[1, 2])
-
-        cov = p.cov()
-        cv = cov[2::2, 2::2]
-        cov_ellipse(ax3, p[2::2], cv)
-        xlim, ylim = ax3.get_xlim(), ax3.get_ylim()
-        rx, ry = xlim[1] - xlim[0], ylim[1] - ylim[0]
-        if rx > ry:
-            m = ylim[1] + ylim[0]
-            ax3.set_ylim(0.5 * (m - rx), 0.5 * (m + rx))
-        else:
-            m = xlim[1] + xlim[0]
-            print(0.5 * m)
-            ax3.set_xlim(0.5 * (m - ry), 0.5 * (m + ry))
-        ax3.set_xlabel('c1')
-        ax3.set_ylabel('c2')
-
-        err = np.diag(cov)
-        t1 = 1.96 * np.sqrt(err[2])
-        t2 = 1.96 * np.sqrt(err[4])
-        #'''
-
     return p
 
 
-def found_vs_true(ax, fit, known, padding=0.25,
-                  evaluations=200):  # pragma: no cover
+def plot_vs_true(ax, fit, known, padding=0.25,
+                 evaluations=200):  # pragma: no cover
     """
     Plots the MSE between a ``found`` and ``known`` (true) value.
     """
@@ -394,30 +338,4 @@ def found_vs_true(ax, fit, known, padding=0.25,
     ax.axhline(emax, color='tab:red', lw=1, ls=':', label='CI cut-off')
     ax.set_ylabel('MSE')
     ax.legend()
-
-
-'''
-def cov_ellipse(ax, mu, cov, n=50):
-    """
-    """
-    r, v = np.linalg.eig(cov)
-
-    t = np.linspace(0, 2 * np.pi, n)
-    xy = np.sqrt(r.reshape((1, 2))) * np.array([np.cos(t), np.sin(t)]).T
-    xy = np.dot(xy, v.T)
-
-    ax.plot(mu[0] + xy[:, 0], mu[1] + xy[:, 1])
-
-    """
-    d = np.sqrt(r[0])
-    ax.plot(mu[0] + np.array([0, v[0, 0] * d]),
-            mu[1] + np.array([0, v[1, 0] * d]),
-            label=f'$\\rho$={r[0]:.2g}')
-    d = np.sqrt(r[1])
-    ax.plot(mu[0] + np.array([0, v[0, 1] * d]),
-            mu[1] + np.array([0, v[1, 1] * d]),
-            label=f'$\\rho$={r[1]:.2g}')
-    ax.legend()
-    """
-'''
 

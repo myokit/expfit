@@ -232,7 +232,7 @@ class ExponentialFit:
                 raise CIUnavailableError()
 
             mse, jac, hes = self._err(self._p)
-            self._cov = np.linalg.inv(hes) * 2 * mse / self._nt
+            self._cov = np.linalg.inv(hes) * (2 * mse / self._nt)
 
         return self._cov
 
