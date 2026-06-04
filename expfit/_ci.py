@@ -65,7 +65,7 @@ class ExponentialFit:
         """
         return self._err is not None
 
-    def ci_profile(self, i, level=90, max_iter=100, verbose=False):
+    def ci_profile(self, i, level=90, max_iter=100, gtol=1e-5, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -98,6 +98,8 @@ class ExponentialFit:
             90 percent.
         ``max_iter``
             The maximum iterations for steps 2 and 3.
+        ``gtol``
+            The optimiser tolerance to use. See :meth:`expfit.lm`.
         ``verbose``
             Set to ``True`` to print debug messages.
 
@@ -121,27 +123,31 @@ class ExponentialFit:
         # Set stopping criterion for bisection, based on cut-off
         bisection_tol = 1e-4 * (cutoff - e_hat)
 
+        # Cache last optimiser result, to speed things up
+        self._p_cache = np.array(self._p)
+
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
             # Create a partial parameter array, omitting i
-            p_full = np.array(self._p)
-            p_full[i] = value
+            self._p_cache[i] = value
 
             # Test the constraint, if given
             c = None
             if self._cst is not None:
-                if not self._cst(p_full):  # pragma: no cover
-                    return False, np.delete(p_full, i), np.nan
+                if not self._cst(self._p_cache):  # pragma: no cover
+                    return False, np.delete(self._p_cache, i), np.nan
 
                 # Create a fixed version
-                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
+                c = expfit.ConstraintWithFixedParameter(
+                    self._cst, self._p_cache, i)
 
             # Evaluate the error and compare
-            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
-            p = np.delete(p_full, i)
+            f = expfit.ErrorWithFixedParameter(self._err, self._p_cache, i)
+            p = np.delete(self._p_cache, i)
             with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, constraint=c, verbose=False)
-
+                r = expfit.lm(f, p, constraint=c, gtol=gtol)
+            if r.success:
+                self._p_cache = np.insert(r.x, i, value)
             return r.error < cutoff, r.x, r.error
 
         # Find the boundaries
@@ -160,6 +166,7 @@ class ExponentialFit:
                 raise RuntimeError(
                     'Unable to find upper/lower limit for profile CI:'
                     ' maximum iterations reached')
+            self._p_cache = np.array(self._p)
 
             # Bisect
             solution = self._p
@@ -177,6 +184,7 @@ class ExponentialFit:
                 else:
                     b = c
             bounds.append(solution)
+            self._p_cache = np.array(self._p)
 
             if verbose:  # pragma: no cover
                 print(f'Found {a:.5g} in {j} iterations'
@@ -255,7 +263,7 @@ class ExponentialFit:
 
         return (1 + level.chi2() / self._nt) * self._err(self._p)[0]
 
-    def profile(self, i, lo, hi, evals=25):
+    def profile(self, i, lo, hi, evals=25, gtol=1e-5):
         """
         Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
 
@@ -270,6 +278,8 @@ class ExponentialFit:
             The minimum value to test for parameter ``i``.
         ``hi``
             The maximum value to test for parameter ``i``.
+        ``gtol``
+            The optimiser tolerance to use. See :meth:`expfit.lm`.
 
         Returns a tuple ``(values, errors)`` containing the tested parameter
         values and their MSEs.
@@ -288,7 +298,7 @@ class ExponentialFit:
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)
             with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, constraint=c)
+                r = expfit.lm(f, p, constraint=c, gtol=gtol)
                 errors[j] = r.error
         return values, errors
 

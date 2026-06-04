@@ -91,12 +91,12 @@ class TestCI(unittest.TestCase):
             ax1.set_ylabel('MSE')
             ax1.plot(xx, yy, color='tab:green', label='Profile')
             ax1.axvline(a0, color='k', label='True')
-            ax1.axvline(alo1, color='tab:olive', lw=3,
+            ax1.axvline(alo1, color='tab:olive', lw=1.5,
                         label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
-            ax1.axvline(ahi1, color='tab:olive', lw=3,)
-            ax1.axvline(alo2, color='tab:pink', lw=2, ls='--',
+            ax1.axvline(ahi1, color='tab:olive', lw=1.5,)
+            ax1.axvline(alo2, color='tab:pink', lw=3, ls='--',
                         label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
-            ax1.axvline(ahi2, color='tab:pink', lw=2, ls='--')
+            ax1.axvline(ahi2, color='tab:pink', lw=3, ls='--')
 
             # Forward predictions
             y0, y1 = cipa[0][0] + cipa[0][1] * x, cipa[1][0] + cipa[1][1] * x
@@ -131,9 +131,9 @@ class TestCI(unittest.TestCase):
             ax2.set_ylabel('MSE')
             ax2.plot(xx, yy, color='tab:purple', label='Profile')
             ax2.axvline(b0, color='k', label='True')
-            ax2.axvline(blo1, color='tab:olive', lw=1,
+            ax2.axvline(blo1, color='tab:olive', lw=1.5,
                         label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
-            ax2.axvline(bhi1, color='tab:olive', lw=1)
+            ax2.axvline(bhi1, color='tab:olive', lw=1.5)
             ax2.axvline(blo2, color='tab:pink', lw=3, ls='--',
                         label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
             ax2.axvline(bhi2, color='tab:pink', lw=3, ls='--')
@@ -234,11 +234,11 @@ class TestCI(unittest.TestCase):
             ahi
         ])
         self.assertEqual(list(yy), [
-            304.6367833091292,
-            299.20031977521654,
+            304.63678330912927,
+            299.2003197752166,
             297.388165267725,
-            299.2003197866549,
-            304.6367833320062,
+            299.200319786655,
+            304.6367833320063,
         ])
 
     def test_double(self):
