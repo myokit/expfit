@@ -344,6 +344,6 @@ def trapezoid(y, x):
     """ For compatibility with numpy < 2 """
     try:
         return np.trapezoid(y, x)
-    except AttributeError:
+    except AttributeError:  # pragma: no cover
         return np.trapz(y, x)
 
