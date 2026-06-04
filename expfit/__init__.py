@@ -54,6 +54,7 @@ from ._opt import (  # noqa
 
 from ._ci import (  # noqa
     CIUnavailableError,
+    CLevel,
     ExponentialFit,
 )
 

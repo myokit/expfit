@@ -228,17 +228,17 @@ class TestCI(unittest.TestCase):
 
         self.assertEqual(list(xx), [
             alo,
-            -8.164001404337903,
-            -5.489527397607352,
-            -2.815053390876802,
+            -8.163763428098646,
+            -5.489527397607351,
+            -2.815291367116057,
             ahi
         ])
         self.assertEqual(list(yy), [
-            304.63807345375034,
-            299.2006423113714,
+            304.6367833091292,
+            299.20031977521654,
             297.388165267725,
-            299.200642322811,
-            304.6380734766293,
+            299.2003197866549,
+            304.6367833320062,
         ])
 
     def test_double(self):
@@ -258,24 +258,24 @@ class TestCI(unittest.TestCase):
             plt.show()
 
         c1 = p.ci_fisher(2)
-        self.assertAlmostEqual(c1, 0.173748, delta=1e-5)
+        self.assertAlmostEqual(c1, 0.173733, delta=1e-5)
         self.assertLess(p[2] - c1, p0[2])
         self.assertGreater(p[2] + c1, p0[2])
 
         c2 = p.ci_fisher(4)
-        self.assertAlmostEqual(c2, 1.5617967, delta=1e-5)
+        self.assertAlmostEqual(c2, 1.561660, delta=1e-5)
         self.assertLess(p[4] - c2, p0[4])
         self.assertGreater(p[4] + c2, p0[4])
 
         c1 = p.ci_profile(2)
-        self.assertAlmostEqual(c1[0][2], -2.1795243, delta=1e-5)
-        self.assertAlmostEqual(c1[1][2], -1.8230414, delta=1e-5)
+        self.assertAlmostEqual(c1[0][2], -2.179512, delta=1e-5)
+        self.assertAlmostEqual(c1[1][2], -1.823063, delta=1e-5)
         self.assertLess(c1[0][2], p0[2])
         self.assertGreater(c1[1][2], p0[2])
 
         c2 = p.ci_profile(4)
-        self.assertAlmostEqual(c2[0][4], -8.9935671, delta=1e-5)
-        self.assertAlmostEqual(c2[1][4], -5.8337929, delta=1e-5)
+        self.assertAlmostEqual(c2[0][4], -8.993409, delta=1e-5)
+        self.assertAlmostEqual(c2[1][4], -5.833916, delta=1e-5)
         self.assertLess(c2[0][4], p0[4])
         self.assertGreater(c2[1][4], p0[4])
 
@@ -300,11 +300,27 @@ class TestCI(unittest.TestCase):
     def test_mse_cutoff(self):
         # MSE cut-off for profile CI, with 90% chi squared stat
 
+        cl = expfit.CLevel(95)
         x = np.arange(0, 10, 1)
         y = 3 * x
         f = lambda p: (11, [11], [[11]])
         e = expfit.ExponentialFit(x, y, [7], f)
-        self.assertEqual(e.mse_cutoff(), (1 + 2.706 / 10) * 11)
+        self.assertEqual(e.mse_cutoff(cl), (1 + cl.chi2() / 10) * 11)
+        self.assertEqual(e.mse_cutoff(95), (1 + cl.chi2() / 10) * 11)
+
+    def test_clevel(self):
+        cl = expfit.CLevel(90)
+        self.assertEqual(cl.norm(), 1.6448536269514722)
+        self.assertEqual(cl.chi2(), 2.705543454095404)
+        self.assertRaisesRegex(
+            ValueError, 'Confidence level not supported: 3', expfit.CLevel, 3)
+
+        try:
+            expfit.CLevel.add(3, 1, 2)
+            self.assertEqual(expfit.CLevel(3).norm(), 1)
+            self.assertEqual(expfit.CLevel(3).chi2(), 2)
+        finally:
+            del expfit.CLevel._stats[3]
 
 
 if __name__ == '__main__':  # pragma: no cover

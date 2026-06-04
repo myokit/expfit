@@ -65,7 +65,7 @@ class ExponentialFit:
         """
         return self._err is not None
 
-    def ci_profile(self, i, chi2=2.706, max_iter=100, verbose=False):
+    def ci_profile(self, i, level=90, max_iter=100, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -86,23 +86,16 @@ class ExponentialFit:
             cut-off = chi2 / n
 
         where chi2 is a percentile from a chi-squared distribution with one
-        degree of freedom. The default value is ``chi2 = 2.706`` for 95%
-        confidence that the true value is in the interval. To obtain a wider
-        bound, set e.g. ``chi2 = 3.841`` for 95% confidence. Other values can
-        be obtained from tables or e.g. with scipy (if installed)::
-
-            import scipy
-
-            # 90% confidence interval
-            chi2 = scipy.stats.chi2.ppf(0.90, 1)
+        degree of freedom, obtained from the given confidence level or
+        :class:`CLevel` object.
 
         Arguments:
 
         ``i``
             The index of the chosen parameter.
-        ``chi2``
-            The chi-squared distribution value used to determine the cut-off.
-            The default value gives a 90% confidence region.
+        ``level``
+            A :class:`CLevel` or an integer setting the confidence level, e.g.
+            90 percent.
         ``max_iter``
             The maximum iterations for steps 2 and 3.
         ``verbose``
@@ -115,15 +108,15 @@ class ExponentialFit:
             raise CIUnavailableError()
 
         # Set cut-off
+        if not isinstance(level, CLevel):
+            level = CLevel(level)
         e_hat = self._err(self._p)[0]
-        cutoff = (1 + chi2 / self._nt) * e_hat
+        cutoff = (1 + level.chi2() / self._nt) * e_hat
         if verbose:  # pragma: no cover
             print(f'Cut off: {cutoff}')
 
-        # Set initial step size based on 90% FIM bounds
-        # TODO Add some class for CILevel that has these baked in so we can use
-        # the appropriate level
-        fim = self.ci_fisher(i)
+        # Set initial step size based on FIM bounds with same level
+        fim = self.ci_fisher(i, level)
 
         # Set stopping criterion for bisection, based on cut-off
         bisection_tol = 1e-4 * (cutoff - e_hat)
@@ -191,29 +184,28 @@ class ExponentialFit:
 
         return bounds
 
-    def ci_fisher(self, i, perc=1.645):
+    def ci_fisher(self, i, level=90):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a Fisher information method.
-
-            import scipy
-
-            # 90% confidence interval
-            perc = scipy.stats.norm.ppf(0.95)
 
         Arguments:
 
         ``i``
             The index of the chosen parameter.
-        ``perc``
-            The Normal percentile point used to determine the interval.
-            The default value gives a 90% confidence region.
+        ``level``
+            A :class:`CLevel` or an integer setting the confidence level, e.g.
+            90 percent.
 
         Returns a single value ``x``, for an interval of ``mu - x, mu + x``.
         """
         if self._cov is None:
             self.cov()
-        return perc * np.sqrt(self._cov[i, i])
+
+        if not isinstance(level, CLevel):
+            level = CLevel(level)
+
+        return level.norm() * np.sqrt(self._cov[i, i])
 
     def cov(self):
         """
@@ -237,24 +229,31 @@ class ExponentialFit:
         return self._cov
 
     def error(self):
-        """
-        Returns the error class used to derive this result.
-        """
+        """ Returns the error object used to derive this result, if set. """
         if self._err is None:
             raise CIUnavailableError()
         return self._err
 
-    def mse_cutoff(self, chi2=2.706):
+    def mse_cutoff(self, level=90):
         """
         Returns the maximum MSE for a given confidence level (assuming
         Normally distruted noise), as used by :meth:`ci_profile`.
+
+        Arguments:
+
+        ``level``
+            A :class:`CLevel` or an integer setting the confidence level, e.g.
+            90 percent.
+
+        Returns a scalar MSE.
         """
         if self._err is None:
             raise CIUnavailableError()
 
-        # TODO CONFIDENCE LEVEL CLASS
+        if not isinstance(level, CLevel):
+            level = CLevel(level)
 
-        return (1 + chi2 / self._nt) * self._err(self._p)[0]
+        return (1 + level.chi2() / self._nt) * self._err(self._p)[0]
 
     def profile(self, i, lo, hi, evals=25):
         """
@@ -301,4 +300,75 @@ class CIUnavailableError(RuntimeError):
     """
     def __init__(self):
         super().__init__('CI methods unavailable for this exponential fit')
+
+
+class CLevel():
+    """
+    Provides hard-coded normal and chi-squared percentile point functions for
+    use in confidence intervals.
+
+    Example::
+
+        clevel = CLevel(90)
+        print(clevel.norm())
+
+    Use :meth:`supported` to see the supported levels. New levels can be added
+    with :meth:`add`. If SciPy is installed, these can be obtained with e.g.::
+
+        import scipy
+        print(scipy.stats.chi2.ppf(0.95, 1))   % 90%, 1dof
+        print(scipy.stats.norm.ppf(0.975, 1))  % 95%
+
+    Arguments:
+
+    ``level``
+        A confidence level, in percent.
+
+    """
+    _stats = {  # norm, chi2-df1
+        99: (2.5758293035489004, 6.6348966010212145),
+        95: (1.959963984540054, 3.841458820694124),
+        90: (1.6448536269514722, 2.705543454095404),
+        75: (1.1503493803760079, 1.3233036969314664),
+        50: (0.6744897501960817, 0.454936423119572),
+        25: (0.31863936396437514, 0.10153104426762156),
+        10: (0.12566134685507416, 0.01579077409343122),
+        5: (0.06270677794321385, 0.003932140000019522),
+        1: (0.012533469508069276, 0.00015708785790970184),
+    }
+
+    def __init__(self, level):
+        try:
+            self._norm, self._chi2 = self._stats[int(level)]
+        except KeyError:
+            raise ValueError(f'Confidence level not supported: {level}')
+
+    @classmethod
+    def add(cls, level, norm, chi2):
+        """
+        Add a confidence level.
+
+        Arguments:
+
+        ``level``
+            The integer level, in percent.
+        ``norm``
+            The normal function percent point function.
+        ``chi2``
+            The 1-degree of freedom chi-squared percent point function.
+        """
+        cls._stats[level] = (norm, chi2)
+
+    def norm(self):
+        """
+        Returns the normal percent point function for this level.
+        """
+        return self._norm
+
+    def chi2(self):
+        """
+        Returns the 1 degree of freedom chi-squared percent point function for
+        this level.
+        """
+        return self._chi2
 
