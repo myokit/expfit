@@ -46,9 +46,8 @@ def fit(x, y):
     x, y = expfit.vet_series(x, y)
     f = Linear1d(x, y)
     with np.errstate(all='ignore'):
-        r = expfit.fmin(f, (1, 1))
-    r = expfit.ExponentialFit(x, y, r.x)
-    r._err_class = Linear1d
+        r = expfit.lm(f, (1, 1))
+    r = expfit.ExponentialFit(x, y, r.x, f)
     return r
 
 
@@ -59,7 +58,7 @@ class TestCI(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def t(self, a0, b0, s0, n=51, delta=1e-3, ca=None, cb=None, plot=False):
+    def t(self, a0, b0, s0, n=51, delta=1e-2, ca=None, cb=None, plot=False):
 
         x = np.linspace(0, 10, n)
         y = a0 + b0 * x + self.r.normal(0, s0, size=x.shape)
@@ -210,14 +209,15 @@ class TestCI(unittest.TestCase):
         ])
 
     def test_double(self):
-        """ Test on double """
+        # Test on double
         plot = False
-        self.r = np.random.default_rng(1)
 
+        self.r = np.random.default_rng(1)
         p0 = np.array([1, -9, -2, -4, -7])
-        t = np.linspace(0, 2, 100)
+        n = 100
+        t = np.linspace(0, 2, n)
         v = expfit.exp(t, p0)
-        v += self.r.normal(0, 0.01 * abs(v[0] - v[-1]), size=t.shape)
+        v += self.r.normal(0, 0.01 * abs(v[0] - v[-1]), size=n)
 
         p = expfit.fitd2(t, v, plot=p0 if plot else False)
         if plot:  # pragma: no cover
@@ -235,16 +235,25 @@ class TestCI(unittest.TestCase):
         self.assertGreater(p[4] + c2, p0[4])
 
         c1 = p.ci_profile(2)
-        self.assertAlmostEqual(c1[0][2], -2.17952895)
-        self.assertAlmostEqual(c1[1][2], -1.82303899)
+        self.assertAlmostEqual(c1[0][2], -2.1795243)
+        self.assertAlmostEqual(c1[1][2], -1.8230414)
         self.assertLess(c1[0][2], p0[2])
         self.assertGreater(c1[1][2], p0[2])
 
         c2 = p.ci_profile(4)
-        self.assertAlmostEqual(c2[0][4], -8.993673044)
-        self.assertAlmostEqual(c2[1][4], -5.833764972)
+        self.assertAlmostEqual(c2[0][4], -8.9936677)
+        self.assertAlmostEqual(c2[1][4], -5.8337747)
         self.assertLess(c2[0][4], p0[4])
         self.assertGreater(c2[1][4], p0[4])
+
+    def test_no_error(self):
+        # Exponential fit without error
+        e = expfit.ExponentialFit([1, 2], [3, 4], [5])
+        self.assertFalse(e.ci_available())
+        self.assertRaises(expfit.CIUnavailableError, e.ci_fisher, 0)
+        self.assertRaises(expfit.CIUnavailableError, e.ci_profile, 0)
+        self.assertRaises(expfit.CIUnavailableError, e.profile, 0, -1, 1)
+        self.assertRaises(expfit.CIUnavailableError, e.cov)
 
 
 if __name__ == '__main__':  # pragma: no cover

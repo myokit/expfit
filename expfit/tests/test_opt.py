@@ -68,7 +68,7 @@ class TestOpt(unittest.TestCase):
         # Find minimum of quadratic
         f = Poly2(2, 3, 4)
         self.assertEqual(f(3), (31, [15], [[4]]))
-        r = expfit.fmin(f, [10])
+        r = expfit.lm(f, [10])
         self.assertTrue(r.success)
         self.assertEqual(r.x.shape, (1, ))
         self.assertAlmostEqual(r.x[0], -0.75)
@@ -102,7 +102,7 @@ class TestOpt(unittest.TestCase):
         # Find minimum of 4th order
         f = Poly4(3, 2, 5, 7)
         self.assertEqual(f(2), (73, [109], [[148]]))
-        r = expfit.fmin(f, [10])
+        r = expfit.lm(f, [10])
         self.assertTrue(r.success)
         self.assertEqual(r.x.shape, (1, ))
         self.assertAlmostEqual(r.x[0], -0.600471416)
@@ -110,7 +110,7 @@ class TestOpt(unittest.TestCase):
         self.assertGreater(f(r.x[0] - 1e-8)[0], r.error)
 
         # Failing constraint
-        r = expfit.fmin(f, [10], constraint=lambda p: False)
+        r = expfit.lm(f, [10], constraint=lambda p: False)
         self.assertFalse(r.success)
         self.assertEqual(r.message, 'Initial position fails constraint')
 

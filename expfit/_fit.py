@@ -74,18 +74,19 @@ def fit1(t, v, plot=False):
     # Fit (in transformed space)
     e = expfit.SingleExponentialError(tr.x, tr.y)
     with np.errstate(all='ignore'):
-        r = expfit.fmin(e, (at0, bt0, ct0))
+        r = expfit.lm(e, (at0, bt0, ct0))
         if plot:  # pragma: no cover
             print(r)
     at, bt, ct = r.x
 
-    # Detransform obtained parameters, create result
-    p = ExponentialFit(t, v, tr.detransform(at, bt, ct))
+    # Detransform obtained parameters, create result object
+    p = expfit.ExponentialFit(
+        t, v, tr.detransform(at, bt, ct), expfit.SingleExponentialError(t, v))
 
     if plot:  # pragma: no cover
-        p0 = ExponentialFit(t, v, tr.detransform(at0, bt0, ct0))
-        q0 = ExponentialFit(tr.x, tr.y, (at0, bt0, ct0))
-        q = ExponentialFit(tr.x, tr.y, (at, bt, ct))
+        p0 = expfit.ExponentialFit(t, v, tr.detransform(at0, bt0, ct0))
+        q0 = expfit.ExponentialFit(tr.x, tr.y, (at0, bt0, ct0))
+        q = expfit.ExponentialFit(tr.x, tr.y, (at, bt, ct))
 
         strest = ', '.join(f'{i:.3}' for i in q0)
         strq = ', '.join(f'{i:.3}' for i in q)
@@ -156,7 +157,7 @@ def fitd2(t, v, plot=False):
 
     # Avoid nans etc.
     if c0 == 0:
-        return ExponentialFit(t, v, (a0, b0, 0, 0, 0))
+        return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
 
     # Catch non-decaying
     if c0 > 0:
@@ -172,13 +173,13 @@ def fitd2(t, v, plot=False):
         p0[4] *= 1.414213562
         e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
-            r = expfit.fmin(e, p0, constraint=ct)
+            r = expfit.lm(e, p0, constraint=ct)
             if plot is not False:  # pragma: no cover
                 print(r)
         if r.x[4] / r.x[2] > 1.1 and r.success:
             break
 
-    p = ExponentialFit(t, v, r.x, constraint=ct)
+    p = expfit.ExponentialFit(t, v, r.x, e, ct)
 
     if plot is not False:  # pragma: no cover
         import matplotlib.pyplot as plt
@@ -194,7 +195,7 @@ def fitd2(t, v, plot=False):
         ax0.plot(t, v, code, color='tab:blue', label=f'Data (n={len(t)})')
 
         # Show parameters
-        p0 = ExponentialFit(t, v, p0)
+        p0 = expfit.ExponentialFit(t, v, p0)
         ax0.text(0.5, 1.015, f'Init: {p0}\n Fit: {p}',
                  transform=ax0.transAxes, ha='center', font='monospace')
 
@@ -394,250 +395,4 @@ def cov_ellipse(ax, mu, cov, n=50):
     ax.legend()
     """
 '''
-
-
-class ExponentialFit:
-    """
-    The result of fitting an exponential.
-
-    This can be used as a sequence of parameters, for example::
-
-        a, b, c = expfit.fit1(t, v)
-
-    but also as an object, to access additional methods::
-
-        p = expfit.fit1(t, v)
-        lower, upper = p.ci_profile(2)
-
-    Arguments:
-
-    ``x``, ``y``
-        The time series.
-    ``p``
-        The (assumed) optimal parameters.
-    ``constraint``
-        An optional constraint used in deriving the parameters.
-
-    """
-    # Allow different error class to be set, for testing
-    _err_class = expfit.MultiExponentialError
-
-    def __init__(self, x, y, p, constraint=None):
-        self._xy = x, y
-        self._p = tuple(p)
-        self._np = len(self._p)
-        self._nt = len(x)
-        self._cst = constraint
-        self._err = None
-        self._cov = None
-
-    def __len__(self):
-        return self._np
-
-    def __getitem__(self, subscript):
-        return self._p.__getitem__(subscript)
-
-    def __str__(self):
-        return ' '.join(f'{i:+.5e}' for i in self._p)
-
-    def ci_profile(self, i, chi2=2.706, max_iter=100, verbose=False):
-        """
-        Finds and returns a confidence interval for the parameter at index
-        ``i`` using a profile likelihood ratio method.
-
-        The method works by:
-
-        1. Setting a threshold MSE as ``(1 + cut-off) * MSE(p_best)``
-        2. Fixing the parameter at its original value plus an offset,
-           reoptimising, and increasing until the MSE goes above the
-           threshold.
-        3. Performing bisection search to find the offset at which the
-           threshold is crossed.
-
-        The cut-off is set based on the assumption of an additive Normal
-        noise term (``data = model + N(0, sigma^2)``), and then rewriting in
-        terms of the MSE, leading to::
-
-            cut-off = chi2 / n
-
-        where chi2 is a percentile from a chi-squared distribution with one
-        degree of freedom. The default value is ``chi2 = 2.706`` for 95%
-        confidence that the true value is in the interval. To obtain a wider
-        bound, set e.g. ``chi2 = 3.841`` for 95% confidence. Other values can
-        be obtained from tables or e.g. with scipy (if installed)::
-
-            import scipy
-
-            # 90% confidence interval
-            chi2 = scipy.stats.chi2.ppf(0.90, 1)
-
-        Arguments:
-
-        ``i``
-            The index of the chosen parameter.
-        ``chi2``
-            The chi-squared distribution value used to determine the cut-off.
-            The default value gives a 90% confidence region.
-        ``max_iter``
-            The maximum iterations for steps 2 and 3.
-        ``verbose``
-            Set to ``True`` to print debug messages.
-
-        Returns two full parameter sets, corresponding to the lower and upper
-        bounds.
-        """
-        # Create and cache an error
-        if self._err is None:
-            self._err = self._err_class(*self._xy)
-
-        # Set cut-off
-        cutoff = (1 + chi2 / self._nt) * self._err(self._p)[0]
-        if verbose:  # pragma: no cover
-            print(f'Cut off: {cutoff}')
-
-        def test(value):
-            """ Test the given ``value`` has an error below cut-off. """
-            # Create a partial parameter array, omitting i
-            p_full = np.array(self._p)
-            p_full[i] = value
-
-            # Test the constraint, if given
-            c = None
-            if self._cst is not None:
-                if not self._cst(p_full):  # pragma: no cover
-                    return False, np.delete(p_full, i)
-
-                # Create a fixed version
-                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
-
-            # Evaluate the error and compare
-            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
-            p = np.delete(p_full, i)
-            with np.errstate(all='ignore'):
-                r = expfit.fmin(f, p, constraint=c, verbose=False)
-            #return r.success and r.error < cutoff, r.x
-            return r.error < cutoff, r.x
-
-        bounds = []
-        for direction in (-1, 1):
-            # Expand until upper bound found
-            d = 1e-6 * np.abs(self._p[i]) * direction
-            if verbose:  # pragma: no cover
-                print(f'Initial d={d}')
-            for j in range(max_iter):
-                if not test(self._p[i] + d)[0]:
-                    break
-                d *= 2
-            if j == 0:  # pragma: no cover
-                raise RuntimeError('CI method failed: expansion had no'
-                                   ' successful optimiser runs.')
-
-            if verbose:  # pragma: no cover
-                print(f'Expanded {self._p[i]:.5g} to {self._p[i] + d:.5g}'
-                      f' in {j} iterations')
-
-            # Bisect
-            solution = self._p
-            a, b = self._p[i], self._p[i] + d
-            for j in range(max_iter):
-                c = 0.5 * (a + b)
-                if np.abs((c - a) / d) < 1e-6:
-                    break
-                ok, p = test(c)
-                if ok:
-                    a = c
-                    solution = np.insert(p, i, a)
-                else:
-                    b = c
-            bounds.append(solution)
-
-            if verbose:  # pragma: no cover
-                print(f'Found {a:.5g} in {j} iterations'
-                      f' (MSE {self._err(solution)[0]:.5g})')
-
-        return bounds
-
-    def ci_fisher(self, i, perc=1.645):
-        """
-        Finds and returns a confidence interval for the parameter at index
-        ``i`` using a Fisher information method.
-
-            import scipy
-
-            # 90% confidence interval
-            perc = scipy.stats.norm.ppf(0.95)
-
-        Arguments:
-
-        ``i``
-            The index of the chosen parameter.
-        ``perc``
-            The Normal percentile point used to determine the interval.
-            The default value gives a 90% confidence region.
-
-        Returns a single value ``x``, for an interval of ``mu - x, mu + x``.
-        """
-        if self._cov is None:
-            self.cov()
-        return perc * np.sqrt(self._cov[i, i])
-
-    def cov(self):
-        """
-        Returns a covariance matrix bassed on the Hessian at the obtained
-        solution.
-
-        Specifically::
-
-            Cov = (2 * MSE(p_best) / n) * inverse(Hessian(p_best))
-
-        This is equivalent to the inverse Fisher information matrix, under the
-        assumption of an added Gaussian noise term.
-        """
-        if self._cov is None:
-            # Calculate MSE and Hessian
-            if self._err is None:
-                self._err = self._err_class(*self._xy)
-            mse, jac, hes = self._err(self._p)
-
-            # Calculate covariance matrix and return
-            self._cov = np.linalg.inv(hes) * 2 * mse / self._nt
-
-        return self._cov
-
-    def profile(self, i, lo, hi, evals=25):
-        """
-        Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
-
-        For each value, the optimisation is re-run, keeping the i-th parameter
-        fixed.
-
-        Arguments:
-
-        ``i``
-            The index of the chosen parameter.
-        ``lo``
-            The minimum value to test for parameter ``i``.
-        ``hi``
-            The maximum value to test for parameter ``i``.
-
-        Returns a tuple ``(values, errors)`` containing the tested parameter
-        values and their MSEs.
-        """
-        if self._err is None:  # pragma: no cover
-            self._err = self._err_class(*self._xy)
-
-        p_full = np.array(self._p)
-        values = np.linspace(lo, hi, evals)
-        errors = np.zeros(evals)
-        for j, val in enumerate(values):
-            p_full[i] = val
-            c = None
-            if self._cst is not None:  # pragma: no cover
-                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
-            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
-            p = np.delete(p_full, i)
-            with np.errstate(all='ignore'):
-                r = expfit.fmin(f, p, constraint=c)
-                errors[j] = r.error
-        return values, errors
 

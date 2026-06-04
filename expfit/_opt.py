@@ -11,9 +11,9 @@ import numpy as np
 import expfit
 
 
-class OptResult:
+class LMResult:
     """
-    A result returned by :meth:`fmin`.
+    A result returned by :meth:`lm`.
 
     Properties:
 
@@ -79,7 +79,7 @@ class OptResult:
         ))
 
 
-def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
+def lm(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -121,6 +121,7 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     ``verbose``
         Set to ``True`` to print status information at every iteration.
 
+    Returns an :class:`LMResult`.
     """
     # Old:
     # By default, the Hessian is used to guide
@@ -204,7 +205,7 @@ def fmin(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     time = timeit.default_timer() - time
 
     # Create and return result object
-    res = OptResult()
+    res = LMResult()
     res.x = p[0]
     res.error = m
     res.jac = j

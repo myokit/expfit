@@ -47,12 +47,17 @@ from ._err import (  # noqa
 )
 
 from ._opt import (  # noqa
-    fmin,
     LeastSquaresFit,
+    lm,
+    LMResult
+)
+
+from ._ci import (  # noqa
+    CIUnavailableError,
+    ExponentialFit,
 )
 
 from ._fit import (  # noqa
-    ExponentialFit,
     fit1,
     fitd2,
 )
