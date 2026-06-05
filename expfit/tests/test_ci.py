@@ -224,20 +224,19 @@ class TestCI(unittest.TestCase):
             ax.plot(xx, yy)
             plt.show()
 
-        self.assertEqual(list(xx), [
-            alo,
-            -8.163763428098646,
-            -5.489527397607351,
-            -2.815291367116057,
-            ahi
-        ])
-        self.assertEqual(list(yy), [
-            304.63678330912927,
-            299.2003197752166,
-            297.388165267725,
-            299.200319786655,
-            304.6367833320063,
-        ])
+        self.assertEqual(len(xx), 5)
+        self.assertEqual(xx[0], alo)
+        self.assertEqual(xx[4], ahi)
+        self.assertAlmostEqual(xx[1], -8.163763428098646, delta=1e-15)
+        self.assertAlmostEqual(xx[2], -5.489527397607351, delta=1e-15)
+        self.assertAlmostEqual(xx[3], -2.815291367116057, delta=1e-15)
+
+        self.assertEqual(len(yy), 5)
+        self.assertAlmostEqual(yy[0], 304.636783309129, delta=1e-12)
+        self.assertAlmostEqual(yy[1], 299.200319775216, delta=1e-12)
+        self.assertAlmostEqual(yy[2], 297.388165267725, delta=1e-12)
+        self.assertAlmostEqual(yy[3], 299.200319786655, delta=1e-12)
+        self.assertAlmostEqual(yy[4], 304.636783332006, delta=1e-12)
 
     def test_double(self):
         # Test on double

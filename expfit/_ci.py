@@ -65,7 +65,7 @@ class ExponentialFit:
         """
         return self._err is not None
 
-    def ci_profile(self, i, level=90, max_iter=100, gtol=1e-5, verbose=False):
+    def ci_profile(self, i, level=90, max_iter=100, gtol=1e-7, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -263,7 +263,7 @@ class ExponentialFit:
 
         return (1 + level.chi2() / self._nt) * self._err.mse(self._p)
 
-    def profile(self, i, lo, hi, evals=25, gtol=1e-5):
+    def profile(self, i, lo, hi, evals=25, gtol=1e-7):
         """
         Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
 

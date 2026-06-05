@@ -221,9 +221,9 @@ def fitd2(t, v, plot=False):
             pass
         if known:
             ax0.plot(t, e(t, (plot[0], plot[1], plot[2])), color=C1,
-                     label=f'Known 1st (tau={-1 / plot[2]:.2g})',)
+                     label=f'Known 1st (tau={-1 / plot[2]:.3g})',)
             ax0.plot(t, e(t, (plot[0], plot[3], plot[4])), color=C2,
-                     label=f'Known 2nd (tau={-1 / plot[4]:.2g})')
+                     label=f'Known 2nd (tau={-1 / plot[4]:.3g})')
 
         # Show fit
         label = f'rmse {np.sqrt(r.error):.4}'
@@ -239,8 +239,8 @@ def fitd2(t, v, plot=False):
         tau1 = -1 / p[2]
         t1lop, t1hip = -1 / lo1[2], -1 / hi1[2]
         t1lof, t1hif = -1 / (p[2] - cif1), -1 / (p[2] + cif1)
-        b = (f'Fit 1st (tau={tau1:.2g}, PL[{t1lop:.2g}, {t1hip:.2g}],'
-             f' FI[{t1lof:.2g}, {t1hif:.2g}])')
+        b = (f'Fit 1st (tau={tau1:.2g}, P[{t1lop:.3g}, {t1hip:.3g}],'
+             f' FI[{t1lof:.3g}, {t1hif:.3g}])')
         ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
         ax0.fill_between(t, e(t, (lo1[0], lo1[1], lo1[2])),
                          e(t, (hi1[0], hi1[1], hi1[2])), color=D1, alpha=0.1)
@@ -255,8 +255,8 @@ def fitd2(t, v, plot=False):
         tau2 = -1 / p[4]
         t2lop, t2hip = -1 / lo2[4], -1 / hi2[4]
         t2lof, t2hif = -1 / (p[4] - cif2), -1 / (p[4] + cif2)
-        b = (f'Fit 2nd (tau={tau2:.2g} P[{t2lop:.2g}, {t2hip:.2g}],'
-             f' FI[{t2lof:.2g}, {t2hif:.2g}])')
+        b = (f'Fit 2nd (tau={tau2:.2g} P[{t2lop:.3g}, {t2hip:.3g}],'
+             f' FI[{t2lof:.3g}, {t2hif:.3g}])')
         ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
         ax0.fill_between(t, e(t, (lo2[0], lo2[3], lo2[4])),
                          e(t, (hi2[0], hi2[3], hi2[4])), color=D2, alpha=0.1)
@@ -274,7 +274,7 @@ def fitd2(t, v, plot=False):
         ax1.set_ylabel('v')
         ax1.plot(t, v, code, color='tab:blue', label='Data')
         ax1.plot(t, e(t, (a0, b0, c0)), 'k--', lw=1.5,
-                 label=f'Init. single ($\\tau$={-1 / c0:.2g})')
+                 label=f'Init. single ($\\tau$={-1 / c0:.3g})')
         ax1.plot(t, e(t, p0), 'k:', lw=1.5,
                  label='Init. double')
         ax1.legend(frameon=False)
@@ -288,36 +288,13 @@ def fitd2(t, v, plot=False):
         # Show MSE profile for tau 1
         ax4 = fig.add_subplot(grd[0, 2])
         ax4.set_xlabel('tau 1')
-        ax4.set_ylabel('MSE')
-        values, errors = p.profile(2, lo1[2], hi1[2])
-        ax4.plot(-1 / values, errors, label='Profile')
-        ax4.axvline(tau1, color='gray', zorder=1)
-        ax4.axvline(t1lop, color='tab:blue', lw=1, ls='--')
-        ax4.axvline(t1hip, color='tab:blue', lw=1, ls='--')
-
-        # Show FIM approximation for tau1
-        q = 0.5 / np.diag(np.linalg.inv(r.hes))
-        x = np.linspace(-cif1, cif1, 100)
-        ax4.plot(-1 / (p[2] + x), r.error + q[2] * x**2, label='FI')
+        plot_tau_profile(ax4, r, p, 2, lo1, hi1, cif1)
         ax4.legend(loc=(0, 1.01), ncols=2, frameon=False, handlelength=1.5)
-        ax4.axvline(t1lof, color='tab:orange', lw=1, ls='--')
-        ax4.axvline(t1hif, color='tab:orange', lw=1, ls='--')
 
         # Show MSE profile for tau 2
         ax5 = fig.add_subplot(grd[1, 2])
         ax5.set_xlabel('tau 2')
-        ax5.set_ylabel('MSE')
-        values, errors = p.profile(4, lo2[4], hi2[4])
-        ax5.plot(-1 / values, errors)
-        ax5.axvline(-1 / p[4], color='gray', zorder=1)
-        ax5.axvline(t2lop, color='tab:blue', lw=1, ls='--')
-        ax5.axvline(t2hip, color='tab:blue', lw=1, ls='--')
-
-        # Show FIM approximation for tau2
-        x = np.linspace(-cif2, cif2, 100)
-        ax5.plot(-1 / (p[4] + x), r.error + q[4] * x**2)
-        ax5.axvline(t2lof, color='tab:orange', lw=1, ls='--')
-        ax5.axvline(t2hif, color='tab:orange', lw=1, ls='--')
+        plot_tau_profile(ax5, r, p, 4, lo2, hi2, cif2)
 
         # Show error comparison with known
         if known:
@@ -330,23 +307,46 @@ def fitd2(t, v, plot=False):
     return p
 
 
-def plot_vs_true(ax, fit, known, padding=0.25,
-                 evaluations=200):  # pragma: no cover
+def plot_tau_profile(ax, r, p, i, plo, phi, fci):  # pragma: no cover
+    """
+    Plots the profile MSE for the tau parameter at index ``i``, between ``lo``
+    and ``hi`` (where ``lo`` and ``hi`` are full parameter vectors, and ``fci``
+    is the Fisher CI size).
+    """
+    ax.set_ylabel('MSE')
+
+    values, errors = p.profile(i, plo[i], phi[i])
+    ax.plot(-1 / values, errors, label='Profile')
+    ax.axvline(-1 / p[i], color='gray')
+    ax.axvline(-1 / plo[i], color='tab:blue', lw=1, ls='--')
+    ax.axvline(-1 / phi[i], color='tab:blue', lw=1, ls='--')
+
+    # Show FIM approximation for tau2
+    x = np.linspace(-fci, fci, 100)
+    q = 0.5 / np.diag(np.linalg.inv(r.hes))
+    ax.plot(-1 / (p[i] + x), r.error + q[i] * x**2, label='FI')
+    ax.axvline(-1 / (p[i] - fci), color='tab:orange', lw=1, ls='--')
+    ax.axvline(-1 / (p[i] + fci), color='tab:orange', lw=1, ls='--')
+
+
+def plot_vs_true(ax, fit, known, padding=0.25):  # pragma: no cover
     """
     Plots the MSE between a ``found`` and ``known`` (true) value.
     """
     found, known = np.array(fit), np.array(known)
     e = fit.error()
-    s = np.linspace(-padding, 1 + padding, evaluations)
+    s = np.linspace(-padding, 1 + padding, 100)
     r = known - found
     x = [found + sj * r for sj in s]
     y = [e.mse(i) for i in x]
     ax.plot(s, y, color='green')
-    ax.axvline(0, color='#1f77b4', label='Found')
-    ax.axvline(1, color='#7f7f7f', label='True')
+    ax.axvline(0, color='#1f77b4')
+    ax.axvline(1, color='#7f7f7f')
     emax = fit.mse_cutoff()
     ax.axhline(emax, color='tab:red', lw=1, ls=':', label='CI cut-off')
     ax.set_ylabel('MSE')
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['Found', 'True'])
     ax.legend()
 
 

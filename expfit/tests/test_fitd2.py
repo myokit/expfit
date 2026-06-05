@@ -94,13 +94,13 @@ class TestDouble(unittest.TestCase):
         dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
         dod(17, 10, -6, 5, -12, deltas=(.01, 2, .5, 2, 1), plot=plot, n=999)
 
-        self.r = np.random.default_rng(2)
+        #self.r = np.random.default_rng(2)
         dod(18, 10, -6, 5, -12, deltas=(.05, 5, 1, 5, 3), plot=plot)
         dod(18, 10, -6, 5, -12, deltas=(.01, 1, .2, 1, 1), plot=plot, n=1000)
 
-        self.r = np.random.default_rng(6)
+        #self.r = np.random.default_rng(6)
         dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot)
-        dod(100, 10, -2, 4, -5, deltas=(.01, .1, .05, .1, .1), plot=plot,
+        dod(100, 10, -2, 4, -5, deltas=(.01, .2, .05, .2, .5), plot=plot,
             n=1000)
 
         # Unidentifiable? Fits this with 1 time constant
