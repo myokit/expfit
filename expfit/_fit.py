@@ -340,7 +340,7 @@ def plot_vs_true(ax, fit, known, padding=0.25,
     s = np.linspace(-padding, 1 + padding, evaluations)
     r = known - found
     x = [found + sj * r for sj in s]
-    y = [e(i)[0] for i in x]
+    y = [e.mse(i) for i in x]
     ax.plot(s, y, color='green')
     ax.axvline(0, color='#1f77b4', label='Found')
     ax.axvline(1, color='#7f7f7f', label='True')

@@ -75,6 +75,11 @@ class SingleExponentialError():
 
         return mse, jac, hes
 
+    def mse(self, p):
+        """ Calculate only the MSE (for a single point). """
+        return self._m * np.sum(
+            (p[0] - self._y + p[1] * np.exp(p[2] * self._x))**2)
+
 
 class MultiExponentialError():
     """
@@ -139,6 +144,23 @@ class MultiExponentialError():
                     self._n2 * np.sum(xes[i] * es[j]) * bs[i, 0]
 
         return mse, jac, hes
+
+    def mse(self, p):
+        """ Calculate only the MSE (for a single point). """
+        # Unpack
+        d = len(p)
+        assert (d - 1) % 2 == 0 and d > 1
+        m = (d - 1) // 2
+
+        p = np.asarray(p)
+        a = p[0]
+        bs = p[1::2].reshape((m, 1))        # (m, 1)
+        cs = p[2::2].reshape((m, 1))        # (m, 1)
+
+        # MSE
+        return self._ni * np.sum((
+            a - self._y + np.sum(bs * np.exp(np.outer(cs, self._x)), axis=0)
+        )**2)
 
 
 class ErrorWithFixedParameter():

@@ -28,14 +28,15 @@ class Linear1d():
         self._h[1, 0] = self._h[0, 1] = 2 * self._m * np.sum(self._x)
 
     def __call__(self, p):
-        a, b = p
-
-        r = a + b * self._x - self._y  # Sign matters for jac
-        e = self._m * np.sum(r**2)
+        r = p[0] + p[1] * self._x - self._y  # Sign matters for jac
+        mse = self._m * np.sum(r**2)
         jac = np.array([2 * self._m * np.sum(r),
                         2 * self._m * np.sum(r * self._x)])
         hes = np.copy(self._h)
-        return e, jac, hes
+        return mse, jac, hes
+
+    def mse(self, p):
+        return self._m * np.sum((p[0] + p[1] * self._x - self._y)**2)
 
 
 def fit(x, y):
@@ -111,7 +112,7 @@ class TestCI(unittest.TestCase):
             m = 100
             ps = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
             ps[:, 0] = t
-            v = [e(t)[0] for t in ps]
+            v = [e.mse(t) for t in ps]
             ax1.plot(t, v, label='MSE (Conditional)')
             v = mse + 0.5 * hes[0, 0] * (t - p[0])**2
             ax1.plot(t, v, 'k--', label='Hes')
@@ -150,7 +151,7 @@ class TestCI(unittest.TestCase):
             m = 100
             ps = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
             ps[:, 1] = t
-            v = [e(t)[0] for t in ps]
+            v = [e.mse(t) for t in ps]
             ax2.plot(t, v, label='MSE (Conditional)')
             v = mse + 0.5 * hes[1, 1] * (t - p[1])**2
             ax2.plot(t, v, 'k--', label='Hes')
@@ -297,13 +298,13 @@ class TestCI(unittest.TestCase):
     def test_mse_cutoff(self):
         # MSE cut-off for profile CI, with 90% chi squared stat
 
+        x = np.array([0, 1, 2])
+        y = np.array([2, 3, 4])
+        f = Linear1d(x, y)
         cl = expfit.CLevel(95)
-        x = np.arange(0, 10, 1)
-        y = 3 * x
-        f = lambda p: (11, [11], [[11]])
-        e = expfit.ExponentialFit(x, y, [7], f)
-        self.assertEqual(e.mse_cutoff(cl), (1 + cl.chi2() / 10) * 11)
-        self.assertEqual(e.mse_cutoff(95), (1 + cl.chi2() / 10) * 11)
+        e = expfit.ExponentialFit(x, y, [1, 1], f)
+        self.assertEqual(e.mse_cutoff(cl) / (1 + cl.chi2() / 3), 1)
+        self.assertEqual(e.mse_cutoff(95) / (1 + cl.chi2() / 3), 1)
 
     def test_clevel(self):
         cl = expfit.CLevel(90)

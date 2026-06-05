@@ -112,7 +112,7 @@ class ExponentialFit:
         # Set cut-off
         if not isinstance(level, CLevel):
             level = CLevel(level)
-        e_hat = self._err(self._p)[0]
+        e_hat = self._err.mse(self._p)
         cutoff = (1 + level.chi2() / self._nt) * e_hat
         if verbose:  # pragma: no cover
             print(f'Cut off: {cutoff}')
@@ -188,7 +188,7 @@ class ExponentialFit:
 
             if verbose:  # pragma: no cover
                 print(f'Found {a:.5g} in {j} iterations'
-                      f' (MSE {self._err(solution)[0]:.5g})')
+                      f' (MSE {self._err.mse(solution):.5g})')
 
         return bounds
 
@@ -261,7 +261,7 @@ class ExponentialFit:
         if not isinstance(level, CLevel):
             level = CLevel(level)
 
-        return (1 + level.chi2() / self._nt) * self._err(self._p)[0]
+        return (1 + level.chi2() / self._nt) * self._err.mse(self._p)
 
     def profile(self, i, lo, hi, evals=25, gtol=1e-5):
         """

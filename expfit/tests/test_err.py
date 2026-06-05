@@ -137,6 +137,9 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1 - j2) < 4e-4))
         self.assertTrue(np.all(np.abs(h1 - h2) < 2e-2))
 
+        # Test mse() method
+        self.assertEqual(e(p)[0], e.mse(p))
+
     def test_multi_error(self):
 
         # Single error comparison
@@ -197,6 +200,9 @@ class TestError(unittest.TestCase):
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.03))
+
+        # Test mse() method
+        self.assertEqual(e1(p)[0], e1.mse(p))
 
     def test_fixed_parameter(self):
         x = np.linspace(0, 1, 123)
