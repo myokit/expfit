@@ -236,10 +236,11 @@ def fitd2(t, v, plot=False):
         # First exponential
         lo1, hi1 = p.ci_profile(2)
         cif1 = p.ci_fisher(2)
-        tau1, tlo1, thi1 = -1 / p[2], -1 / lo1[2], -1 / hi1[2]
-        tclo1, tchi1 = -1 / (p[2] - cif1), -1 / (p[2] + cif1)
-        b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
-             f' FI[{tclo1:.2g}, {tchi1:.2g}])')
+        tau1 = -1 / p[2]
+        t1lop, t1hip = -1 / lo1[2], -1 / hi1[2]
+        t1lof, t1hif = -1 / (p[2] - cif1), -1 / (p[2] + cif1)
+        b = (f'Fit 1st (tau={tau1:.2g}, PL[{t1lop:.2g}, {t1hip:.2g}],'
+             f' FI[{t1lof:.2g}, {t1hif:.2g}])')
         ax0.plot(t, e(t, (p[0], p[1], p[2])), lw=1, ls='--', color=D1, label=b)
         ax0.fill_between(t, e(t, (lo1[0], lo1[1], lo1[2])),
                          e(t, (hi1[0], hi1[1], hi1[2])), color=D1, alpha=0.1)
@@ -251,12 +252,11 @@ def fitd2(t, v, plot=False):
         # Second exponential
         lo2, hi2 = p.ci_profile(4)
         cif2 = p.ci_fisher(4)
-        tau2, tlo2, thi2 = -1 / p[4], -1 / lo2[4], -1 / hi2[4]
-        tclo2, tchi2 = -1 / (p[4] - cif2), -1 / (p[4] + cif2)
-        b = (f'Fit 1st (tau={tau1:.2g}, PL[{tlo1:.2g}, {thi1:.2g}],'
-             f' FI[{tclo1:.2g}, {tchi1:.2g}])')
-        b = (f'Fit 2nd (tau={tau2:.2g} PL[{tlo2:.2g}, {thi2:.2g}],'
-             f' FI[{tclo2:.2g}, {tchi2:.2g}])')
+        tau2 = -1 / p[4]
+        t2lop, t2hip = -1 / lo2[4], -1 / hi2[4]
+        t2lof, t2hif = -1 / (p[4] - cif2), -1 / (p[4] + cif2)
+        b = (f'Fit 2nd (tau={tau2:.2g} P[{t2lop:.2g}, {t2hip:.2g}],'
+             f' FI[{t2lof:.2g}, {t2hif:.2g}])')
         ax0.plot(t, e(t, (p[0], p[3], p[4])), lw=1, ls='--', color=D2, label=b)
         ax0.fill_between(t, e(t, (lo2[0], lo2[3], lo2[4])),
                          e(t, (hi2[0], hi2[3], hi2[4])), color=D2, alpha=0.1)
@@ -290,12 +290,18 @@ def fitd2(t, v, plot=False):
         ax4.set_xlabel('tau 1')
         ax4.set_ylabel('MSE')
         values, errors = p.profile(2, lo1[2], hi1[2])
-        ax4.plot(-1 / values, errors)
+        ax4.plot(-1 / values, errors, label='Profile')
         ax4.axvline(tau1, color='gray', zorder=1)
-        ax4.axvline(tlo1, color='k', lw=1)
-        ax4.axvline(thi1, color='k', lw=1)
-        ax4.axvline(tclo1, color='k', lw=1, ls='--')
-        ax4.axvline(tchi1, color='k', lw=1, ls='--')
+        ax4.axvline(t1lop, color='tab:blue', lw=1, ls='--')
+        ax4.axvline(t1hip, color='tab:blue', lw=1, ls='--')
+
+        # Show FIM approximation for tau1
+        q = 0.5 / np.diag(np.linalg.inv(r.hes))
+        x = np.linspace(-cif1, cif1, 100)
+        ax4.plot(-1 / (p[2] + x), r.error + q[2] * x**2, label='FI')
+        ax4.legend(loc=(0, 1.01), ncols=2, frameon=False, handlelength=1.5)
+        ax4.axvline(t1lof, color='tab:orange', lw=1, ls='--')
+        ax4.axvline(t1hif, color='tab:orange', lw=1, ls='--')
 
         # Show MSE profile for tau 2
         ax5 = fig.add_subplot(grd[1, 2])
@@ -304,10 +310,14 @@ def fitd2(t, v, plot=False):
         values, errors = p.profile(4, lo2[4], hi2[4])
         ax5.plot(-1 / values, errors)
         ax5.axvline(-1 / p[4], color='gray', zorder=1)
-        ax5.axvline(tlo2, color='k', lw=1)
-        ax5.axvline(thi2, color='k', lw=1)
-        ax5.axvline(tclo2, color='k', lw=1, ls='--')
-        ax5.axvline(tchi2, color='k', lw=1, ls='--')
+        ax5.axvline(t2lop, color='tab:blue', lw=1, ls='--')
+        ax5.axvline(t2hip, color='tab:blue', lw=1, ls='--')
+
+        # Show FIM approximation for tau2
+        x = np.linspace(-cif2, cif2, 100)
+        ax5.plot(-1 / (p[4] + x), r.error + q[4] * x**2)
+        ax5.axvline(t2lof, color='tab:orange', lw=1, ls='--')
+        ax5.axvline(t2hif, color='tab:orange', lw=1, ls='--')
 
         # Show error comparison with known
         if known:

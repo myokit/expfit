@@ -70,9 +70,12 @@ class TestCI(unittest.TestCase):
 
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
+            e = Linear1d(x, y)
+            mse, _, hes = e(p)
+            hesi = np.linalg.inv(hes)
 
             fig = plt.figure(figsize=(11, 7.5))
-            fig.subplots_adjust(0.075, 0.06, 0.99, 0.99, hspace=0.15)
+            fig.subplots_adjust(0.075, 0.06, 0.99, 0.99, hspace=0.3)
             grid = fig.add_gridspec(2, 2, height_ratios=(3, 1))
 
             ax0 = fig.add_subplot(grid[0, :])
@@ -80,23 +83,38 @@ class TestCI(unittest.TestCase):
             ax0.plot(x, a + b * x, label=f'Fit (a={a:.5g} b={b:.5g})')
             ax0.plot(x, a0 + b0 * x, label=f'True (a={a0}, b={b0})')
 
-            # Show uncertainty in a
-            alo1, ahi1 = cipa[0][0], cipa[1][0]
-            alo2, ahi2 = p[0] - cifa, p[0] + cifa
-            alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
-            xx, yy = p.profile(0, alo, ahi, 25)
-
+            # First parameter
             ax1 = fig.add_subplot(grid[1, 0])
             ax1.set_xlabel('a')
             ax1.set_ylabel('MSE')
-            ax1.plot(xx, yy, color='tab:green', label='Profile')
-            ax1.axvline(a0, color='k', label='True')
-            ax1.axvline(alo1, color='tab:olive', lw=1.5,
-                        label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
-            ax1.axvline(ahi1, color='tab:olive', lw=1.5,)
-            ax1.axvline(alo2, color='tab:pink', lw=3, ls='--',
-                        label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
-            ax1.axvline(ahi2, color='tab:pink', lw=3, ls='--')
+
+            # Lower and upper FIM and PL bounds
+            alo1, ahi1 = cipa[0][0], cipa[1][0]
+            alo2, ahi2 = p[0] - cifa, p[0] + cifa
+            alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
+
+            # Profile
+            t, v = p.profile(0, alo, ahi, 25)
+            ax1.plot(t, v, color='tab:green',
+                     label=f'Profile ({alo1:.5g}, {ahi1:.5g})')
+            ax1.axvline(alo1, color='tab:green')
+            ax1.axvline(ahi1, color='tab:green')
+
+            # FIM
+            t = np.linspace(alo, ahi, 100)
+            v = mse + 0.5 / hesi[0, 0] * (t - p[0])**2
+            ax1.plot(t, v, 'k:', label=f'FIM ({alo2:.5g}, {ahi2:.5g})')
+            ax1.axvline(alo2, color='k', ls=':')
+            ax1.axvline(ahi2, color='k', ls=':')
+
+            # MSE without varying other parameters
+            m = 100
+            ps = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+            ps[:, 0] = t
+            v = [e(t)[0] for t in ps]
+            ax1.plot(t, v, label='MSE (Conditional)')
+            v = mse + 0.5 * hes[0, 0] * (t - p[0])**2
+            ax1.plot(t, v, 'k--', label='Hes')
 
             # Forward predictions
             y0, y1 = cipa[0][0] + cipa[0][1] * x, cipa[1][0] + cipa[1][1] * x
@@ -104,39 +122,38 @@ class TestCI(unittest.TestCase):
             ax0.plot(x, y1, lw=1, color='tab:green', label='a predictions')
             ax0.fill_between(x, y0, y1, color='tab:green', alpha=0.1)
 
-            # Add MSE for scanned area, without varying other parameters
-            e = Linear1d(x, y)
-            m = 100
-            t = np.linspace(alo, ahi, 100)
-            T = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
-            T[:, 0] = t
-            V = [e(t)[0] for t in T]
-            ax1.plot(t, V, label='MSE')
-
-            # Add quadratic approximation around p
-            mse, _, hes = e(p)
-            T = np.zeros((len(p), m))
-            T[0, :] = t - p[0]
-            V = mse + 0.5 * np.array([i.dot(hes).dot(i.T) for i in T.T])
-            ax1.plot(t, V, '--', label='Quadratic')
-
-            # Repeat for b
-            blo1, bhi1 = cipb[0][1], cipb[1][1]
-            blo2, bhi2 = p[1] - cifb, p[1] + cifb
-            blo, bhi = min(blo1, blo2), max(bhi1, bhi2)
-            xx, yy = p.profile(1, blo, bhi, 25)
-
+            # Second parameter
             ax2 = fig.add_subplot(grid[1, 1])
             ax2.set_xlabel('b')
             ax2.set_ylabel('MSE')
-            ax2.plot(xx, yy, color='tab:purple', label='Profile')
-            ax2.axvline(b0, color='k', label='True')
-            ax2.axvline(blo1, color='tab:olive', lw=1.5,
-                        label=f'PL CI ({alo1:.5g}, {ahi1:.5g})')
-            ax2.axvline(bhi1, color='tab:olive', lw=1.5)
-            ax2.axvline(blo2, color='tab:pink', lw=3, ls='--',
-                        label=f'FIM CI ({alo2:.5g}, {ahi2:.5g})')
-            ax2.axvline(bhi2, color='tab:pink', lw=3, ls='--')
+
+            # Lower and upper FIM and PL bounds
+            blo1, bhi1 = cipb[0][1], cipb[1][1]
+            blo2, bhi2 = p[1] - cifb, p[1] + cifb
+            blo, bhi = min(blo1, blo2), max(bhi1, bhi2)
+
+            # Profile
+            t, v = p.profile(1, blo, bhi, 25)
+            ax2.plot(t, v, color='tab:purple',
+                     label=f'Profile ({blo1:.5g}, {bhi1:.5g})')
+            ax2.axvline(blo1, color='tab:purple')
+            ax2.axvline(bhi1, color='tab:purple')
+
+            # FIM
+            t = np.linspace(blo, bhi, 100)
+            v = mse + 0.5 / hesi[1, 1] * (t - p[1])**2
+            ax2.plot(t, v, 'k:', label=f'FIM ({blo2:.5g}, {bhi2:.5g})')
+            ax2.axvline(blo2, color='k', ls=':')
+            ax2.axvline(bhi2, color='k', ls=':')
+
+            # MSE without varying other parameters
+            m = 100
+            ps = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
+            ps[:, 1] = t
+            v = [e(t)[0] for t in ps]
+            ax2.plot(t, v, label='MSE (Conditional)')
+            v = mse + 0.5 * hes[1, 1] * (t - p[1])**2
+            ax2.plot(t, v, 'k--', label='Hes')
 
             # Forward predictions
             y0, y1 = cipb[0][0] + cipb[0][1] * x, cipb[1][0] + cipb[1][1] * x
@@ -144,38 +161,18 @@ class TestCI(unittest.TestCase):
             ax0.plot(x, y1, lw=1, color='tab:purple', label='b predictions')
             ax0.fill_between(x, y0, y1, color='tab:purple', alpha=0.1)
 
-            # Add MSE for scanned area, without varying other parameters
-            m = 100
-            t = np.linspace(blo, bhi, 100)
-            T = np.repeat(np.array(p).reshape((1, len(p))), m, axis=0)
-            T[:, 1] = t
-            V = [e(t)[0] for t in T]
-            ax2.plot(t, V, label='MSE')
-
-            # Add quadratic approximation around p
-            mse, _, hes = e(p)
-            T = np.zeros((len(p), m))
-            T[1, :] = t - p[1]
-            V = mse + 0.5 * np.array([i.dot(hes).dot(i.T) for i in T.T])
-            ax2.plot(t, V, '--', label='Quadratic')
-
             # Finalise
             ax0.legend()
-            ax1.legend(loc='upper center', framealpha=1)
-            ax2.legend(loc='upper center', framealpha=1)
-            plt.show()
+            ax1.axvline(a0, color='tab:olive', label='True')
+            ax1.legend(loc=(0, 1.02), ncols=3, frameon=False, handlelength=1)
+            ax2.axvline(b0, color='tab:olive', label='True')
+            ax2.legend(loc=(0, 1.02), ncols=3, frameon=False, handlelength=1)
 
-            '''
-            n = len(x)
-            r = y - a - b * x
-            sb = np.sqrt(np.sum(r**2) / (n - 2) / np.sum((x - np.mean(x))**2))
-            sb = np.sqrt(np.sum(r**2) / (n - 2) / np.sum((x - np.mean(x))**2))
-            sa = np.sqrt(np.sum(x**2) / n) * sb
-            import scipy
-            t90 = scipy.stats.t.ppf(0.95, n - 2)
-            print(p.ci_fisher(0) / (t90 * sa))
-            print(p.ci_fisher(1) / (t90 * sb))
-            '''
+            #import scipy
+            #t90 = scipy.stats.t.ppf(0.95, n - 2)
+            #print(cifb, t90 * np.sqrt(mse / np.sum((x - np.mean(x))**2)))
+
+            plt.show()
 
         with self.subTest(a=a0, b=b0, s=s0, n=n):
             self.assertAlmostEqual(cipa[0][0], a - cifa, delta=delta)
