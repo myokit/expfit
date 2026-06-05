@@ -34,11 +34,13 @@ from ._trans import (  # noqa
 
 from ._est import (  # noqa
     estimate_initial_single,
+    estimate_split,
 )
 
 from ._err import (  # noqa
     ConstraintWithFixedParameter,
-    DecayingConstraint,
+    DecayingEqualSignConstraint,
+    D11Constraint,
     ErrorWithFixedParameter,
     exp,
     MultiExponentialError,
@@ -49,7 +51,7 @@ from ._err import (  # noqa
 from ._opt import (  # noqa
     LeastSquaresFit,
     lm,
-    LMResult
+    LMResult,
 )
 
 from ._ci import (  # noqa
@@ -61,6 +63,7 @@ from ._ci import (  # noqa
 from ._fit import (  # noqa
     fit1,
     fitd2,
+    fitd11,
 )
 
 from ._tau import (  # noqa

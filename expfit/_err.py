@@ -193,11 +193,24 @@ class ErrorWithFixedParameter():
         return m, j, h
 
 
-class DecayingConstraint():
-    """ Constraint for fitting decaying exponentials. """
+class DecayingEqualSignConstraint():
+    """
+    Constraint for fitting decaying exponentials: all ``b`` have the same
+    sign, all ``c`` are negative, and ``c[i + 1] < c[i]``.
+    """
     def __call__(self, p):
-        t = -1 / p[2::2]
-        return np.all(t >= 0) and np.all(t[1:] < t[:-1])
+        b, c = p[1::2], p[2::2]
+        return (np.all(c <= 0) and np.all(c[1:] < c[:-1]) and
+                (np.all(b <= 0) or np.all(b >= 0)))
+
+
+class D11Constraint():
+    """
+    Constraint for fitting "d11" exponentials: ``b[0] >= 0``, ``b[1] <= 0``,
+    ``c[0] < 0`` and ``c[1] < 0``
+    """
+    def __call__(self, p):
+        return p[1] >= 0 and p[3] <= 0 and p[2] < 0 and p[4] < 0
 
 
 class ConstraintWithFixedParameter():

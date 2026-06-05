@@ -22,7 +22,7 @@ class TestDouble(unittest.TestCase):
         cls.r = None
 
     def d2_on_double(self, a, b, c, d, e, duration=2, n=200, fnoise=0.01, t0=0,
-                     deltas=[], ratio=1, rmse=None, plot=False):
+                     deltas=[], ratio=1, plot=False):
         """
         Tests a double exponential fit to a double exponential signal.
 
@@ -59,9 +59,7 @@ class TestDouble(unittest.TestCase):
                 self.assertAlmostEqual(ef, e, delta=deltas[4])
             if ratio is not None:
                 self.assertLess(rf / rt, ratio)
-            #if rmse is not None:
-            #    self.assertLess(rf, rmse)
-            if len(deltas) != 3 and ratio is None and rmse is None:
+            if len(deltas) != 3 and ratio is None:
                 raise Exception('No test criteria set')  # pragma: no cover
 
     def test_fitd2(self):

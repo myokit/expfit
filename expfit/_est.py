@@ -33,11 +33,12 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         a = y_i - dydx_i / c
         b = (y_i - a) / np.exp(c * x_i)
 
-    To pick a segment...
-    ...
-    ...
-    ...
-    ...
+    To pick a segment, the method starts by splitting the series down the
+    middle, and performing a linear least squares fit on each half. If this
+    contains an exponential, both slopes should have the same sign, but a
+    different magnitude. The segments are then refined by successive halving,
+    and accepted as a better segment if the slope in the steep part gets
+    steeper, or if the slope in the shallow part gets shallower.
 
     Arguments:
 
@@ -250,4 +251,47 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         ax.legend()
 
     return tr.detransform(a, b, c)
+
+
+def estimate_split(x, y, plot=False, vet=True):
+    """
+    Split the time series ``(x, y)`` into two segments, trending in different
+    directions.
+
+    Arguments:
+
+    ``x``, ``y``
+        A time vector and the correspond values. Assumed to be transformed onto
+        the unit square.
+    ``plot=False``
+        Set to ``True`` to create a debugging plot.
+    ``vet=True``
+        Set to ``False`` to disable checks on the dimensions of ``t`` and
+        ``v``. This should only be done if the input data is already vetted.
+
+    Returns .....
+    """
+    if vet:
+        x, y = expfit.vet_series(x, y)
+    if len(x) < 4:
+        raise ValueError('At least 4 points are required')
+
+    # Create plot
+    if plot:  # pragma: no cover
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(14, 9))
+        ax = fig.add_subplot()
+        ax.plot(x, y, 's-' if len(x) < 50 else '-')
+
+    n = len(x)
+    d = (1 + n) // 2
+
+    a = expfit.LeastSquaresFit(x[:d], y[:d])
+    b = expfit.LeastSquaresFit(x[-d:], y[-d:])
+    if plot:
+        ax.plot(x[:d], a[0] + a[1] * x[:d], 'k')
+        ax.plot(x[-d:], b[0] + b[1] * x[-d:], 'r')
+
+    print(a)
+    print(b)
 
