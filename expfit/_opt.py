@@ -247,12 +247,6 @@ class LeastSquaresFit():
         self.offset = self.mu_y - self.slope * self.mu_x
         self._p = (self.offset, self.slope)
 
-    def __len__(self):
-        return 2
-
-    def __getitem__(self, subscript):
-        return self._p.__getitem__(subscript)
-
     def __str__(self):
         return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
                 f' {self.offset:.3} + {self.slope:.3} x')

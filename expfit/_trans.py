@@ -18,9 +18,9 @@ class UnitSquareTransform():
     def __init__(self, t, v, n_min=10):
         # Transform
         self._t0 = t[0]
-        self._v0 = v[0]
+        self._v0 = np.min(v)
         self._rt = t[-1] - self._t0
-        self._rv = v[-1] - self._v0
+        self._rv = np.max(v) - self._v0
         if self._rv == 0:
             self._rv = 1
         self.x = (t - self._t0) / self._rt

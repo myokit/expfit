@@ -253,7 +253,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     return tr.detransform(a, b, c)
 
 
-def estimate_split(x, y, plot=False, vet=True):
+def estimate_initial_opposing(x, y, plot=False, vet=True):
     """
     Split the time series ``(x, y)`` into two segments, trending in different
     directions.
@@ -283,15 +283,25 @@ def estimate_split(x, y, plot=False, vet=True):
         ax = fig.add_subplot()
         ax.plot(x, y, 's-' if len(x) < 50 else '-')
 
-    n = len(x)
-    d = (1 + n) // 2
+    # Estimate start, end, max, and min
+    imn, imx = np.argmin(y), np.argmax(y)
+    mn = max(abs(y[0] - y[imn]), abs(y[-1] - y[imn]))
+    mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
+    isplit = imn if mn > mx else imx
+    if plot:  # pragma: no cover
+        ax.axvline(x[isplit], color='tab:orange', lw=1)
 
-    a = expfit.LeastSquaresFit(x[:d], y[:d])
-    b = expfit.LeastSquaresFit(x[-d:], y[-d:])
-    if plot:
-        ax.plot(x[:d], a[0] + a[1] * x[:d], 'k')
-        ax.plot(x[-d:], b[0] + b[1] * x[-d:], 'r')
+    # Fit exponentials to both segments
+    p1 = expfit.estimate_initial_single(x[isplit:], y[isplit:])
+    p0 = expfit.estimate_initial_single(
+        x[:isplit], y[:isplit] - expfit.exp(x[:isplit], p1))
+    a0, b0, c0 = p0
+    a1, b1, c1 = p1
 
-    print(a)
-    print(b)
+    if plot:  # pragma: no cover
+        ax.plot(x, expfit.exp(x, p0), 'k')
+        ax.plot(x, expfit.exp(x, p1), 'r')
+        ax.plot(x, expfit.exp(x, (a1, b0, c0, b1, c1)), '--')
+
+    return a1, b0, c0, b1, c1
 

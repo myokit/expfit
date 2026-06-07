@@ -196,7 +196,7 @@ class ErrorWithFixedParameter():
 class DecayingEqualSignConstraint():
     """
     Constraint for fitting decaying exponentials: all ``b`` have the same
-    sign, all ``c`` are negative, and ``c[i + 1] < c[i]``.
+    sign, all ``c`` are negative, and ``c[i + 1] < c[i] < 0``.
     """
     def __call__(self, p):
         b, c = p[1::2], p[2::2]
@@ -206,11 +206,11 @@ class DecayingEqualSignConstraint():
 
 class D11Constraint():
     """
-    Constraint for fitting "d11" exponentials: ``b[0] >= 0``, ``b[1] <= 0``,
-    ``c[0] < 0`` and ``c[1] < 0``
+    Constraint for fitting "d11" exponentials: ``b[0] * b[1] < 0``,
+    ``c[0] < 0``, ``c[1] < 0``, and ``c[1] > c[0]``,
     """
     def __call__(self, p):
-        return p[1] >= 0 and p[3] <= 0 and p[2] < 0 and p[4] < 0
+        return p[2] < 0 and p[4] < 0 and p[4] > p[2] and p[1] * p[3] < 0
 
 
 class ConstraintWithFixedParameter():

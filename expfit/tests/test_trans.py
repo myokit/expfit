@@ -62,8 +62,8 @@ class TestTrans(unittest.TestCase):
         tr = expfit.UnitSquareTransform(x, y)
         a, b, c = 1, 2, 3
         p, q, r = tr.transform(a, b, c)
-        self.assertEqual(p, -0.2)
-        self.assertAlmostEqual(q, 8.034214769275)
+        self.assertEqual(p, 0)
+        self.assertAlmostEqual(q, 5.02138423)
         self.assertEqual(r, 12)
         u, v, w = tr.detransform(p, q, r)
         self.assertEqual(u, a)

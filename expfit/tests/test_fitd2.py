@@ -71,7 +71,7 @@ class TestDouble(unittest.TestCase):
         dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=plot)
         dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
         dod(5, 1, -1, 5, -10, deltas=(.1, .1, .5, .2, .5), plot=plot)
-        dod(20, 6, -2, 4, -10, deltas=(.05, .2, .1, .4, .5), plot=plot)
+        dod(20, 6, -2, 40, -6, t0=0.5, deltas=(.05, 1, .2, 2, .01), plot=plot)
         dod(-87, 30, -3, 40, -20, deltas=(.6, 3, .2, 3, 2), plot=plot)
         dod(123, -8, -1, -5, -99, deltas=(.2, .1, .05, .2, 15), plot=plot)
         dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot)

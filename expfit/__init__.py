@@ -34,7 +34,7 @@ from ._trans import (  # noqa
 
 from ._est import (  # noqa
     estimate_initial_single,
-    estimate_split,
+    estimate_initial_opposing,
 )
 
 from ._err import (  # noqa
@@ -70,4 +70,12 @@ from ._tau import (  # noqa
     tau1,
     #taud2,
 )
+
+# Numpy compatibility
+import numpy as np
+try:
+    _trapezoid = np.trapezoid
+except AttributeError:  # pragma: no cover
+    _trapezoid = np.trapz
+del np
 
