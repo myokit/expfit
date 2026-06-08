@@ -78,25 +78,35 @@ class TestD11(unittest.TestCase):
         d(5, -10, -15, 10, -2, s=0.2, t0=0.1, deltas=(.1, 1, 1, .5, .1),
           plot=plot)
 
-    '''
-    def test_fitd2_edge_cases(self):
+    def d11_on_d12(self, p, s, t0=0, duration=2, n=100, ratio=1, plot=False):
+        """ Tests a d11 fit on a d12 signal. """
+        t = np.linspace(t0, t0 + duration, n)
+        v = expfit.exp(t, p)
+        v += self.r.normal(0, s, size=n)
 
-        # Case where scaling to unit square would give a  divide-by-zero
-        x = np.linspace(0, 1, 10)
-        y = np.zeros(x.shape)
-        a, b, c, d, e = expfit.fitd2(x, y)
-        self.assertEqual(a, 0)
-        self.assertEqual(b, 0)
-        self.assertEqual(c, 0)
-        self.assertEqual(d, 0)
-        self.assertEqual(e, 0)
+        q = expfit.fitd11(t, v, plot=p if plot else False)
+        rt = expfit.rmse(t, v, p)
+        rf = expfit.rmse(t, v, q)
 
-        # Non-decreasing
-        x = np.linspace(0, 1, 77)
-        y = expfit.exp(x, (1, 2, 3, 4, 5))
-        self.assertRaisesRegex(
-            RuntimeError, 'not decaying', expfit.fitd2, x, y)
-    '''
+        if plot:  # pragma: no cover
+            print(f'RMSE true: {rt}')
+            print(f'RMSE fit:  {rf}')
+            print(f'ratio: {rf / rt}')
+            import matplotlib.pyplot as plt
+            plt.show()
+
+        with self.subTest(p=p, s=s, t0=t0, duration=duration, n=n):
+            self.assertLess(rf / rt, ratio)
+
+    def test_fitd11_on_d12(self):
+        # Test on a double second exponential
+
+        d = self.d11_on_d12
+        self.r = np.random.default_rng(101)
+        plot = False
+
+        d((1, 6, -5, -4, -2, -2, -4), s=0.01, plot=plot)
+        d((1, 6, -5, -4, -2, -2, -4), s=0.1, n=500, plot=plot)
 
 
 if __name__ == '__main__':  # pragma: no cover

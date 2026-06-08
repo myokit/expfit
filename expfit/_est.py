@@ -273,8 +273,22 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
     """
     if vet:
         x, y = expfit.vet_series(x, y)
-    if len(x) < 4:
-        raise ValueError('At least 4 points are required')
+    if len(x) < 10:
+        raise ValueError('At least 10 points are required')
+
+    # Estimate start, end, max, and min
+    # Skip points, to ensure at least a segment of length 3
+    imn, imx = 3 + np.argmin(y[3:]), np.argmax(y[:-3])
+    mn = max(abs(y[0] - y[imn]), abs(y[-1] - y[imn]))
+    mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
+    isplit = imn if mn > mx else imx
+
+    # Fit exponentials to both segments
+    p1 = expfit.estimate_initial_single(x[isplit:], y[isplit:], vet=False)
+    p0 = expfit.estimate_initial_single(
+        x[:isplit], y[:isplit] - expfit.exp(x[:isplit], p1), vet=False)
+    a0, b0, c0 = p0
+    a1, b1, c1 = p1
 
     # Create plot
     if plot:  # pragma: no cover
@@ -282,24 +296,9 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
         fig = plt.figure(figsize=(14, 9))
         ax = fig.add_subplot()
         ax.plot(x, y, 's-' if len(x) < 50 else '-')
-
-    # Estimate start, end, max, and min
-    imn, imx = np.argmin(y), np.argmax(y)
-    mn = max(abs(y[0] - y[imn]), abs(y[-1] - y[imn]))
-    mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
-    isplit = imn if mn > mx else imx
-    if plot:  # pragma: no cover
         ax.axvline(x[isplit], color='tab:orange', lw=1)
-
-    # Fit exponentials to both segments
-    p1 = expfit.estimate_initial_single(x[isplit:], y[isplit:])
-    p0 = expfit.estimate_initial_single(
-        x[:isplit], y[:isplit] - expfit.exp(x[:isplit], p1))
-    a0, b0, c0 = p0
-    a1, b1, c1 = p1
-
-    if plot:  # pragma: no cover
-        ax.plot(x, expfit.exp(x, p0), 'k')
+        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.exp(x[:isplit], p1))
+        ax.plot(x, expfit.exp(x, (a1, b0, c0)), 'k')
         ax.plot(x, expfit.exp(x, p1), 'r')
         ax.plot(x, expfit.exp(x, (a1, b0, c0, b1, c1)), '--')
 

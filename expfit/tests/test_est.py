@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Tests for the initial single exponential estimate
+# Tests for the initial estimates
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
@@ -12,9 +12,9 @@ import numpy as np
 import expfit
 
 
-class TestEstimateInitial(unittest.TestCase):
+class TestEstimates(unittest.TestCase):
     """
-    Tests initial estimate of single exponential.
+    Tests initial estimates.
     """
     @classmethod
     def setUpClass(cls):
@@ -237,6 +237,57 @@ class TestEstimateInitial(unittest.TestCase):
         self.assertAlmostEqual(q, b, delta=1e6)
         self.assertAlmostEqual(r, c, delta=2)
         self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
+
+    def estimate_initial_opposing(self, x, y, plot=False):
+        """
+        Calls estimate_initial_single, after transforming to the unit square.
+        Shows plot, if asked.
+        """
+        tr = expfit.UnitSquareTransform(x, y)
+        x, y = tr.x, tr.y
+        ret = expfit.estimate_initial_opposing(x, y, plot=plot)
+        if plot:  # pragma: no cover
+            import matplotlib.pyplot as plt
+            plt.show()
+        return tr.detransform(*ret)
+
+    def test_estimate_initial_opposing(self):
+        f = expfit.exp
+        plot = False
+
+        p = 8, 3, -7, -1, -5
+        x = np.linspace(0.5, 1.5, 200)
+        q = self.estimate_initial_opposing(x, f(x, p), plot=plot)
+        self.assertAlmostEqual(q[0], 8, delta=0.001)
+        self.assertAlmostEqual(q[1], 3, delta=2)
+        self.assertAlmostEqual(q[2], -7, delta=4)
+        self.assertAlmostEqual(q[3], -1, delta=2)
+        self.assertAlmostEqual(q[4], -5, delta=3)
+
+        p = -3, -200, -10, 10, -6
+        x = np.linspace(0.5, 1.5, 200)
+        q = self.estimate_initial_opposing(x, f(x, p), plot=plot)
+        self.assertAlmostEqual(q[0], -3, delta=0.005)
+        self.assertAlmostEqual(q[1], -200, delta=120)
+        self.assertAlmostEqual(q[2], -10, delta=2)
+        self.assertAlmostEqual(q[3], 10, delta=10)
+        self.assertAlmostEqual(q[4], -6, delta=3)
+
+        # Test vetting can be disabled
+        x = np.linspace(0, 1, 10)
+        expfit.estimate_initial_opposing(x, f(x, p))
+        self.assertRaisesRegex(
+            ValueError, 'Both arrays in series must have same length',
+            expfit.estimate_initial_opposing, x, f(x[1:], p))
+        self.assertRaisesRegex(
+            ValueError, 'operands could not be broadcast',
+            expfit.estimate_initial_opposing, x, f(x[1:], p), vet=False)
+
+        # Test size check
+        x = np.linspace(0, 1, 5)
+        self.assertRaisesRegex(
+            ValueError, 'At least 10 points',
+            expfit.estimate_initial_opposing, x, f(x, p))
 
 
 if __name__ == '__main__':  # pragma: no cover
