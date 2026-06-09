@@ -35,6 +35,8 @@ from ._trans import (  # noqa
 from ._est import (  # noqa
     estimate_initial_single,
     estimate_initial_opposing,
+    estimate_noise_level,
+    estimate_number_of_exponentials,
 )
 
 from ._err import (  # noqa

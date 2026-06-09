@@ -304,3 +304,89 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
 
     return a1, b0, c0, b1, c1
 
+
+def estimate_noise_level(x, y, vet=True, plot=False):
+    """
+    Estimates the noise level by subtracting a dominant exponential from the
+    final section of the signal and assuming what remains is normally
+    distributed noise.
+
+    Arguments:
+
+    ``x``, ``y``
+        The series
+
+    Returns ``sigma`` where ``sigma**2`` is the variance of a normal
+    distribution with the estimated noise level.
+    """
+    if vet:
+        x, y = expfit.vet_series(x, y)
+
+    # Assume final part of signal is dominated by a single exponential
+    n = len(x)
+    m = min(max((n + 1) // 2, 10), n)
+
+    #p0 = expfit.estimate_initial_single(x, y)
+    xx, yy = x[-m:], y[-m:]
+    p0 = expfit.fit1(xx, yy)
+    r = yy - expfit.exp(xx, p0)
+
+    if plot:  # pragma: no cover
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(14, 9))
+        grid = fig.add_gridspec(3, 2)
+        ax = fig.add_subplot(grid[0, 0])
+        ax.plot(x, y)
+        ax.plot(xx, yy)
+        ax = fig.add_subplot(grid[1:, 0])
+        ax.plot(xx, r)
+        ax = fig.add_subplot(grid[1:, 1])
+        ax.hist(r, bins='auto', density=True)
+        var = np.std(r)**2
+        hx = np.linspace(np.min(r), np.max(r), 99)
+        hy = 1 / np.sqrt(2 * np.pi * var) * np.exp(-hx**2 / (2 * var))
+        ax.plot(hx, hy)
+        plt.show()
+
+    return np.std(r)
+
+
+def estimate_number_of_exponentials(x, y, p=0.9, vet=True):
+    """
+    Attempts to estimate the number of exponential components in a signal,
+    without any fits.
+
+    The method is based on the singular value decomposition of a Hankel matrix,
+    and returns the number of singular values larger than a cut-off based on
+    the set probability ``p``, according to
+
+        p = e * sqrt(-2 n log(1 - p^(1 / n)))
+
+    where ``e`` is an estimate of the signal noise variance from
+    :meth:`estimate_noise_level`.
+
+    This equation was suggested by Jeffrey M. Hokanson (2013) Numerically
+    Stable and Statistically Efficient Algorithms for Large Scale Exponential
+    Fitting. https://hdl.handle.net/1911/77161
+
+    Returns an integer number close to the number of exponentials present, but
+    sometimes over or underestimates by at least 1.
+    """
+    if vet:
+        x, y = expfit.vet_series(x, y)
+
+    # Construct Hankel matrix
+    n = len(x)
+    m = (n + 1) // 2
+    h = np.zeros((m, m), dtype=float)
+    for i in range(m):
+        h[i] = y[i:i + m]
+
+    # Calculate singular values (in descending order)
+    s = np.linalg.svd(h, compute_uv=False)
+
+    # Calculate cut-off, based on estimated noise level
+    e = estimate_noise_level(x, y, vet=False)
+    c = e * np.sqrt(-2 * n * np.log(1 - p**(1 / n)))
+    return np.sum(s > c)
+

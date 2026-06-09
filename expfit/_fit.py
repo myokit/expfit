@@ -242,9 +242,6 @@ def fitd11(t, v, plot=False):
     #    raise RuntimeError(
     #        'Initial estimate for c > 0, exponential not decaying')
 
-    # Calculate area, to determine new b constants
-    #A0 = trapezoid(v - a0, t)
-
     # Fit double (in untransformed space)
     c = expfit.D11Constraint()
     e = expfit.MultiExponentialError(t, v)
@@ -252,9 +249,7 @@ def fitd11(t, v, plot=False):
         r = expfit.lm(e, p0, constraint=c)
         if plot is not False:  # pragma: no cover
             print(r)
-        p = r.x
-
-    p = expfit.ExponentialFit(t, v, p, error=e, constraint=c)
+    p = expfit.ExponentialFit(t, v, r.x, error=e, constraint=c)
 
     if plot is not False:  # pragma: no cover
         pt = None
@@ -270,6 +265,22 @@ def fitd11(t, v, plot=False):
 
 def plot_double(t, v, r, p, p0, ptrue=None):  # pragma: no cover
     """
+    Creates a debug plot for a bi-exponential (decaying, with equal or opposing
+    signs).
+
+    Arguments:
+
+    ``t``, ``v``
+        The time series
+    ``r``
+        An :class:`LMResult`
+    ``p``
+        An :class:`ExponentialFit` for the obtained result
+    ``p0``
+        An :class:`ExponentialFit` for the initial guess
+    ``p0``
+        An optional :class:`ExponentialFit` for the true parameters.
+
     """
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(11, 7.5))
@@ -339,13 +350,16 @@ def plot_double(t, v, r, p, p0, ptrue=None):  # pragma: no cover
     # Finalise main panel
     ax0.legend(framealpha=1, ncol=2)
 
-    # Show single exponential estimate
+    # Show initial guess
+    nest = expfit.estimate_number_of_exponentials(t, v)
     ax1 = fig.add_subplot(grd[2, 0])
     ax1.set_xlabel('t')
     ax1.set_ylabel('v')
     ax1.plot(t, v, code, color='tab:blue', label='Data')
     ax1.plot(t, e(t, p0), 'k:', lw=1.5,
              label='Initial double')
+    ax1.text(1, 1.03, f'SVD Estimated number of exponentials: {nest}',
+             transform=ax1.transAxes, ha='right')
     ax1.legend(frameon=False)
 
     # Show final fit residuals
@@ -418,4 +432,46 @@ def plot_vs_true(ax, fit, known, padding=0.25):  # pragma: no cover
     ax.set_xticks([0, 1])
     ax.set_xticklabels(['Found', 'True'])
     ax.legend()
+
+
+'''
+def peel(self, x, y, vet=True):
+
+    n = len(x)
+    m = expfit.estimate_number_of_exponentials(x, y)
+    var = expfit.estimate_noise_level(x, y)**2
+    print(1 + m)
+
+    p = np.array(expfit.fit1(x, y))
+    e = expfit.MultiExponentialError(x, y)
+    mse0 = e.mse(p)
+
+    for i in range(m):
+        r = expfit.fit1(x, y - expfit.exp(x, p))
+        q = np.concatenate((p, r[1:]))
+        q[0] += r[0]
+
+        with np.errstate(all='ignore'):
+            r = expfit.lm(e, q)
+            q = np.array(r.x)
+        print(r.message)
+
+        aic0 = 2 * len(p) + n / var * mse0
+        aic1 = 2 * len(q) + n / var * r.error
+
+        print(p)
+        print(q)
+        print(aic0)
+        print(aic1)
+        if aic0 < aic1:
+            print('Reject')
+            break
+        else:
+            p = q
+            mse0 = r.error
+    print(f'i={i}')
+    print(p)
+
+    return p
+'''
 
