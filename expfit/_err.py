@@ -163,6 +163,72 @@ class MultiExponentialError():
         )**2)
 
 
+class DecayingMultiExponentialError():
+    """
+    Callable class returning the MSE and its Jacobian and Hessian for a
+    multi-exponential ``y = a + b_i * exp(-exp(q_i) * x)`` fit with parameters
+    ``p = (a, b_1, q_1, b_2, q_2, ...)``.
+    """
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        self._ni = 1 / len(x)
+        self._n2 = 2 * self._ni
+
+    def __call__(self, p):
+        d = len(p)
+        assert (d - 1) % 2 == 0 and d > 1
+        m = (d - 1) // 2
+
+        # Unpack
+        p = np.asarray(p)
+        a = p[0]
+        bs = p[1::2].reshape((m, 1))        # (m, 1)
+        qs = p[2::2].reshape((m, 1))        # (m, 1)
+
+        # MSE
+        n = len(self._x)
+        ninv2 = 2 / n
+        eqs = np.exp(qs)
+        es = np.exp(-eqs * self._x)
+        bes = bs * es
+        fs = a - self._y + np.sum(bes, axis=0)
+        mse = np.sum(fs**2) / n
+
+        # Jacobian
+        jac = np.zeros(d)
+        xes = es * self._x * eqs
+        jac[0] = ninv2 * np.sum(fs)
+        jac[1::2] = ninv2 * np.sum(fs * es, axis=1)
+        jac[2::2] = -ninv2 * np.sum(fs * xes, axis=1) * bs.T
+
+        # Hessian
+        hes = np.zeros((d, d))
+        # aa, ab, ac
+        hes[0, 0] = 2
+        hes[0, 1::2] = hes[1::2, 0] = ninv2 * np.sum(es, axis=1)
+        hes[0, 2::2] = hes[2::2, 0] = -ninv2 * np.sum(xes, axis=1) * bs.T
+        for i in range(m):
+            # bi^2, ci^2, and bi*ci
+            hes[1 + 2 * i, 1 + 2 * i] = ninv2 * np.sum(es[i]**2)
+            hes[2 + 2 * i, 2 + 2 * i] = ninv2 * bs[i, 0] * np.sum(
+                ((fs + bes[i]) * self._x * eqs[i] - fs) * xes[i])
+            hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
+                -ninv2 * np.sum((fs + bes[i]) * xes[i])
+            for j in range(i + 1, m):
+                # bi*bj, ci*cj, bi*cj, bj*ci
+                hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
+                    ninv2 * np.sum(es[i] * es[j])
+                hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
+                    ninv2 * np.sum(xes[i] * xes[j]) * bs[i, 0] * bs[j, 0]
+                hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
+                    -ninv2 * np.sum(xes[j] * es[i]) * bs[j, 0]
+                hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
+                    -ninv2 * np.sum(xes[i] * es[j]) * bs[i, 0]
+
+        return mse, jac, hes
+
+
 class ErrorWithFixedParameter():
     """
     Wraps around an error class and fixes one parameter.
@@ -195,13 +261,73 @@ class ErrorWithFixedParameter():
 
 class DecayingEqualSignConstraint():
     """
-    Constraint for fitting decaying exponentials: all ``b`` have the same
-    sign, all ``c`` are negative, and ``c[i + 1] < c[i] < 0``.
+    Constraint for fitting decaying exponentials ``a + b_i * exp(c_i * x)``,
+    where all ``b`` have the same sign.
+
+    In full:
+
+    1. All ``b`` have the same sign.
+    2. All ``c`` are negative.
+    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
+       largest tau). Exponentials are ordered by dominance, so that
+       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
+
     """
     def __call__(self, p):
         b, c = p[1::2], p[2::2]
-        return (np.all(c <= 0) and np.all(c[1:] < c[:-1]) and
+        return (np.all(c < 0) and np.all(c[:-1] > c[1:]) and
                 (np.all(b <= 0) or np.all(b >= 0)))
+
+
+class EqualSignConstraint():
+    """
+    Constraint for fitting decaying exponentials
+
+
+     ``a + b_i * exp(c_i * x)``,
+    where all ``b`` have the same sign.
+
+    In full:
+
+    1. All ``b`` have the same sign.
+    2. All ``c`` are negative.
+    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
+       largest tau). Exponentials are ordered by dominance, so that
+       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
+
+    """
+    def __call__(self, p):
+        b = p[1::2]
+        return np.all(b <= 0) or np.all(b >= 0)
+
+
+class DecayingOppositeSignConstraint():
+    """
+    Constraint for fitting decaying exponentials ``a + b_i * exp(c_i * x)``
+    where all ``b_i`` have the same sign until ``i = n_initial``, after which
+    they all have the opposite sign.
+
+    In full:
+
+
+
+
+
+    1. All ``b`` have the same sign.
+    2. All ``c`` are negative.
+    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
+       largest tau). Exponentials are ordered by dominance, so that
+       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
+
+    "d11" exponentials: ``b[0] * b[1] < 0``,
+    ``c[0] < 0``, ``c[1] < 0``, and ``c[1] > c[0]``,
+    """
+    #def __init__(self, i):
+
+
+    def __call__(self, p):
+        #return p[2] < 0 and p[4] < 0 and p[4] > p[2] and p[1] * p[3] < 0
+        return p[2] < 0 and p[4] < 0 and p[1] * p[3] < 0
 
 
 class D11Constraint():

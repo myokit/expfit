@@ -169,8 +169,9 @@ def fitd2(t, v, plot=False):
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    ct = expfit.DecayingEqualSignConstraint()
-    max_iter = 10
+    e = expfit.DecayingMultiExponentialError(t, v)
+    c = expfit.EqualSignConstraint()
+    max_iter = 1
     for i in range(max_iter):
         # Increase the difference between dominant and second exponential.
         p0[2] *= 0.707106781
@@ -181,10 +182,12 @@ def fitd2(t, v, plot=False):
              p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
         p0[1] = p0[3] = b0 * (A0 / A)
 
+        print(p0)
+
         # Fit
-        e = expfit.MultiExponentialError(t, v)
+        p0[2::2] = np.log(-p0[2::2])
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, p0, constraint=ct)
+            r = expfit.lm(e, p0, constraint=c)
             if plot is not False:  # pragma: no cover
                 print(r)
         if r.x[4] / r.x[2] > 1.1 and r.success:
@@ -193,7 +196,11 @@ def fitd2(t, v, plot=False):
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
 
-    p = expfit.ExponentialFit(t, v, r.x, e, ct)
+    p = r.x
+    p[2::2] = -np.exp(p[2::2])
+    e = expfit.MultiExponentialError(t, v)
+    c = expfit.DecayingEqualSignConstraint()
+    p = expfit.ExponentialFit(t, v, r.x, e, c)
 
     if plot is not False:  # pragma: no cover
         pt = None
@@ -202,9 +209,11 @@ def fitd2(t, v, plot=False):
             pt = plot
         except (TypeError, AssertionError):
             pass
+        p0[2::2] = -np.exp(p0[2::2])
         fig, axes = plot_double(t, v, r, p, p0, pt)
         axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
                      label=f'Init. single ($\\tau$={-1 / c0:.3g})')
+        axes[1].legend()
 
     return p
 
