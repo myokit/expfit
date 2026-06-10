@@ -42,8 +42,10 @@ from ._est import (  # noqa
 from ._err import (  # noqa
     ConstraintWithFixedParameter,
     DecayingEqualSignConstraint,
+    DecayingMultiExponentialError,
     D11Constraint,
     ErrorWithFixedParameter,
+    EqualSignConstraint,
     exp,
     MultiExponentialError,
     rmse,

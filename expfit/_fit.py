@@ -169,7 +169,8 @@ def fitd2(t, v, plot=False):
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    ct = expfit.DecayingEqualSignConstraint()
+    e = expfit.MultiExponentialError(t, v)
+    c = expfit.DecayingEqualSignConstraint()
     max_iter = 10
     for i in range(max_iter):
         # Increase the difference between dominant and second exponential.
@@ -182,7 +183,6 @@ def fitd2(t, v, plot=False):
         p0[1] = p0[3] = b0 * (A0 / A)
 
         # Fit
-        e = expfit.MultiExponentialError(t, v)
         with np.errstate(all='ignore'):
             r = expfit.lm(e, p0, constraint=ct)
             if plot is not False:  # pragma: no cover
@@ -205,6 +205,92 @@ def fitd2(t, v, plot=False):
         fig, axes = plot_double(t, v, r, p, p0, pt)
         axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
                      label=f'Init. single ($\\tau$={-1 / c0:.3g})')
+        axes[1].legend()
+
+    return p
+
+
+def fitd2log(t, v, plot=False):
+    """
+    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
+    where ``sign(b0) == sign(b1)`` and ``c1 < c0 < 0``.
+
+    Arguments:
+
+    ``t``, ``v``
+        The time series
+    ``plot``
+        Optional parameter to create a plot of the method's workings. Can be a
+        boolean or an array of known (true) parameters.
+
+    Returns an :class:`ExponentialFit`.
+    """
+    t, v = expfit.vet_series(t, v)
+
+    # Estimate the dominant rate (in transformed space)
+    tr = expfit.UnitSquareTransform(t, v)
+    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
+    a0, b0, c0 = tr.detransform(q0)
+    del tr, q0
+
+    # Avoid nans etc.
+    if c0 == 0:
+        return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
+
+    # Catch non-decaying
+    if c0 > 0:
+        raise RuntimeError(
+            'Initial estimate for c > 0, exponential not decaying')
+
+    # Calculate area, to determine new b constants
+    A0 = expfit._trapezoid(v - a0, t)
+
+    # Fit double (in untransformed space)
+    # Assume dominant (slowest) rate found, next will be faster
+    p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
+    e = expfit.DecayingMultiExponentialError(t, v)
+    c = expfit.EqualSignConstraint()
+    max_iter = 10
+    for i in range(max_iter):
+        # Increase the difference between dominant and second exponential.
+        p0[2] *= 0.707106781
+        p0[4] *= 1.414213562
+
+        # Set b constants to get same area under the curve as original estimate
+        A = (p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0])) +
+             p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
+        p0[1] = p0[3] = b0 * (A0 / A)
+
+        # Fit
+        p0[2::2] = np.log(-p0[2::2])
+        with np.errstate(all='ignore'):
+            r = expfit.lm(e, p0, constraint=c)
+            if plot is not False:  # pragma: no cover
+                print(r)
+        if r.x[4] / r.x[2] > 1.1 and r.success:
+            break
+        elif i + 1 == max_iter:  # pragma: no cover
+            raise RuntimeError(
+                f'Unable to find good fit after {max_iter} attempts.')
+
+    p = r.x
+    p[2::2] = -np.exp(p[2::2])
+    e = expfit.MultiExponentialError(t, v)
+    c = expfit.DecayingEqualSignConstraint()
+    p = expfit.ExponentialFit(t, v, r.x, e, c)
+
+    if plot is not False:  # pragma: no cover
+        pt = None
+        try:
+            assert len(plot) == 5
+            pt = plot
+        except (TypeError, AssertionError):
+            pass
+        p0[2::2] = -np.exp(p0[2::2])
+        fig, axes = plot_double(t, v, r, p, p0, pt)
+        axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
+                     label=f'Init. single ($\\tau$={-1 / c0:.3g})')
+        axes[1].legend()
 
     return p
 
