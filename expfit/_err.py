@@ -186,48 +186,46 @@ class DecayingMultiExponentialError():
         # Unpack
         p = np.asarray(p)
         a = p[0]
-        bs = p[1::2].reshape((m, 1))        # (m, 1)
-        qs = p[2::2].reshape((m, 1))        # (m, 1)
+        b = p[1::2].reshape((m, 1))   # (m, 1)
+        ct = p[2::2].reshape((m, 1))  # (m, 1)
 
         # MSE
-        n = len(self._x)
-        ninv2 = 2 / n
-        eqs = np.exp(qs)
-        es = np.exp(-eqs * self._x)
-        bes = bs * es
-        fs = a - self._y + np.sum(bes, axis=0)
-        mse = np.sum(fs**2) / n
+        ect = np.exp(ct)
+        e = np.exp(-ect * self._x)
+        be = b * e
+        f = a - self._y + np.sum(be, axis=0)
+        mse = np.sum(f**2) * self._ni
 
         # Jacobian
+        ex = e * self._x * ect
         jac = np.zeros(d)
-        xes = es * self._x * eqs
-        jac[0] = ninv2 * np.sum(fs)
-        jac[1::2] = ninv2 * np.sum(fs * es, axis=1)
-        jac[2::2] = -ninv2 * np.sum(fs * xes, axis=1) * bs.T
+        jac[0] = self._n2 * np.sum(f)
+        jac[1::2] = self._n2 * np.sum(f * e, axis=1)
+        jac[2::2] = -self._n2 * np.sum(f * ex, axis=1) * b.T
 
         # Hessian
         hes = np.zeros((d, d))
         # aa, ab, ac
         hes[0, 0] = 2
-        hes[0, 1::2] = hes[1::2, 0] = ninv2 * np.sum(es, axis=1)
-        hes[0, 2::2] = hes[2::2, 0] = -ninv2 * np.sum(xes, axis=1) * bs.T
+        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1)
+        hes[0, 2::2] = hes[2::2, 0] = -self._n2 * np.sum(ex, axis=1) * b.T
         for i in range(m):
-            # bi^2, ci^2, and bi*ci
-            hes[1 + 2 * i, 1 + 2 * i] = ninv2 * np.sum(es[i]**2)
-            hes[2 + 2 * i, 2 + 2 * i] = ninv2 * bs[i, 0] * np.sum(
-                ((fs + bes[i]) * self._x * eqs[i] - fs) * xes[i])
+            # bi^2, ci^2, sand bi*ci
+            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(e[i]**2)
+            hes[2 + 2 * i, 2 + 2 * i] = self._n2 * b[i, 0] * np.sum(
+                ((f + be[i]) * self._x * ect[i] - f) * ex[i])
             hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
-                -ninv2 * np.sum((fs + bes[i]) * xes[i])
+                -self._n2 * np.sum((f + be[i]) * ex[i])
             for j in range(i + 1, m):
                 # bi*bj, ci*cj, bi*cj, bj*ci
                 hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    ninv2 * np.sum(es[i] * es[j])
+                    self._n2 * np.sum(e[i] * e[j])
                 hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    ninv2 * np.sum(xes[i] * xes[j]) * bs[i, 0] * bs[j, 0]
+                    self._n2 * np.sum(ex[i] * ex[j]) * b[i, 0] * b[j, 0]
                 hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    -ninv2 * np.sum(xes[j] * es[i]) * bs[j, 0]
+                    -self._n2 * np.sum(ex[j] * e[i]) * b[j, 0]
                 hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    -ninv2 * np.sum(xes[i] * es[j]) * bs[i, 0]
+                    -self._n2 * np.sum(ex[i] * e[j]) * b[i, 0]
 
         return mse, jac, hes
 
