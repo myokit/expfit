@@ -184,7 +184,7 @@ def fitd2(t, v, plot=False):
 
         # Fit
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, p0, constraint=ct)
+            r = expfit.lm(e, p0, constraint=c)
             if plot is not False:  # pragma: no cover
                 print(r)
         if r.x[4] / r.x[2] > 1.1 and r.success:
@@ -192,8 +192,9 @@ def fitd2(t, v, plot=False):
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
+    print(f'Done in {1 + i}, {r.evaluations}')
 
-    p = expfit.ExponentialFit(t, v, r.x, e, ct)
+    p = expfit.ExponentialFit(t, v, r.x, e, c)
 
     if plot is not False:  # pragma: no cover
         pt = None
@@ -262,16 +263,18 @@ def fitd2log(t, v, plot=False):
         p0[1] = p0[3] = b0 * (A0 / A)
 
         # Fit
-        p0[2::2] = np.log(-p0[2::2])
+        q0 = np.copy(p0)
+        q0[2::2] = np.log(-q0[2::2])
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, p0, constraint=c)
+            r = expfit.lm(e, q0, constraint=c)
             if plot is not False:  # pragma: no cover
                 print(r)
-        if r.x[4] / r.x[2] > 1.1 and r.success:
+        if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
             break
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
+    print(f'Done in {1 + i}, {r.evaluations}')
 
     p = r.x
     p[2::2] = -np.exp(p[2::2])

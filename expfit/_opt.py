@@ -146,11 +146,9 @@ def lm(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     if constraint is not None and not constraint(p[0]):
         err = 'Initial position fails constraint'
 
-
-
-    constraint = None
-
-
+    # TODO
+    #constraint = None
+    # TODO
 
     for iterations in range(max_iter):
         if err:

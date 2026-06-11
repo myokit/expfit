@@ -68,6 +68,7 @@ from ._fit import (  # noqa
     fit1,
     fitd2,
     fitd11,
+    fitd2log,
 )
 
 from ._tau import (  # noqa

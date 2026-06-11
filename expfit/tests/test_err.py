@@ -13,7 +13,7 @@ import expfit
 
 
 def mse(x, y, p):
-    """ Mean-squared error """
+    """ Multi-exponential mean-squared error """
     d = len(p)
     assert (d - 1) % 2 == 0 and d > 1
     m = (d - 1) // 2
@@ -24,7 +24,7 @@ def mse(x, y, p):
 
 
 def mse_jac_fd(x, y, p, dp):
-    """ MSE plus jacobian through finite differences """
+    """ Multi-exponential MSE plus jacobian by finite differences """
     e = mse(x, y, p)
     jac = np.zeros(len(p))
     p = np.array(p, dtype=float)
@@ -36,7 +36,7 @@ def mse_jac_fd(x, y, p, dp):
 
 
 def mse_jac_hes_fd(x, y, p, dp=1e-6):
-    """ MSE plus jacobian and hessian through finite differences """
+    """ Multi-exponential MSE, Jacobian, and Hessian by finite differences """
     d = len(p)
     mse, jac = mse_jac_fd(x, y, p, dp)
     hes = np.zeros((d, d))

@@ -81,7 +81,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         ax.plot(x_org, y_org, 's-' if len(x_org) < 50 else '-')
 
     if plot or axes is not None:  # pragma: no cover
-        def plot_line(ax, x, ls, start=True, msg=None):
+        def plot_line(ax, x, ls, start=True, msg=None, dotted=False):
             n = len(x)
             x, y = tr.detransform_series(
                 np.array((x[0], x[-1])),
@@ -97,16 +97,10 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             if msg is not None:
                 label = f'{label}: {msg}'
 
-            ax.plot(x, y, color=color, zorder=10, label=label)
-            ax.plot(mu_x, mu_y, 's', color=color, zorder=10)
-
-    # Return a consistent result when things go wrong
-    def fail(seg1, seg2, l1, l2, msg):
-        if plot:  # pragma: no cover
-            plot_line(ax, seg1[0], l1, True, msg)
-            plot_line(ax, seg2[0], l2, False, msg)
-            ax.legend()
-        return abc_fail
+            line = ':' if dotted else '-'
+            fill = 'none' if dotted else 'full'
+            ax.plot(x, y, color=color, ls=line, zorder=10, label=label)
+            ax.plot(mu_x, mu_y, 's', color=color, fillstyle=fill, zorder=10)
 
     # Straight line detection on t,v???
     # Maybe.
@@ -145,10 +139,10 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             # Test slope sign and magnitude
             l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
             if l_new.slope * ls.slope < 0:
-                msg = 'Sign change'
+                msg = 'Slope sign changed'
                 break
             if (abs(l_new.slope) >= abs(ls.slope)) != increasing:
-                msg = 'Not increasing' if increasing else 'Not decreasing'
+                msg = 'Slope decreased' if increasing else 'Slope increased'
                 break
 
             # Test near-constant rate of change
@@ -156,7 +150,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             if r is not None:
                 rr = r / r_new
                 if rr < 0.8 or rr > 1.25:
-                    msg = f'Unexpected change ratio {rr:.3}'
+                    msg = f'Unexpected slope change ratio {rr:.3}'
                     break
 
             # Accept
@@ -166,8 +160,8 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
                 msg = 'Minimum size reached'
 
         # Show last segment
-        if plot:  # pragma: no cover
-            plot_line(ax, x, ls, start, msg=msg)
+        if plot and not (x is x_new):  # pragma: no cover
+            plot_line(ax, x_new, l_new, start, msg=msg, dotted=True)
 
         return (x, y), ls
 
@@ -202,8 +196,16 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         plot_line(axes, seg2[0], l2, False)
 
     #
-    # H1: Use the derived segments to estimate the parameters
+    # Use the derived segments to estimate the parameters
     #
+
+    # Return a consistent result when things go wrong
+    def fail(seg1, seg2, l1, l2, msg):
+        if plot:  # pragma: no cover
+            plot_line(ax, seg1[0], l1, True, msg)
+            plot_line(ax, seg2[0], l2, False, msg)
+            ax.legend()
+        return abc_fail
 
     # Unpack
     x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope

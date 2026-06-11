@@ -50,7 +50,8 @@ class SingleExponentialError():
     def __call__(self, p):
         a, b, c = p
         e = np.exp(c * self._x)
-        f = a - self._y + b * e
+        be = b * e
+        f = a - self._y + be
         ef = e * f
         mse = self._m * np.sum(f * f)
 
@@ -63,7 +64,7 @@ class SingleExponentialError():
 
         # Hessian
         ex = e * self._x
-        aex = (a - self._y + 2 * b * e) * ex
+        aex = (f + be) * ex
         hes = np.array([
             [2, 2 * self._m * np.sum(e), 2 * b * self._m * np.sum(ex)],
             [0, 2 * self._m * np.sum(e * e), 2 * self._m * np.sum(aex)],
@@ -101,47 +102,49 @@ class MultiExponentialError():
         # Unpack
         p = np.asarray(p)
         a = p[0]
-        bs = p[1::2].reshape((m, 1))        # (m, 1)
-        cs = p[2::2].reshape((m, 1))        # (m, 1)
+        b = p[1::2].reshape((m, 1))        # (m, 1)
+        c = p[2::2].reshape((m, 1))        # (m, 1)
 
         # MSE
-        es = np.exp(np.outer(cs, self._x))      # (m, n)  e^(cx)
-        bes = bs * es                           # (m, n) be^(cx)
-        fs = a - self._y + np.sum(bes, axis=0)  # (n, ) a - y + sum_j(be^(cx))
-        mse = np.sum(fs**2) * self._ni
+        e = np.exp(c * self._x)               # (m, n)  e^(cx)
+        be = b * e                            # (m, n) be^(cx)
+        f = a - self._y + np.sum(be, axis=0)  # (n, ) a - y + sum_j(be^(cx))
+        mse = np.sum(f**2) * self._ni
 
         # Jacobian
+        ex = e * self._x
         jac = np.zeros(d)
-        xes = es * self._x
-        jac[0] = self._n2 * np.sum(fs)
-        jac[1::2] = self._n2 * np.sum(fs * es, axis=1)
-        jac[2::2] = self._n2 * np.sum(fs * xes, axis=1) * bs.T
+        jac[0] = self._n2 * np.sum(f)
+        jac[1::2] = self._n2 * np.sum(f * e, axis=1)
+        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * b.T
 
         # Hessian
         hes = np.zeros((d, d))
 
         # aa, ab, ac
         hes[0, 0] = 2
-        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(es, axis=1)
-        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(xes, axis=1) * bs.T
+        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1)
+        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * b.T
         for i in range(m):
+            fbex = (f + be[i]) * ex[i]
             # bi^2, ci^2, and bi*ci
-            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(es[i]**2)
+            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(e[i]**2)
             hes[2 + 2 * i, 2 + 2 * i] = \
-                self._n2 * np.sum((fs + bes[i]) * xes[i] * self._x) * bs[i, 0]
+                self._n2 * np.sum(fbex * self._x) * b[i, 0]
             hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
-                self._n2 * np.sum((fs + bes[i]) * xes[i])
+                self._n2 * np.sum(fbex)
 
             for j in range(i + 1, m):
+                exe = np.sum(ex[i] * e[j])
                 # bi*bj, ci*cj, bi*cj, bj*ci
                 hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(es[i] * es[j])
+                    self._n2 * np.sum(e[i] * e[j])
                 hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(xes[i] * xes[j]) * bs[i, 0] * bs[j, 0]
+                    self._n2 * np.sum(ex[i] * ex[j]) * b[i, 0] * b[j, 0]
                 hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(xes[i] * es[j]) * bs[j, 0]
+                    self._n2 * exe * b[j, 0]
                 hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(xes[i] * es[j]) * bs[i, 0]
+                    self._n2 * exe * b[i, 0]
 
         return mse, jac, hes
 
@@ -323,7 +326,6 @@ class DecayingOppositeSignConstraint():
     ``c[0] < 0``, ``c[1] < 0``, and ``c[1] > c[0]``,
     """
     #def __init__(self, i):
-
 
     def __call__(self, p):
         #return p[2] < 0 and p[4] < 0 and p[4] > p[2] and p[1] * p[3] < 0
