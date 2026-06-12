@@ -17,7 +17,7 @@ def exp(x, p):
     m = (d - 1) // 2
     b = p[1::2].reshape((m, 1))
     c = p[2::2].reshape((m, 1))
-    return p[0] + np.sum(b * np.exp(-x / c), axis=0)
+    return p[0] + np.sum(b * np.exp(-np.asarray(x) / c), axis=0)
 
 
 def expc(x, p):
@@ -183,11 +183,14 @@ class MultiExponentialError():
                 'Total number of exponential terms must be greater than zero.')
 
         self._z = np.ones(self._m)
-        self._z[-nneg:] = -1
+        self._z[npos:] = -1
         self._np = 1 + 2 * self._m
 
+        print(npos, nneg, self._z)
+
     def __call__(self, p):
-        assert len(p) == self._np
+        if len(p) != self._np:
+            raise ValueError(f'Expecting {self._np} parameters, got {len(p)}.')
         m, d = self._m, self._np
 
         # Unpack and detransform

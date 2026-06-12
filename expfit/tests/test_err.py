@@ -18,33 +18,56 @@ def mse(x, y, p):
     assert (d - 1) % 2 == 0 and d > 1
     m = (d - 1) // 2
     p = np.asarray(p)
-    bs = p[1::2].reshape((m, 1))        # (m, 1)
-    cs = p[2::2].reshape((m, 1))        # (m, 1)
+    bs = p[1::2].reshape((m, 1))
+    cs = p[2::2].reshape((m, 1))
     return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
 
 
-def mse_jac_fd(x, y, p, dp):
+def mse_tr_pos(x, y, p):
+    """ Transformed multi-exponential mean-squared error """
+    d = len(p)
+    assert (d - 1) % 2 == 0 and d > 1
+    m = (d - 1) // 2
+    p = np.asarray(p)
+    bs = np.exp(p[1::2]).reshape((m, 1))
+    cs = -np.exp(p[2::2]).reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
+
+
+def mse_tr_ppn(x, y, p):
+    """ Transformed multi-exponential mean-squared error, pos pos neg bs """
+    d = len(p)
+    assert (d - 1) % 2 == 0 and d > 1
+    m = (d - 1) // 2
+    p = np.asarray(p)
+    bs = np.exp(p[1::2]).reshape((m, 1))
+    bs[-1] *= -1
+    cs = -np.exp(p[2::2]).reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
+
+
+def mse_jac_fd(x, y, p, dp, f=mse):
     """ Multi-exponential MSE plus jacobian by finite differences """
-    e = mse(x, y, p)
+    e = f(x, y, p)
     jac = np.zeros(len(p))
     p = np.array(p, dtype=float)
     for i in range(len(p)):
         q = np.copy(p)
         q[i] += dp
-        jac[i] = (mse(x, y, q) - e) / dp
+        jac[i] = (f(x, y, q) - e) / dp
     return e, jac
 
 
-def mse_jac_hes_fd(x, y, p, dp=1e-6):
+def mse_jac_hes_fd(x, y, p, dp=1e-6, f=mse):
     """ Multi-exponential MSE, Jacobian, and Hessian by finite differences """
     d = len(p)
-    mse, jac = mse_jac_fd(x, y, p, dp)
+    mse, jac = mse_jac_fd(x, y, p, dp, f=f)
     hes = np.zeros((d, d))
     p = np.array(p, dtype=float)
     for i in range(len(p)):
         q = np.copy(p)
         q[i] += dp
-        hes[i] = (mse_jac_fd(x, y, q, dp)[1] - jac) / dp
+        hes[i] = (mse_jac_fd(x, y, q, dp, f=f)[1] - jac) / dp
     return mse, jac, hes
 
 
@@ -54,13 +77,28 @@ class TestError(unittest.TestCase):
     def test_exp(self):
         x = np.linspace(0, 1, 123)
         a, b, c = 1, 2, 3
-        y = a + b * np.exp(c * x)
+        y = a + b * np.exp(-x / c)
         np.testing.assert_array_equal(y, expfit.exp(x, (a, b, c)))
+
+        x = np.linspace(5, 15, 200)
+        a, b, c, d, e = 5, 6, 0.2, 8, 0.3
+        y = a + b * np.exp(-x / c) + d * np.exp(-x / e)
+        np.testing.assert_allclose(y, expfit.exp(x, (a, b, c, d, e)), rtol=1e-15)
+
+        x = [1, 2, 3]
+        y = expfit.exp(x, [4])
+        self.assertEqual(list(y), [4, 4, 4])
+
+    def test_expc(self):
+        x = np.linspace(0, 1, 123)
+        a, b, c = 1, 2, 3
+        y = a + b * np.exp(c * x)
+        np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c)))
 
         x = np.linspace(5, 15, 2000)
         a, b, c, d, e = 5, 6, -7, 8, -9
         y = a + b * np.exp(c * x) + d * np.exp(e * x)
-        np.testing.assert_array_equal(y, expfit.exp(x, (a, b, c, d, e)))
+        np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c, d, e)))
 
         x = [1, 2, 3]
         y = expfit.exp(x, [4])
@@ -85,9 +123,28 @@ class TestError(unittest.TestCase):
         self.assertEqual(r, expfit.rmse(x, y1, p2))
         self.assertEqual(r, expfit.rmse(x, y2, p1))
 
+    def test_rmsec(self):
+        x = np.linspace(1, 2, 50)
+        p1 = 3, 2, 3
+        p2 = 4, 7, 2
+        y1 = expfit.expc(x, p1)
+        y2 = expfit.expc(x, p2)
+        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
+        self.assertEqual(r, expfit.rmsec(x, y1, p2))
+        self.assertEqual(r, expfit.rmsec(x, y2, p1))
+
+        x = np.linspace(5, 15, 2000)
+        p1 = 4, 5, -2, 3, -1
+        p2 = 3, 3, -7, 5, -5
+        y1 = expfit.expc(x, p1)
+        y2 = expfit.expc(x, p2)
+        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
+        self.assertEqual(r, expfit.rmsec(x, y1, p2))
+        self.assertEqual(r, expfit.rmsec(x, y2, p1))
+
     def test_single_error(self):
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, (1, 2, 3))
+        y = expfit.expc(x, (1, 2, 3))
         e = expfit.SingleExponentialError(x, y)
         m, j, h = e((1, 2, 3))
         self.assertAlmostEqual(m, 0)
@@ -142,67 +199,63 @@ class TestError(unittest.TestCase):
 
     def test_multi_error(self):
 
-        # Single error comparison
+        # Single error comparison: MSE only
+        p = np.array([1, 2, -3])
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, (1, 2, 3))
-        e1 = expfit.MultiExponentialError(x, y)
+        y = expfit.expc(x, p)
+        e1 = expfit.MultiExponentialError(x, y, 1, 0)
         e2 = expfit.SingleExponentialError(x, y)
-        p = (1, 2, 3)
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = e2(p)
+        p0 = np.array([1, 2, -2])
+        q0 = np.array([1, np.log(2), np.log(2)])
+        m1, j1, h1 = e1(q0)
+        m2, j2, h2 = e2(p0)
         self.assertEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) == 0))
-        self.assertTrue(np.all(np.abs(h1 - h2) == 0))
 
-        p = (2, 1, 2)
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = e2(p)
+        p = np.array([1, -2, -3])
+        x = np.linspace(0, 1, 123)
+        y = expfit.expc(x, p)
+        e1 = expfit.MultiExponentialError(x, y, 0, 1)
+        e2 = expfit.SingleExponentialError(x, y)
+        p0 = np.array([1, -1, -2])
+        q0 = np.array([p0[0], np.log(1), np.log(2)])
+        m1, j1, h1 = e1(q0)
+        m2, j2, h2 = e2(p0)
         self.assertEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) == 0))
-        self.assertTrue(np.all(np.abs(h1 - h2) == 0))
-
-        p = (1.1, 2.2, 3.1)
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = e2(p)
-        self.assertEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-13))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 1e-13))
-
-        p = (0.9, 1.9, 2.9)
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = e2(p)
-        self.assertEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) == 0))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 5e-14))
 
         # Multi with zeros
+        e1 = expfit.MultiExponentialError(x, y, 1, 0)
+        e2 = expfit.MultiExponentialError(x, y, 2, 0)
         m1, j1, h1 = e1((0.9, 1.9, 2.9))
-        m2, j2, h2 = e1((0.9, 1.9, 2.9, 0, 0))
+        m2, j2, h2 = e2((0.9, 1.9, 2.9, -np.inf, 0))
         self.assertEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j2[:3] - j1)) == 0)
         self.assertTrue(np.all(np.abs(h2[:3, :3] - h1)) == 0)
 
         # Multi versus finite differences
-        p = (1.2, 2.2, 1.9, 3.2, 1.8)
+        p = np.array([1, 1.1, 0.5, 1.2, 1])
+        y = expfit.exp(x, p)
+        e1 = expfit.MultiExponentialError(x, y, 2, 0)
+        p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
         m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tr_pos)
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-4))
         self.assertTrue(np.all(np.abs(h1 - h2) < 6e-3))
 
-        p = (1.01, 2.1, 1.8, 2.1, 0.7, 1.2, 0.8)
+        e1 = expfit.MultiExponentialError(x, y, 2, 1)
+        p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tr_ppn)
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
+        self.assertTrue(np.all(np.abs(j1 - j2) < 5e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.03))
 
         # Test mse() method
-        self.assertEqual(e1(p)[0], e1.mse(p))
+         self.assertEqual(e1(p)[0], e1.mse(p))
 
     def test_fixed_parameter(self):
         x = np.linspace(0, 1, 123)
