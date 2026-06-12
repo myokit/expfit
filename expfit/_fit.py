@@ -499,7 +499,6 @@ def fitd11log(t, v, plot=False):
     #    raise RuntimeError(
     #        'Initial estimate for c > 0, exponential not decaying')
 
-
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     z = np.array([1 if b > 0 else -1 for b in p0[1::2]])

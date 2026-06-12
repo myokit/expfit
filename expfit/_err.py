@@ -135,16 +135,18 @@ class MultiExponentialError():
                 self._n2 * np.sum(fbeex)
 
             for j in range(i + 1, m):
-                exe = np.sum(ex[i] * e[j])
+                eij = e[i] * e[j]
+                eijx = eij * self._x
+                seijx = np.sum(eijx)
                 # bi*bj, ci*cj, bi*cj, bj*ci
                 hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(e[i] * e[j])
+                    self._n2 * np.sum(eij)
                 hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(ex[i] * ex[j]) * b[i, 0] * b[j, 0]
+                    self._n2 * np.sum(eijx * self._x) * b[i, 0] * b[j, 0]
                 hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * exe * b[j, 0]
+                    self._n2 * seijx * b[j, 0]
                 hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * exe * b[i, 0]
+                    self._n2 * seijx * b[i, 0]
 
         return mse, jac, hes
 
@@ -164,6 +166,78 @@ class MultiExponentialError():
         return self._ni * np.sum((
             a - self._y + np.sum(bs * np.exp(np.outer(cs, self._x)), axis=0)
         )**2)
+
+
+class TauFormError():
+    """
+    Callable class returning the MSE and its Jacobian and Hessian for a
+    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameters
+    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
+
+    TODO
+    """
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        self._ni = 1 / len(x)
+        self._n2 = 2 * self._ni
+
+    def __call__(self, p):
+        d = len(p)
+        assert (d - 1) % 2 == 0 and d > 1
+        m = (d - 1) // 2
+
+        # Unpack
+        p = np.asarray(p)
+        a = p[0]
+        b = p[1::2].reshape((m, 1))       # (m, 1)
+        c = -1 / p[2::2].reshape((m, 1))  # (m, 1)
+
+        # MSE
+        e = np.exp(c * self._x)               # (m, n)  e^(cx)
+        be = b * e                            # (m, n) be^(cx)
+        f = a - self._y + np.sum(be, axis=0)  # (n, ) a - y + sum_j(be^(cx))
+        mse = self._ni * np.sum(f**2)
+
+        # Jacobian
+        c2 = c * c
+        bc2 = b * c2
+        ex = e * self._x
+        jac = np.zeros(d)
+        jac[0] = self._n2 * np.sum(f)
+        jac[1::2] = self._n2 * np.sum(f * e, axis=1)
+        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * bc2.T
+
+        # Hessian
+        fbe = f + be          # (m, n)
+        fbex = fbe * self._x  # (m, n)
+        # aa, ab, ac
+        hes = np.zeros((d, d))
+        hes[0, 0] = 2
+        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1)
+        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * bc2.T
+        for i in range(m):
+            # bi^2, ci^2, and bi*ci
+            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(e[i]**2)
+            hes[2 + 2 * i, 2 + 2 * i] = self._n2 * np.sum(
+                (fbex[i] * c[i, 0] + 2 * f) * ex[i]) * bc2[i, 0] * c[i, 0]
+            hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
+                self._n2 * np.sum(fbex[i] * e[i]) * c2[i, 0]
+            for j in range(i + 1, m):
+                eij = e[i] * e[j]
+                eijx = eij * self._x
+                seijx = np.sum(eijx)
+                # bi*bj, ci*cj, bi*cj, bj*ci
+                hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
+                    self._n2 * np.sum(eij)
+                hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
+                    self._n2 * np.sum(eijx * self._x) * bc2[i, 0] * bc2[j, 0]
+                hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
+                    self._n2 * seijx * bc2[j, 0]
+                hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
+                    self._n2 * seijx * bc2[i, 0]
+
+        return mse, jac, hes
 
 
 class DecayingMultiExponentialError():
