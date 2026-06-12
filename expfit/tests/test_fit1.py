@@ -23,6 +23,8 @@ class TestSingle(unittest.TestCase):
 
     def test_fit1_error(self):
 
+        #TODO TODO TODO TODO TODO THIS CAN GO IS IN TEST_ERR ???? TODO TODO
+
         a, b, c = 1, 2, -3
         x = np.linspace(0, 1, 99)
         y = expfit.exp(x, (a, b, c))
@@ -39,10 +41,7 @@ class TestSingle(unittest.TestCase):
 
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
-        a, b, c = expfit.fit1(x, y)
-        self.assertEqual(a, 0)
-        self.assertEqual(b, 0)
-        self.assertEqual(c, 0)
+        self.assertRaises(expfit.NotExponentialError, expfit.fit1, x, y)
 
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
                          deltas=[], ratio=1, rmse=None, plot=False):
@@ -105,26 +104,26 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Moderate
-        sos(0, -1, 3, 2, 123, deltas=(0.5, 0.1, 0.1), plot=plot)
-        sos(3e2, 2, 4, 2, 200, deltas=(10, 0.1, 0.01), plot=plot)
-        sos(5e3, 3, -0.5, 5, 500, deltas=(0.05, 0.05, 0.01), plot=plot)
-        sos(-1e3, 10, -9, 2, 50, deltas=(0.1, 0.1, 0.1), plot=plot)
+        sos(0, -1, -0.3, 2, 123, deltas=(1, 0.1, 0.1), plot=plot)
+        sos(300, 2, -0.2, 2, 200, deltas=(1e2, 0.1, 0.01), plot=plot)
+        sos(5000, 3, 2, 5, 500, deltas=(0.05, 0.05, 0.05), plot=plot)
+        sos(-1000, 10, 0.1, 2, 50, deltas=(0.1, 0.1, 0.1), plot=plot)
 
         # Steep: These rely more on the guess than on the fitting
         # These would benefit from a de-steeper
-        sos(4e5, -1, 30, 2, 300, ratio=1.03, plot=plot)
-        sos(-1e3, 10, -9, 2, 1000, deltas=(1e-2, 0.1, 0.1), plot=plot)
-        sos(3e5, -1, 15, 2, 500, plot=plot)
+        sos(4e5, -1, -0.03, 2, 300, ratio=1.03, plot=plot)
+        sos(-1e3, 10, 0.1, 2, 1000, deltas=(1e-2, 0.1, 0.1), plot=plot)
+        sos(3e5, -1, -0.07, 2, 500, plot=plot)
 
         # Almost straight
-        sos(3, -1, 0.3, 2, 3000, deltas=(0.1, 0.1, 1e-2), plot=plot)
-        sos(-6e2, +1, 0.03, 2, 3000, ratio=1.001, deltas=(0.5, 0.5, 0.1),
+        sos(3, -1, -1, 2, 3000, deltas=(0.1, 0.1, 1e-2), plot=plot)
+        sos(-6e2, +1, -1, 2, 3000, ratio=1.001, deltas=(0.5, 0.5, 0.1),
             plot=plot)
-        sos(0, 1, 1e-6, 1, 200, ratio=1, plot=plot)
-        sos(1, 2, 1e-6, 1, 200, fnoise=0.2, plot=plot)
+        sos(0, 1, -1e6, 1, 200, ratio=1, plot=plot)
+        sos(1, 2, -1e6, 1, 200, fnoise=0.2, plot=plot)
 
         # Both sides of zero
-        sos(-2.5, 5, -2, 2, 50, deltas=(0.1, 1e-2, 0.1), plot=plot)
+        sos(-2.5, 5, 0.5, 2, 50, deltas=(0.1, 1e-2, 0.1), plot=plot)
 
     def test_fit1_on_single_straight(self):
         # Test single exponentials on single exponential data
@@ -144,19 +143,19 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Clean
-        sos(0, -1, 3, 2, 123, fnoise=0,
+        sos(0, -1, -0.3, 2, 123, fnoise=0,
             deltas=(1e-4, 1e-5, 5e-5), ratio=None, rmse=5e-5, plot=plot)
-        sos(4e2, 2, 4, 2, 1000, fnoise=1e-3,
-            deltas=(0.1, 2e-3, 5e-4), plot=plot)
-        sos(7e3, 3, -0.5, 5, 500, fnoise=1e-2,
+        sos(400, 2, -0.2, 2, 1000, fnoise=1e-3,
+            deltas=(0.1, 5e-3, 5e-4), plot=plot)
+        sos(7000, 3, 2, 5, 500, fnoise=1e-2,
             deltas=(0.01, 1e-3, 1e-2), plot=plot)
 
         # Noisy
-        sos(4, 10, 3, 2, 100, fnoise=0.11, deltas=(100, 10, 0.1), plot=plot)
-        sos(4, 10, 3, 2, 100, fnoise=0.3, deltas=(1000, 100, 1), plot=plot)
-        sos(51, -1, -0.5, 5, 200, fnoise=0.5,
-            deltas=(1, 0.1, 0.5), plot=plot)
-        sos(-10, -2, 9, 2, 600, fnoise=1, deltas=(1e7, 1e5, 10), plot=plot)
+        sos(4, 10, -0.3, 2, 100, fnoise=0.11, deltas=(100, 10, 0.1), plot=plot)
+        sos(4, 10, -0.3, 2, 100, fnoise=0.3, deltas=(1000, 100, 1), plot=plot)
+        sos(51, -1, 2, 5, 200, fnoise=0.5,
+            deltas=(1, 0.1, 1), plot=plot)
+        sos(-10, -2, -0.1, 2, 600, fnoise=1, deltas=(1e8, 1e6, 10), plot=plot)
 
     def test_fit1_on_single_dense(self):
         # Test single exponentials on single exponential data
@@ -165,17 +164,17 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Short
-        sos(30, 2, 4, 2, 10, deltas=(15, 0.1, 0.01), plot=plot)
-        sos(15, 3, 5, 1.5, 9, deltas=(5, 0.5, 0.05), plot=plot)
-        sos(10, -3, -1e3, 5, 8, deltas=(0.1, 0.01, 1e3), plot=plot)
-        sos(-2, 3, 0.05, 5, 6, deltas=(5, 5, 0.1), plot=plot)
-        sos(-30, 10, -5, 0.2, 5, deltas=(1, 1, 1), plot=plot)
-        sos(20, -10, 7, 2, 4, deltas=(1e6, 1e3, 1e2), plot=plot)
-        sos(-5, 10, -2, 4, 3, deltas=(1e-2, 1e-3, 0.5), plot=plot)
+        sos(30, 2, -.25, 2, 10, deltas=(15, 0.1, 0.01), plot=plot)
+        sos(15, 3, -.2, 1.5, 9, deltas=(5, 0.5, 0.05), plot=plot)
+        sos(10, -3, 1e-3, 5, 8, deltas=(0.1, 0.01, 1e3), plot=plot)
+        sos(-2, 3, -20, 5, 6, deltas=(5, 5, 20), plot=plot)
+        sos(-30, 10, 0.2, 0.2, 5, deltas=(1, 1, 1), plot=plot)
+        sos(20, -10, -.15, 2, 4, deltas=(1e6, 1e3, 1e2), plot=plot)
+        sos(-5, 10, .5, 4, 3, deltas=(1e-2, 1e-3, 0.5), plot=plot)
 
         # Dense
-        sos(1e2, -2, 3, 2, 10000, deltas=(0.1, 5e-3, 5e-4), plot=plot)
-        sos(1e3, 8, -0.12, 5, 100000, deltas=(1e-2, 1e-2, 1e-3), plot=plot)
+        sos(100, -2, -.3, 2, 10000, deltas=(0.1, 5e-3, 5e-4), plot=plot)
+        sos(1000, 8, 8, 5, 100000, deltas=(1e-2, 1e-2, 5e-3), plot=plot)
 
     def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
                          t0=0, rdom=2, rmse=1, plot=False):
@@ -194,7 +193,7 @@ class TestSingle(unittest.TestCase):
         rf = expfit.rmse(t, v, (af, bf, cf))
 
         # Dominant rate
-        bdom, cdom = [(b, c), (d, e)][np.argmax(np.abs((c, e)))]
+        bdom, cdom = [(b, c), (d, e)][np.argmin(np.abs((c, e)))]
         dr = cf / cdom
 
         if plot:  # pragma: no cover
@@ -221,15 +220,15 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sod(0, -1, 3, -4, 5, rdom=1.01, rmse=6, plot=plot)
-        sod(0, -1, 3, -2, 5, rdom=1.1, rmse=3.1, plot=plot)
-        sod(0, -1, 3, -1, 5, rdom=1.1, rmse=2, plot=plot)
-        sod(0, -1, 3, -0.5, 5, rdom=1.2, rmse=1, plot=plot)
-        sod(0, -1, 3, -1e-6, 5, rdom=1.7, rmse=0.2, plot=plot)
-        sod(0, -1, 3, -1e-12, 5, rdom=1.7, rmse=0.2, plot=plot)
-        sod(0, 1, -3, 1, -3.1, rdom=1.1, rmse=0.02, plot=plot)
-        sod(0, 2, -3, 1, -2.8, rdom=1.1, rmse=0.04, plot=plot)
-        sod(0, 2, -3, 1, -0.02, rdom=1.1, rmse=0.02, plot=plot)
+        sod(0, -1, -0.3, -4, -0.2, rdom=1.05, rmse=6, plot=plot)
+        sod(0, -1, -0.3, -2, -0.2, rdom=1.1, rmse=3.5, plot=plot)
+        sod(0, -1, -0.3, -1, -0.2, rdom=1.1, rmse=2, plot=plot)
+        sod(0, -1, -0.3, -0.5, -0.2, rdom=1.2, rmse=1, plot=plot)
+        sod(0, -1, -0.3, -1e-6, -0.2, rdom=1.7, rmse=0.3, plot=plot)
+        sod(0, -1, -0.3, -1e-12, -0.2, rdom=1.7, rmse=0.3, plot=plot)
+        sod(0, 1, 0.3, 1, 0.3, rdom=1.1, rmse=0.02, plot=plot)
+        sod(0, 2, 0.3, 1, 0.35, rdom=1.1, rmse=0.04, plot=plot)
+        sod(0, 2, 0.3, 1, 100, rdom=1.1, rmse=0.02, plot=plot)
 
     def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
                          fnoise=0.01, t0=0, rdom=2, rmse=2, plot=False):
@@ -248,7 +247,7 @@ class TestSingle(unittest.TestCase):
         rf = expfit.rmse(t, v, (af, bf, cf))
 
         # Dominant rate
-        bdom, cdom = [(b, c), (d, e), (f, g)][np.argmax(np.abs((c, e, g)))]
+        bdom, cdom = [(b, c), (d, e), (f, g)][np.argmin(np.abs((c, e, g)))]
         dr = cf / cdom
 
         if plot:  # pragma: no cover
@@ -276,36 +275,24 @@ class TestSingle(unittest.TestCase):
         plot = False
 
         # Same direction
-        sot(0, -6, -0.1, -3, -10, -2, -2, rdom=2.2, rmse=0.2, plot=plot)
-        sot(0, -6, 0.1, -3, 10, -2, 2, rdom=1.002, rmse=650, plot=plot)
-        sot(0, 3, -1, 3, -6, 2, -2, rdom=2, rmse=0.1, plot=plot)
-        sot(0, 4, 0.2, 2.8, 10, 1.1, 20, rdom=1.001, rmse=6e6, plot=plot)
-
-    def test_tau1(self):
-
-        a, b, c = 3, -1, 3
-        t = np.linspace(0, 10, 10)
-        v = expfit.exp(t, (a, b, -1 / c))
-        r = expfit.tau1(t, v)
-        self.assertAlmostEqual(r, 3, 3)
-
-        # Negative infinity
-        a, b, c = 1, 0, 3
-        t = np.linspace(0, 10, 10)
-        v = expfit.exp(t, (a, b, -1 / c))
-        r = expfit.tau1(t, v)
-        self.assertTrue(np.isinf(r))
-        self.assertLess(r, 0)
+        sot(0, -6, 10, -3, 0.1, -2, 0.5, rdom=2.2, rmse=0.2, plot=plot)
+        sot(0, -6, -10, -3, -0.1, -2, -0.5, rdom=1.002, rmse=650, plot=plot)
+        sot(0, 3, 1, 3, 0.15, 2, 0.5, rdom=2.2, rmse=0.2, plot=plot)
+        sot(0, 4, -5, 2.8, -0.1, 1.1, -0.05, rdom=1.001, rmse=6e6, plot=plot)
 
     def test_fit1_with_peak_and_slope(self):
         # Remnant of "peak" at start of signal, plus slope at end
+        plot = False
 
-        a0, b0, c0 = 1, -2, -9
+        a0, b0, c0, d0, e0 = 1, -2, 0.3, 0.8, 0.03
         n = 300
         x = np.linspace(0, 1, n)
-        y = expfit.exp(x, (a0, b0, c0, 0.8, -30))
+        y = expfit.exp(x, (a0, b0, c0, d0, e0))
         y += -0.2 * x
-        a, b, c = expfit.fit1(x, y)
+        a, b, c = expfit.fit1(x, y, plot=plot)
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.show()
         self.assertAlmostEqual(a, a0, -1)
         self.assertAlmostEqual(b, b0, -1)
         self.assertAlmostEqual(c, c0, -1)
@@ -313,22 +300,27 @@ class TestSingle(unittest.TestCase):
 
     def test_fit1_with_big_sine(self):
         # Sine wave causing both segment slopes to exceed the full signal slope
+        plot = False
 
-        a0, b0, c0 = 1, -2, -9
+        a0, b0, c0 = 1, -2, 1 / 9
         n = 300
         x = np.linspace(0, 1, n)
         y = expfit.exp(x, (a0, b0, c0))
         y += 0.1 * np.sin(10.2 * np.pi * x)
-        a, b, c = expfit.fit1(x, y)
+        a, b, c = expfit.fit1(x, y, plot=plot)
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.show()
         self.assertAlmostEqual(a, a0, -1)
         self.assertAlmostEqual(b, b0, 0)
         self.assertAlmostEqual(c, c0, 0)
         self.assertLess(expfit.rmse(x, y, (a, b, c)), 0.1)
 
-    def test_fit1_ar1(self):
+    def test_fit1_with_ar1(self):
         # Test with AR1 noise
+        plot = False
 
-        a0, b0, c0 = 3, -4, -7
+        a0, b0, c0 = 3, -4, 1 / 7
         x = np.linspace(0, 1, 300)
         y = expfit.exp(x, (a0, b0, c0))
 
@@ -343,7 +335,10 @@ class TestSingle(unittest.TestCase):
             v[t] += rho * v[t - 1]
         y += v
 
-        a, b, c = expfit.fit1(x, y)
+        a, b, c = expfit.fit1(x, y, plot=plot)
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.show()
         self.assertAlmostEqual(a, a0, 1)
         self.assertAlmostEqual(b, b0, 0)
         self.assertAlmostEqual(c, c0, -1)
@@ -352,7 +347,7 @@ class TestSingle(unittest.TestCase):
     def test_fit1_return(self):
         # Test return type
 
-        a0, b0, c0 = 3, -3, -4
+        a0, b0, c0 = 3, -3, 0.25
         x = np.linspace(0, 1, 300)
         y = expfit.exp(x, (a0, b0, c0))
         r = np.random.default_rng(5)

@@ -31,7 +31,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     Either segment can then be used to derive ``a`` and ``b``, from
 
         a = y_i - dydx_i / c
-        b = (y_i - a) / np.exp(c * x_i)
+        b = (y_i - a) / exp(c * x_i)
 
     To pick a segment, the method starts by splitting the series down the
     middle, and performing a linear least squares fit on each half. If this
@@ -39,6 +39,9 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     different magnitude. The segments are then refined by successive halving,
     and accepted as a better segment if the slope in the steep part gets
     steeper, or if the slope in the shallow part gets shallower.
+
+    If the time series does not appear to contain an exponential, the
+    parameters ``(a, 0, 0)`` are returned, where ``a`` is the mean of ``y``.
 
     Arguments:
 
@@ -62,9 +65,6 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
         x_org, y_org = x, y
     if len(x_org) < 3:
         raise ValueError('At least 3 points are required')
-
-    # Obtain a result to pass back in case of failure
-    abc_fail = np.mean(y_org), 0.0, 0.0
 
     # Transform to zoom in on the action
     tr = expfit.ZoomTransform(x_org, y_org)
@@ -160,8 +160,13 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
                 msg = 'Minimum size reached'
 
         # Show last segment
-        if plot and not (x is x_new):  # pragma: no cover
-            plot_line(ax, x_new, l_new, start, msg=msg, dotted=True)
+        if plot:
+            if n <= n_min:
+                msg = 'Segment already has minimum length'
+                plot_line(ax, x, ls, start, msg=msg)
+            elif x is x_new:
+                plot_line(ax, x_new, l_new, start, msg=msg, dotted=True)
+
 
         return (x, y), ls
 
@@ -205,7 +210,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             plot_line(ax, seg1[0], l1, True, msg)
             plot_line(ax, seg2[0], l2, False, msg)
             ax.legend()
-        return abc_fail
+        return np.mean(y_org), 0.0, 0.0
 
     # Unpack
     x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
@@ -227,9 +232,9 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
 
     # Use start, end, or averaged parameters, depending on RMSE
     with np.errstate(over='ignore', divide='ignore'):
-        r1 = expfit.rmse(x, y, (a1, b1, c))
-        r2 = expfit.rmse(x, y, (a2, b2, c))
-        rm = expfit.rmse(x, y, (am, bm, c))
+        r1 = expfit.rmsec(x, y, (a1, b1, c))
+        r2 = expfit.rmsec(x, y, (a2, b2, c))
+        rm = expfit.rmsec(x, y, (am, bm, c))
         if rm < r1 and rm < r2:
             a, b = am, bm
             r = rm
@@ -241,7 +246,7 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             r = r2
 
         # Compare with flat line
-        rr = r / expfit.rmse(x, y, (l0.mu_y, 0, 0))
+        rr = r / expfit.rmsec(x, y, (l0.mu_y, 0, 0))
     if rr > 2:
         return fail(seg1, seg2, l1, l2, 'Flat line is better fit')
 
@@ -288,7 +293,7 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
     # Fit exponentials to both segments
     p1 = expfit.estimate_initial_single(x[isplit:], y[isplit:], vet=False)
     p0 = expfit.estimate_initial_single(
-        x[:isplit], y[:isplit] - expfit.exp(x[:isplit], p1), vet=False)
+        x[:isplit], y[:isplit] - expfit.expc(x[:isplit], p1), vet=False)
     a0, b0, c0 = p0
     a1, b1, c1 = p1
 
@@ -299,14 +304,15 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
         ax = fig.add_subplot()
         ax.plot(x, y, 's-' if len(x) < 50 else '-')
         ax.axvline(x[isplit], color='tab:orange', lw=1)
-        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.exp(x[:isplit], p1))
-        ax.plot(x, expfit.exp(x, (a1, b0, c0)), 'k')
-        ax.plot(x, expfit.exp(x, p1), 'r')
-        ax.plot(x, expfit.exp(x, (a1, b0, c0, b1, c1)), '--')
+        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p1))
+        ax.plot(x, expfit.expc(x, (a1, b0, c0)), 'k')
+        ax.plot(x, expfit.expc(x, p1), 'r')
+        ax.plot(x, expfit.expc(x, (a1, b0, c0, b1, c1)), '--')
 
     return a1, b0, c0, b1, c1
 
 
+'''
 def estimate_noise_level(x, y, vet=True, plot=False):
     """
     Estimates the noise level by subtracting a dominant exponential from the
@@ -351,44 +357,5 @@ def estimate_noise_level(x, y, vet=True, plot=False):
         plt.show()
 
     return np.std(r)
-
-
-def estimate_number_of_exponentials(x, y, p=0.9, vet=True):
-    """
-    Attempts to estimate the number of exponential components in a signal,
-    without any fits.
-
-    The method is based on the singular value decomposition of a Hankel matrix,
-    and returns the number of singular values larger than a cut-off based on
-    the set probability ``p``, according to
-
-        p = e * sqrt(-2 n log(1 - p^(1 / n)))
-
-    where ``e`` is an estimate of the signal noise variance from
-    :meth:`estimate_noise_level`.
-
-    This equation was suggested by Jeffrey M. Hokanson (2013) Numerically
-    Stable and Statistically Efficient Algorithms for Large Scale Exponential
-    Fitting. https://hdl.handle.net/1911/77161
-
-    Returns an integer number close to the number of exponentials present, but
-    sometimes over or underestimates by at least 1.
-    """
-    if vet:
-        x, y = expfit.vet_series(x, y)
-
-    # Construct Hankel matrix
-    n = len(x)
-    m = (n + 1) // 2
-    h = np.zeros((m, m), dtype=float)
-    for i in range(m):
-        h[i] = y[i:i + m]
-
-    # Calculate singular values (in descending order)
-    s = np.linalg.svd(h, compute_uv=False)
-
-    # Calculate cut-off, based on estimated noise level
-    e = estimate_noise_level(x, y, vet=False)
-    c = e * np.sqrt(-2 * n * np.log(1 - p**(1 / n)))
-    return np.sum(s > c)
+'''
 

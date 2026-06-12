@@ -79,7 +79,8 @@ class LMResult:
         ))
 
 
-def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False):
+def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
+       plot=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -120,6 +121,8 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False):
         are rejected.
     ``verbose``
         Set to ``True`` to print status information at every iteration.
+    ``plot``
+        Optional parameter to create a plot of the routine's progress.
 
     Returns an :class:`LMResult`.
     """

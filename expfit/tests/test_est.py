@@ -38,7 +38,7 @@ class TestEstimates(unittest.TestCase):
     def test_estimate_initial(self):
 
         rng = np.random.default_rng(71)
-        f = expfit.exp
+        f = expfit.expc
         plot = False
 
         # Noise free
@@ -90,7 +90,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p, a, delta=0.02)
         self.assertAlmostEqual(q, b, delta=8e12)
         self.assertAlmostEqual(r, c, delta=0.1)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.1)
+        self.assertLess(expfit.rmsec(x, y, (p, q, r)), 0.1)
 
         # Contrived example with equal means (but not equal slope)
         x = np.array([0, 1, 2, 3])
@@ -137,13 +137,14 @@ class TestEstimates(unittest.TestCase):
         # Straight line through origin, no noise
         # Note: the transform amplifies the numerical noise here, causing the
         # RMSE to be non-zero for the transformed case.
+        rmse = expfit.rmsec
         x = np.linspace(0, 1, 10)
         y = 3 * x
         p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.6)
+        self.assertLess(rmse(x, y, (p, q, r)), 0.6)
         self.assertEqual(p, -q)
         p, q, r = self.estimate_initial(x, y, transform=False, plot=plot)
-        self.assertEqual(expfit.rmse(x, y, (p, q, r)), 0)
+        self.assertEqual(rmse(x, y, (p, q, r)), 0)
         self.assertEqual(p, -q)
 
         # Straight line through origin, with noise
@@ -151,14 +152,14 @@ class TestEstimates(unittest.TestCase):
         y = 3 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, -q, delta=0.1)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.2)
+        self.assertLess(rmse(x, y, (p, q, r)), 0.2)
 
         # Straight line with offset and noise
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p + q, 4, delta=0.5)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.2)
+        self.assertLess(rmse(x, y, (p, q, r)), 0.2)
 
         # Specific case: needs this seed
         # This failed when the ZoomTransform was variance-based
@@ -168,12 +169,12 @@ class TestEstimates(unittest.TestCase):
         y += rng.normal(0, 1, x.shape)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p + q, 0, delta=0.01)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 1)
+        self.assertLess(rmse(x, y, (p, q, r)), 1)
 
     def test_estimate_initial_steep(self):
 
         rng = np.random.default_rng(17)
-        f = expfit.exp
+        f = expfit.expc
         plot = False
 
         # No zoom: Not steep enough
@@ -226,7 +227,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p, a, delta=5e2)
         self.assertAlmostEqual(q, b, delta=8e3)
         self.assertAlmostEqual(r, c, delta=10)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 4e3)
+        self.assertLess(expfit.rmsec(x, y, (p, q, r)), 4e3)
 
         a, b, c = 1e5, 1e5, 15
         n = 999
@@ -236,7 +237,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p, a, delta=1e10)
         self.assertAlmostEqual(q, b, delta=1e6)
         self.assertAlmostEqual(r, c, delta=2)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
+        self.assertLess(expfit.rmsec(x, y, (p, q, r)), 1e10)
 
     def estimate_initial_opposing(self, x, y, plot=False):
         """
@@ -252,7 +253,7 @@ class TestEstimates(unittest.TestCase):
         return tr.detransform(*ret)
 
     def test_estimate_initial_opposing(self):
-        f = expfit.exp
+        f = expfit.expc
         plot = False
 
         p = 8, 3, -7, -1, -5
@@ -289,11 +290,12 @@ class TestEstimates(unittest.TestCase):
             ValueError, 'At least 10 points',
             expfit.estimate_initial_opposing, x, f(x, p))
 
+    '''
     def test_estimate_noise_level(self):
         # Test noise level estimates
 
         rng = np.random.default_rng(18)
-        f = expfit.exp
+        f = expfit.expc
         plot = False
 
         s = 0.5
@@ -346,65 +348,7 @@ class TestEstimates(unittest.TestCase):
             expfit.estimate_noise_level, x, y)
         # No error:
         expfit.estimate_noise_level(x, y, vet=False)
-
-    def estimate_number_of_exponentials(
-            self, p, s, t0=0, duration=1, n=200, plot=True):
-        """ Generate data and call expfit.estimate_number_of_exponentials """
-
-        x = np.linspace(t0, t0 + duration, n)
-        y = expfit.exp(x, p) + self.r.normal(0, s, n)
-        m = expfit.estimate_number_of_exponentials(x, y)
-        d = (len(p) - 1) // 2
-
-        if plot:  # pragma: no cover
-            import matplotlib.pyplot as plt
-            fig = plt.figure()
-            ax = fig.add_subplot()
-            ax.plot(x, y, label='Generated data')
-            for i, (b, c) in enumerate(zip(p[1::2], p[2::2])):
-                ax.plot(x, expfit.exp(x, (p[0], b, c)), label=f'Comp {1 + i}')
-            ax.legend()
-            ax.text(0.5, 1.02, f'True {d}, estimated: {m}',
-                    transform=ax.transAxes, ha='center')
-
-            plt.show()
-
-        return m
-
-    def test_estimate_number_of_exponentials(self):
-        # Test number of components estimte from Hankel matrix SVD
-
-        e = self.estimate_number_of_exponentials
-        self.r = np.random.default_rng(43)
-        plot = False
-
-        # Works
-        n = e((0, -1, -20), s=0.01, n=200, plot=plot)
-        self.assertEqual(n, 1)
-        n = e((0, 2, -4, 2, -10), n=201, s=0.04, plot=plot)
-        self.assertEqual(n, 2)
-        n = e((7, -100, -10, 15, -5), s=0.2, t0=0.1, plot=plot)
-        self.assertEqual(n, 2)
-        n = e((5, -10, -15, 10, -2), s=0.2, t0=0.1, plot=plot)
-        self.assertEqual(n, 2)
-        n = e((1, 6, -5, -4, -2, -2, -4), s=0.01, plot=plot)
-        self.assertEqual(n, 3)
-
-        # Fails
-        n = e([5], s=0.01, plot=plot)
-        self.assertEqual(n, 1)
-        n = e((0, 2, -4, 2, -10), s=0.05, plot=plot)
-        self.assertEqual(n, 1)
-        n = e((0, 4, -1, 2, -4, 2, -10), s=0.04, plot=plot)
-        self.assertEqual(n, 2)
-        n = e((0, 4, -2, 4, -10, 4, -25), s=0.04, plot=plot)
-        self.assertEqual(n, 2)
-        n = e((10, 20, -15, -20, -2), s=0.2, plot=plot)
-        self.assertEqual(n, 3)
-        n = e((10, 40, -15, -20, -2), s=0.2, t0=0.1, plot=plot)
-        self.assertEqual(n, 3)
-        n = e((1, 6, -5, -4, -2, -2, -4), s=0.1, plot=plot)
-        self.assertEqual(n, 2)
+    '''
 
 
 if __name__ == '__main__':  # pragma: no cover

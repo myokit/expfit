@@ -66,9 +66,9 @@ class TestDouble(unittest.TestCase):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.d2_on_double
         self.r = np.random.default_rng(20)
-        plot = False
+        plot = True
 
-        dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=plot)
+        dod(0, -10, -2, -4, -8, deltas=(.05, 1, .1, 1, 2), plot=True)
         dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
         dod(5, 1, -1, 5, -10, deltas=(.1, .1, .5, .2, .5), plot=plot)
         dod(20, 6, -2, 40, -6, t0=0.5, deltas=(.05, 1, .2, 2, .01), plot=plot)
@@ -105,12 +105,20 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(3)
         dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot)
         dod(200, -4, -4, -4, -5, deltas=(.1, 4, 4, 5, .5), plot=plot, n=1000)
+
+        # These two are repeated in _slow
         self.r = np.random.default_rng(9)
         dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot)
-        dod(300, -4, -4, -4, -5, deltas=(.001, 5, 1, 4, 1), plot=plot, n=5000)
-
         dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot)
-        dod(-1e5, 1, -1, 2, -2, deltas=(.01, .2, .1, .2, .1), plot=plot,
+
+    def test_fitd2_slow(self):
+        # Hard fits that run very slowly
+        dod = self.d2_on_double
+        plot = False
+
+        self.r = np.random.default_rng(9)
+        dod(300, -4, -4, -4, -5, deltas=(.001, 5, 1, 4, 1), plot=plot, n=5000)
+        dod(-1e5, 1, -1, 2, -2, deltas=(.05, .2, .1, .2, .1), plot=plot,
             n=8000)
 
     def test_fitd2_noisy(self):

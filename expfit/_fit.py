@@ -18,13 +18,13 @@ D2 = '#5b3383'
 
 def fit1(t, v, plot=False):
     """
-    Fits an exponential ``a + b * exp(c * t)`` to the time series ``(t, v)``,
+    Fits an exponential ``a + b * exp(-t / c)`` to the time series ``(t, v)``,
     returning ``(a, b, c)``
 
     Example::
 
         t = np.linspace(0, 1, 100)
-        v = 3 - 2 * np.exp(4 * t) + np.random.normal(0, 1, size=len(t))
+        v = 3 - 2 * np.exp(t / -0.2) + np.random.normal(0, 1, size=len(t))
         a, b, c = expfit.fit_single(t, v)
         print(a, b, c)
 
@@ -68,37 +68,47 @@ def fit1(t, v, plot=False):
         ax0 = None
 
     # Get an initial estimate (in transformed space)
-    at0, bt0, ct0 = expfit.estimate_initial_single(
-        tr.x, tr.y, axes=ax0, vet=False)
+    q0 = expfit.estimate_initial_single(tr.x, tr.y, axes=ax0, vet=False)
+    if q0[1] == 0:
+        raise expfit.NotExponentialError()
 
     # Fit (in transformed space)
     e = expfit.SingleExponentialError(tr.x, tr.y)
     with np.errstate(all='ignore'):
-        r = expfit.lm(e, (at0, bt0, ct0))
+        r = expfit.lm(e, q0)
         if plot:  # pragma: no cover
             print(r)
-    at, bt, ct = r.x
+    p = tr.detransform(r.x)
+    p[2] = -1 / p[2]
 
-    # Detransform obtained parameters, create result object
-    p = expfit.ExponentialFit(
-        t, v, tr.detransform(at, bt, ct), expfit.SingleExponentialError(t, v))
+    # Detransform obtained parameters, switch to tau form, create result object
+    e = expfit.TauFormError(t, v)
+    p = expfit.ExponentialFit(t, v, p, e)
 
     if plot:  # pragma: no cover
-        p0 = expfit.ExponentialFit(t, v, tr.detransform(at0, bt0, ct0))
-        q0 = expfit.ExponentialFit(tr.x, tr.y, (at0, bt0, ct0))
-        q = expfit.ExponentialFit(tr.x, tr.y, (at, bt, ct))
+        # Detransform and rewrite in tau form
+        p0 = tr.detransform(q0)
+        p0[2] = -1 / p0[2]
+        p0 = expfit.ExponentialFit(t, v, p0)
+        q0 = list(q0)
+        q0[2] = -1 / q0[2]
+        q0 = expfit.ExponentialFit(tr.x, tr.y, q0)
+        q = r.x
+        q[2] = -1 / q[2]
+        q = expfit.ExponentialFit(tr.x, tr.y, r.x)
 
+        # Create strings for plot labels
         strest = ', '.join(f'{i:.3}' for i in q0)
         strq = ', '.join(f'{i:.3}' for i in q)
         stre = f'rmse {np.sqrt(r.error):.4}'
         if r.success:
-            strfit = f'{strq}, {r.iterations} iter, {stre}'
+            strfit = f'{r.iterations} iter, {stre}'
         else:
-            strfit = f'{strq}, {r.message}, {stre}'
+            strfit = f'{r.message}, {stre}'
 
         e = expfit.exp
         ax0.plot(tr.x, e(tr.x, q0), '-', label=f'Initial ({strest})')
-        ax0.plot(tr.x, e(tr.x, q), '--', label=f'Fit ({strfit})')
+        ax0.plot(tr.x, e(tr.x, q), '--', label=f'Fit ({strq}), {strfit}')
         ax0.legend()
 
         if plot != 'simple':
@@ -117,38 +127,43 @@ def fit1(t, v, plot=False):
             ax2 = fig.add_subplot(2, 2, 4)
             ax2.set_xlabel('t')
             ax2.set_ylabel('v')
-            label = 'Untransformed data'
+            label = 'Original data'
             with np.errstate(divide='ignore'):
                 if known:
-                    label = f'{label} (tau={-1 / known[2]:+.3f})'
+                    label = f'{label} (tau={known[2]:+.3f})'
                 ax2.plot(t, v, ls, color=color, label=label)
-                strc0 = f'c={p0[2]:+.3f}, tau={-1 / p0[2]:+.3f}'
-                strc = f'c={p[2]:+.3f}, tau={-1 / p[2]:+.3f}'
-                ax2.plot(t, e(t, p0), '-', label=f'Initial ({strc0})')
-                ax2.plot(t, e(t, p), '--', label=f'fFit ({strc})')
+                ax2.plot(t, e(t, p0), '-', label=f'Initial (tau={p0[2]:+.3f})')
+                ax2.plot(t, e(t, p), '--', label=f'fFit (tau={p[2]:+.3f})')
             ax2.legend()
 
     return p
 
 
-def fitd2(t, v, plot=False):
+def fitd2(t, v, plot=False, opt_plot=False):
     """
-    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
-    where ``sign(b0) == sign(b1)`` and ``c1 < c0 < 0``.
+    Fits a decaying double-exponential to a time series.
+
+    Returns parameters for::
+
+        v = a + b0 * exp(-t / tau1) + b1 * exp(-t / tau2)
+
+    where ``tau0 > tau1``.
 
     Arguments:
 
     ``t``, ``v``
         The time series
     ``plot``
-        Optional parameter to create a plot of the method's workings. Can be a
-        boolean or an array of known (true) parameters.
+        Optional parameter to create a plot showing the final results,
+        including confidence intervals on the time constants.
+    ``opt_plot``
+        Optional parameter to create a plot of the optimisation routine.
 
     Returns an :class:`ExponentialFit`.
     """
     t, v = expfit.vet_series(t, v)
 
-    # Estimate the dominant rate (in transformed space)
+    # Estimate the dominant rate
     tr = expfit.UnitSquareTransform(t, v)
     q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
     a0, b0, c0 = tr.detransform(q0)
@@ -169,8 +184,9 @@ def fitd2(t, v, plot=False):
     # Fit double (in untransformed space)
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    e = expfit.MultiExponentialError(t, v)
-    c = expfit.DecayingEqualSignConstraint()
+    npos, nneg = (2, 0) if b0 > 0 else (0, 2)
+    e = expfit.MultiExponentialError(t, v, npos, nneg)
+    c = expfit.MultiExponentialConstraint(npos, nneg)
     max_iter = 10
     for i in range(max_iter):
         # Increase the difference between dominant and second exponential.
@@ -182,93 +198,13 @@ def fitd2(t, v, plot=False):
              p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
         p0[1] = p0[3] = b0 * (A0 / A)
 
-        # Fit
-        with np.errstate(all='ignore'):
-            r = expfit.lm(e, p0, constraint=c)
-            if plot is not False:  # pragma: no cover
-                print(r)
-        if r.x[4] / r.x[2] > 1.1 and r.success:
-            break
-        elif i + 1 == max_iter:  # pragma: no cover
-            raise RuntimeError(
-                f'Unable to find good fit after {max_iter} attempts.')
-    #print(f'Done in {1 + i}, {r.evaluations}')
-
-    p = expfit.ExponentialFit(t, v, r.x, e, c)
-
-    if plot is not False:  # pragma: no cover
-        pt = None
-        try:
-            assert len(plot) == 5
-            pt = plot
-        except (TypeError, AssertionError):
-            pass
-        fig, axes = plot_double(t, v, r, p, p0, pt)
-        axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
-                     label=f'Init. single ($\\tau$={-1 / c0:.3g})')
-        axes[1].legend()
-
-    return p
-
-
-def fitd2log(t, v, plot=False):
-    """
-    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
-    where ``sign(b0) == sign(b1)`` and ``c1 < c0 < 0``.
-
-    TODO
-
-    Arguments:
-
-    ``t``, ``v``
-        The time series
-    ``plot``
-        Optional parameter to create a plot of the method's workings. Can be a
-        boolean or an array of known (true) parameters.
-
-    Returns an :class:`ExponentialFit`.
-    """
-    t, v = expfit.vet_series(t, v)
-
-    # Estimate the dominant rate (in transformed space)
-    tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
-    a0, b0, c0 = tr.detransform(q0)
-    del tr, q0
-
-    # Avoid nans etc.
-    if c0 == 0:
-        return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
-
-    # Catch non-decaying
-    if c0 > 0:
-        raise RuntimeError(
-            'Initial estimate for c > 0, exponential not decaying')
-
-    # Calculate area, to determine new b constants
-    A0 = expfit._trapezoid(v - a0, t)
-
-    # Fit double (in untransformed space)
-    # Assume dominant (slowest) rate found, next will be faster
-    p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    e = expfit.DecayingMultiExponentialError(t, v)
-    c = expfit.EqualSignConstraint()
-    max_iter = 10
-    for i in range(max_iter):
-        # Increase the difference between dominant and second exponential.
-        p0[2] *= 0.707106781
-        p0[4] *= 1.414213562
-
-        # Set b constants to get same area under the curve as original estimate
-        A = (p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0])) +
-             p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
-        p0[1] = p0[3] = b0 * (A0 / A)
-
-        # Fit
+        # Fit with transformed parameters
         q0 = np.copy(p0)
+        q0[1::2][npos:] *= -1
+        q0[1::2] = np.log(q0[1::2])
         q0[2::2] = np.log(-q0[2::2])
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, q0, constraint=c)
+            r = expfit.lm(e, q0) #, constraint=c, plot=opt_plot)
             if plot is not False:  # pragma: no cover
                 print(r)
         if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
@@ -276,13 +212,15 @@ def fitd2log(t, v, plot=False):
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
-    #print(f'Done in {1 + i}, {r.evaluations}')
+    print(f'Done in {1 + i}, {r.evaluations}')
 
+    # Detransform parameters
     p = r.x
-    p[2::2] = -np.exp(p[2::2])
-    e = expfit.MultiExponentialError(t, v)
-    c = expfit.DecayingEqualSignConstraint()
-    p = expfit.ExponentialFit(t, v, r.x, e, c)
+    p[1::2] = np.exp(p[1::2])
+    p[1::2][npos:] *= -1
+    p[2::2] = 1 / np.exp(p[2::2])
+    e = expfit.TauFormError(t, v)
+    p = expfit.ExponentialFit(t, v, p, e)
 
     if plot is not False:  # pragma: no cover
         pt = None
@@ -291,118 +229,7 @@ def fitd2log(t, v, plot=False):
             pt = plot
         except (TypeError, AssertionError):
             pass
-        p0[2::2] = -np.exp(p0[2::2])
-        fig, axes = plot_double(t, v, r, p, p0, pt)
-        axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
-                     label=f'Init. single ($\\tau$={-1 / c0:.3g})')
-        axes[1].legend()
-
-    return p
-
-
-def fitd2loglog(t, v, plot=False):
-    """
-    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
-    where ``sign(b0) == sign(b1)`` and ``c1 < c0 < 0``.
-
-    TODO
-
-    Arguments:
-
-    ``t``, ``v``
-        The time series
-    ``plot``
-        Optional parameter to create a plot of the method's workings. Can be a
-        boolean or an array of known (true) parameters.
-
-    Returns an :class:`ExponentialFit`.
-    """
-    t, v = expfit.vet_series(t, v)
-
-    # Estimate the dominant rate (in transformed space)
-    tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
-    a0, b0, c0 = tr.detransform(q0)
-    del tr, q0
-
-    # Avoid nans etc.
-    if c0 == 0:
-        return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
-
-    # Catch non-decaying
-    if c0 > 0:
-        raise RuntimeError(
-            'Initial estimate for c > 0, exponential not decaying')
-
-    # Calculate area, to determine new b constants
-    trap = True
-    if trap:
-        A0 = expfit._trapezoid(v - a0, t)
-
-    # Fit double (in untransformed space)
-    # Assume dominant (slowest) rate found, next will be faster
-    p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
-    z = np.array([1 if b > 0 else -1 for b in p0[1::2]])
-    e = expfit.SignedDecayingMultiExponentialError(t, v, z)
-    max_iter = 10
-    for i in range(max_iter):
-        # Increase the difference between dominant and second exponential.
-        p0[2] *= 0.707106781
-        p0[4] *= 1.414213562
-
-        #if trap:
-        # Set b constants to get same area under the curve as original estimate
-        A = (p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0])) +
-             p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
-        p0[1] = p0[3] = b0 * (A0 / A)
-
-        q0 = np.copy(p0)
-        q0[1::2] = np.log(q0[1::2] * z)
-        q0[2::2] = np.log(-q0[2::2])
-        '''
-        else:
-            # Fit b constants
-            q0 = np.copy(p0)
-            q0[1::2] = np.log(q0[1::2] * z)
-            q0[2::2] = np.log(-q0[2::2])
-            f = SignedDecayingMultiExponentialErrorB(t, v, z, q0)
-            with np.errstate(all='ignore'):
-                r = expfit.lm(f, q0[1::2])
-                if plot is not False:  # pragma: no cover
-                    print(r)
-
-            q0 = np.copy(p0)
-            q0[1::2] = r.x
-            q0[2::2] = np.log(-q0[2::2])
-        '''
-
-        # Fit
-        with np.errstate(all='ignore'):
-            r = expfit.lm(e, q0)
-            if plot is not False:  # pragma: no cover
-                print(r)
-        if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
-            break
-        elif i + 1 == max_iter:  # pragma: no cover
-            raise RuntimeError(
-                f'Unable to find good fit after {max_iter} attempts.')
-    #print(f'Done in {1 + i}, {r.evaluations}')
-
-    p = r.x
-    p[1::2] = np.exp(p[1::2]) * z
-    p[2::2] = -np.exp(p[2::2])
-    e = expfit.MultiExponentialError(t, v)
-    c = expfit.DecayingEqualSignConstraint()
-    p = expfit.ExponentialFit(t, v, p, e, c)
-
-    if plot is not False:  # pragma: no cover
-        pt = None
-        try:
-            assert len(plot) == 5
-            pt = plot
-        except (TypeError, AssertionError):
-            pass
-        fig, axes = plot_double(t, v, r, p, p0, pt)
+        fig, axes = tau_plot(t, v, r, p, p0, pt)
         axes[1].plot(t, expfit.exp(t, (a0, b0, c0)), 'k--', lw=1.5,
                      label=f'Init. single ($\\tau$={-1 / c0:.3g})')
         axes[1].legend()
@@ -530,7 +357,7 @@ def fitd11log(t, v, plot=False):
     return p
 
 
-def plot_double(t, v, r, p, p0, ptrue=None):  # pragma: no cover
+def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
     """
     Creates a debug plot for a bi-exponential (decaying, with equal or opposing
     signs).

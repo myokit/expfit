@@ -23,6 +23,11 @@ from ._expfit_version import (  # noqa
 # Imports
 #
 
+from ._ex import (  # noqa
+    CIUnavailableError,
+    NotExponentialError,
+)
+
 from ._vetting import (  # noqa
     vet_series,
 )
@@ -35,22 +40,20 @@ from ._trans import (  # noqa
 from ._est import (  # noqa
     estimate_initial_single,
     estimate_initial_opposing,
-    estimate_noise_level,
-    estimate_number_of_exponentials,
+    #estimate_noise_level,
 )
 
 from ._err import (  # noqa
     ConstraintWithFixedParameter,
-    DecayingEqualSignConstraint,
-    DecayingMultiExponentialError,
-    D11Constraint,
     ErrorWithFixedParameter,
-    EqualSignConstraint,
-    exp,
+    MultiExponentialConstraint,
     MultiExponentialError,
-    rmse,
-    SignedDecayingMultiExponentialError,
     SingleExponentialError,
+    TauFormError,
+    exp,
+    expc,
+    rmse,
+    rmsec,
 )
 
 from ._opt import (  # noqa
@@ -60,7 +63,6 @@ from ._opt import (  # noqa
 )
 
 from ._ci import (  # noqa
-    CIUnavailableError,
     CLevel,
     ExponentialFit,
 )
@@ -69,14 +71,6 @@ from ._fit import (  # noqa
     fit1,
     fitd2,
     fitd11,
-    fitd11log,
-    fitd2log,
-    fitd2loglog,
-)
-
-from ._tau import (  # noqa
-    tau1,
-    #taud2,
 )
 
 # Numpy compatibility

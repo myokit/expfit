@@ -24,9 +24,9 @@ class ExponentialFit:
         p = expfit.fit1(t, v)
         lower, upper = p.ci_fisher(2)
 
-    If CI is unavailable, these methods will raise a
-    :class:`CIUnavailableError`. To check availability, :meth:`ci_available()`
-    can be used.
+    If CI is unavailable, these methods will raise an
+    :class:`expfit.CIUnavailableError`. To check availability,
+    :meth:`ci_available()` can be used.
 
     Arguments:
 
@@ -108,7 +108,7 @@ class ExponentialFit:
         bounds.
         """
         if self._err is None:
-            raise CIUnavailableError()
+            raise expfit.CIUnavailableError()
 
         # Set cut-off
         if not isinstance(level, CLevel):
@@ -230,7 +230,7 @@ class ExponentialFit:
         """
         if self._cov is None:
             if self._err is None:
-                raise CIUnavailableError()
+                raise expfit.CIUnavailableError()
 
             if self._mjh is None:
                 self._mjh = self._err(self._p)
@@ -242,7 +242,7 @@ class ExponentialFit:
     def error(self):
         """ Returns the error object used to derive this result, if set. """
         if self._err is None:
-            raise CIUnavailableError()
+            raise expfit.CIUnavailableError()
         return self._err
 
     def jac(self):
@@ -277,7 +277,7 @@ class ExponentialFit:
         Returns a scalar MSE.
         """
         if self._err is None:
-            raise CIUnavailableError()
+            raise expfit.CIUnavailableError()
 
         if not isinstance(level, CLevel):
             level = CLevel(level)
@@ -306,7 +306,7 @@ class ExponentialFit:
         values and their MSEs.
         """
         if self._err is None:
-            raise CIUnavailableError()
+            raise expfit.CIUnavailableError()
 
         p_full = np.array(self._p)
         values = np.linspace(lo, hi, evals)
@@ -322,15 +322,6 @@ class ExponentialFit:
                 r = expfit.lm(f, p, constraint=c, gtol=gtol)
                 errors[j] = r.error
         return values, errors
-
-
-class CIUnavailableError(RuntimeError):
-    """
-    Raised if confidence intervals are requested but the fit result does not
-    support this.
-    """
-    def __init__(self):
-        super().__init__('CI methods unavailable for this exponential fit')
 
 
 class CLevel():

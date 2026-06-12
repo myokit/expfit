@@ -9,6 +9,19 @@ import numpy as np
 
 def exp(x, p):
     """
+    Returns an exponential ``p[0] + p[1] * exp(-x / p[2]) + p[3] * ...``.
+    """
+    p = np.asarray(p)
+    d = len(p)
+    assert (d - 1) % 2 == 0
+    m = (d - 1) // 2
+    b = p[1::2].reshape((m, 1))
+    c = p[2::2].reshape((m, 1))
+    return p[0] + np.sum(b * np.exp(-x / c), axis=0)
+
+
+def expc(x, p):
+    """
     Returns an exponential ``p[0] + p[1] * exp(p[2] * x) + p[3] * ...``.
     """
     p = np.asarray(p)
@@ -23,6 +36,22 @@ def exp(x, p):
 def rmse(x, y, p):
     """
     Returns the RMSE between ``y`` and an exponential
+    ``p[0] + p[1] * exp(-x / p[1]) + p[3] * exp(-x / p[4]) + ...``.
+
+    **Note**: the returned RMSE is the root of the MSE returned by
+    :class:`SingleExponentialError` and :class:`MultiExponentialError`
+    """
+    # Treat `a` separately: this is  more accurate when a == -b
+    # for very large a and b (e.g. straight line)
+    p = np.copy(p)
+    a = p[0]
+    p[0] = 0
+    return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
+
+
+def rmsec(x, y, p):
+    """
+    Returns the RMSE between ``y`` and an exponential
     ``p[0] + p[1] * exp(p[1] * x) + p[3] * exp(p[4] * x) + ...``.
 
     **Note**: the returned RMSE is the root of the MSE returned by
@@ -30,17 +59,34 @@ def rmse(x, y, p):
     """
     # Treat `a` separately: this is  more accurate when a == -b
     # for very large a and b (e.g. straight line)
-    p = np.array(p, copy=True)
+    p = np.copy(p)
     a = p[0]
     p[0] = 0
-    return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
+    return np.sqrt(np.sum((y - a - expc(x, p))**2) / len(x))
 
 
 class SingleExponentialError():
     """
-    Callable class returning the MSE and its Jacobian and Hessian for a single
-    exponential ``y = a + b * exp(c * x)`` fit with parameters
-    ``p = (a, b, c)``.
+    Calculates the MSE, Jacobian, and Hessian for a single exponential.
+
+    This error uses the form::
+
+        y = a + b * exp(c * x)
+
+    with parameters ``p = (a, b, c)``.
+
+    Example::
+
+        x = np.linspace(0, 1, 100)
+        y = 5 + 3 * np.exp(0.5 * x)
+        e = SingleExponentialError(x, y)
+        mse, jac, hes = e([1, 2, 3])
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series.
+
     """
     def __init__(self, x, y):
         self._x = x
@@ -77,104 +123,139 @@ class SingleExponentialError():
         return mse, jac, hes
 
     def mse(self, p):
-        """ Calculate only the MSE (for a single point). """
+        """ Calculate the MSE without Jacobian or Hessian. """
         return self._m * np.sum(
             (p[0] - self._y + p[1] * np.exp(p[2] * self._x))**2)
 
 
 class MultiExponentialError():
     """
-    Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameters
-    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
+    Calculates the MSE, Jacobian, and Hessian for multiple decaying
+    exponentials, with log-transformed parameters.
+
+    This error uses the form::
+
+        y = a + sum(exp(b[i]) * exp(-exp(c[i]) * x))
+              - sum(exp(b[j]) * exp(-exp(c[j]) * x))
+
+    where ``i`` ranges from ``0`` to ``npos - 1`` and ``j`` ranges from ``0``
+    to ``nneg - 1``. The parameter vector is::
+
+        p = (a, b[0], c[0], b[1], c[1], ..., b[n - 1], c[n -1])
+
+    where ``n = npos + nneg``. The values of ``npos`` and ``nneg`` are constant
+    and must be set at construction time.
+
+    Example::
+
+        x = np.linspace(0, 1, 100)
+        y = 5 - 0.9 * np.exp(1 * x) + 1.1 * np.exp(4 * x)
+        e = SingleExponentialError(x, y, npos=1, nneg=1)
+        mse, jac, hes = e([1, 2, 3, 4, 5])
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series.
+    ``npos``
+        The number of positive exponential terms.
+    ``nneg``
+        The number of negative exponential terms.
+
     """
-    def __init__(self, x, y):
+    def __init__(self, x, y, npos, nneg):
         self._x = x
         self._y = y
         self._ni = 1 / len(x)
         self._n2 = 2 * self._ni
 
-    def __call__(self, p):
-        d = len(p)
-        assert (d - 1) % 2 == 0 and d > 1
-        m = (d - 1) // 2
+        npos, nneg = int(npos), int(nneg)
+        if npos < 0:
+            raise ValueError(
+                'Number of positive exponential terms can not be negative.')
+        if nneg < 0:
+            raise ValueError(
+                'Number of negative exponential terms can not be negative.')
 
-        # Unpack
+        self._m = npos + nneg
+        if self._m == 0:
+            raise ValueError(
+                'Total number of exponential terms must be greater than zero.')
+
+        self._z = np.ones(self._m)
+        self._z[-nneg:] = -1
+        self._np = 1 + 2 * self._m
+
+    def __call__(self, p):
+        assert len(p) == self._np
+        m, d = self._m, self._np
+
+        # Unpack and detransform
         p = np.asarray(p)
-        a = p[0]
-        b = p[1::2].reshape((m, 1))        # (m, 1)
-        c = p[2::2].reshape((m, 1))        # (m, 1)
+        b = (self._z * np.exp(p[1::2])).reshape((m, 1))  # (m, 1)
+        c = -np.exp(p[2::2]).reshape((m, 1))             # (m, 1)
 
         # MSE
-        e = np.exp(c * self._x)               # (m, n)  e^(cx)
-        be = b * e                            # (m, n) be^(cx)
-        f = a - self._y + np.sum(be, axis=0)  # (n, ) a - y + sum_j(be^(cx))
+        e = np.exp(c * self._x)                  # (m, n)
+        be = b * e                               # (m, n)
+        f = p[0] - self._y + np.sum(be, axis=0)  # (n, )
         mse = np.sum(f**2) * self._ni
 
         # Jacobian
-        ex = e * self._x
+        ex = e * self._x  # (m, n)
+        bcT = (b * c).T   # (1, m)
         jac = np.zeros(d)
         jac[0] = self._n2 * np.sum(f)
-        jac[1::2] = self._n2 * np.sum(f * e, axis=1)
-        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * b.T
+        jac[1::2] = self._n2 * np.sum(f * e, axis=1) * b.T
+        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * bcT
 
         # Hessian
-        hes = np.zeros((d, d))
-
+        fbe = (f + be)        # (m, n)
+        fbex = fbe * self._x  # (m, n)
         # aa, ab, ac
+        hes = np.zeros((d, d))
         hes[0, 0] = 2
-        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1)
-        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * b.T
+        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1) * b.T
+        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * bcT
         for i in range(m):
-            fbeex = (f + be[i]) * ex[i]
-            # bi^2, ci^2, and bi*ci
-            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(e[i]**2)
+            # bi^2, ci^2, sand bi*ci
+            hes[1 + 2 * i, 1 + 2 * i] = \
+                self._n2 * np.sum(fbe[i] * e[i]) * b[i, 0]
             hes[2 + 2 * i, 2 + 2 * i] = \
-                self._n2 * np.sum(fbeex * self._x) * b[i, 0]
+                self._n2 * np.sum((fbex[i] * c[i, 0] + f) * ex[i]) * bcT[0, i]
             hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
-                self._n2 * np.sum(fbeex)
-
+                self._n2 * np.sum(fbex[i] * e[i]) * bcT[0, i]
             for j in range(i + 1, m):
                 eij = e[i] * e[j]
                 eijx = eij * self._x
                 seijx = np.sum(eijx)
                 # bi*bj, ci*cj, bi*cj, bj*ci
                 hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(eij)
+                    self._n2 * np.sum(eij) * b[i, 0] * b[j, 0]
                 hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(eijx * self._x) * b[i, 0] * b[j, 0]
+                    self._n2 * np.sum(eijx * self._x) * bcT[0, i] * bcT[0, j]
                 hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * seijx * b[j, 0]
+                    self._n2 * seijx * bcT[0, j] * b[i, 0]
                 hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * seijx * b[i, 0]
+                    self._n2 * seijx * bcT[0, i] * b[j, 0]
 
         return mse, jac, hes
-
-    def mse(self, p):
-        """ Calculate only the MSE (for a single point). """
-        # Unpack
-        d = len(p)
-        assert (d - 1) % 2 == 0 and d > 1
-        m = (d - 1) // 2
-
-        p = np.asarray(p)
-        a = p[0]
-        bs = p[1::2].reshape((m, 1))        # (m, 1)
-        cs = p[2::2].reshape((m, 1))        # (m, 1)
-
-        # MSE
-        return self._ni * np.sum((
-            a - self._y + np.sum(bs * np.exp(np.outer(cs, self._x)), axis=0)
-        )**2)
 
 
 class TauFormError():
     """
-    Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(c_i * x)`` fit with parameters
-    ``p = (a, b_1, c_1, b_2, c_2, ...)``.
+    Calculates the MSE, Jacobian, and Hessian for multiple decaying
+    exponentials, using time constant as parameters.
 
-    TODO
+    This error uses the form::
+
+        y = a + sum(b[i] * exp(-np.exp(c[i]) * x))
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series
+
     """
     def __init__(self, x, y):
         self._x = x
@@ -239,22 +320,8 @@ class TauFormError():
 
         return mse, jac, hes
 
-
-class DecayingMultiExponentialError():
-    """
-    Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(-exp(q_i) * x)`` fit with parameters
-    ``p = (a, b_1, q_1, b_2, q_2, ...)``.
-
-    TODO
-    """
-    def __init__(self, x, y):
-        self._x = x
-        self._y = y
-        self._ni = 1 / len(x)
-        self._n2 = 2 * self._ni
-
-    def __call__(self, p):
+    def mse(self, p):
+        """ Calculate the MSE without Jacobian or Hessian. """
         d = len(p)
         assert (d - 1) % 2 == 0 and d > 1
         m = (d - 1) // 2
@@ -262,214 +329,19 @@ class DecayingMultiExponentialError():
         # Unpack
         p = np.asarray(p)
         a = p[0]
-        b = p[1::2].reshape((m, 1))           # (m, 1)
-        c = -np.exp(p[2::2]).reshape((m, 1))  # (m, 1)
+        b = p[1::2].reshape((m, 1))       # (m, 1)
+        c = -1 / p[2::2].reshape((m, 1))  # (m, 1)
 
         # MSE
-        e = np.exp(c * self._x)               # (m, n)
-        be = b * e                            # (m, n)
-        f = a - self._y + np.sum(be, axis=0)  # (n, )
-        mse = np.sum(f**2) * self._ni
-
-        # Jacobian
-        ex = e * self._x  # (m, n)
-        bcT = (b * c).T   # (1, m)
-        jac = np.zeros(d)
-        jac[0] = self._n2 * np.sum(f)
-        jac[1::2] = self._n2 * np.sum(f * e, axis=1)
-        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * bcT
-
-        # Hessian
-        fbex = (f + be) * self._x  # (m, n)
-        # aa, ab, ac
-        hes = np.zeros((d, d))
-        hes[0, 0] = 2
-        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1)
-        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * bcT
-        for i in range(m):
-            # bi^2, ci^2, sand bi*ci
-            hes[1 + 2 * i, 1 + 2 * i] = self._n2 * np.sum(e[i]**2)
-            hes[2 + 2 * i, 2 + 2 * i] = \
-                self._n2 * np.sum((fbex[i] * c[i, 0] + f) * ex[i]) * bcT[0, i]
-            hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
-                self._n2 * np.sum(fbex[i] * e[i]) * c[i, 0]
-            for j in range(i + 1, m):
-                eij = e[i] * e[j]
-                eijx = eij * self._x
-                # bi*bj, ci*cj, bi*cj, bj*ci
-                hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(eij)
-                hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(eijx * self._x) * bcT[0, i] * bcT[0, j]
-                hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(eijx) * bcT[0, j]
-                hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(eijx) * bcT[0, i]
-
-        return mse, jac, hes
-
-
-class SignedDecayingMultiExponentialError():
-    """
-    Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(-exp(q_i) * x)`` fit with parameters
-    ``p = (a, b_1, q_1, b_2, q_2, ...)``.
-
-    TODO
-    """
-    def __init__(self, x, y, z):
-        self._x = x
-        self._y = y
-        self._ni = 1 / len(x)
-        self._n2 = 2 * self._ni
-
-        self._m = self._np = None
-        try:
-            self._m = len(z)
-        except AttributeError:
-            self._z = float(z)
-            if not (z == 1 or z == -1):
-                raise ValueError('z can only be 1 or -1')
-        else:
-            self._z = np.array(z)
-            if len(self._z.shape) > 1:
-                raise ValueError('z must be a scalar or a 1-d array')
-            if not np.all(np.logical_or(self._z == 1, self._z == -1)):
-                raise ValueError('All entries in z must be 1 or -1')
-            self._np = 1 + 2 * self._m
-
-    def __call__(self, p):
-        if self._m is None:
-            d = len(p)
-            assert (d - 1) % 2 == 0 and d > 1
-            m = (d - 1) // 2
-        else:
-            d = self._np
-            m = self._m
-            assert len(p) == d
-
-        # Unpack
-        p = np.asarray(p)
-        a = p[0]
-        b = (self._z * np.exp(p[1::2])).reshape((m, 1))  # (m, 1)
-        c = -np.exp(p[2::2]).reshape((m, 1))             # (m, 1)
-
-        # MSE
-        e = np.exp(c * self._x)               # (m, n)
-        be = b * e                            # (m, n)
-        f = a - self._y + np.sum(be, axis=0)  # (n, )
-        mse = np.sum(f**2) * self._ni
-
-        # Jacobian
-        ex = e * self._x  # (m, n)
-        bcT = (b * c).T   # (1, m)
-        jac = np.zeros(d)
-        jac[0] = self._n2 * np.sum(f)
-        jac[1::2] = self._n2 * np.sum(f * e, axis=1) * b.T
-        jac[2::2] = self._n2 * np.sum(f * ex, axis=1) * bcT
-
-        # Hessian
-        fbe = (f + be)        # (m, n)
-        fbex = fbe * self._x  # (m, n)
-        # aa, ab, ac
-        hes = np.zeros((d, d))
-        hes[0, 0] = 2
-        hes[0, 1::2] = hes[1::2, 0] = self._n2 * np.sum(e, axis=1) * b.T
-        hes[0, 2::2] = hes[2::2, 0] = self._n2 * np.sum(ex, axis=1) * bcT
-        for i in range(m):
-            # bi^2, ci^2, sand bi*ci
-            hes[1 + 2 * i, 1 + 2 * i] = \
-                self._n2 * np.sum(fbe[i] * e[i]) * b[i, 0]
-            hes[2 + 2 * i, 2 + 2 * i] = \
-                self._n2 * np.sum((fbex[i] * c[i, 0] + f) * ex[i]) * bcT[0, i]
-            hes[1 + 2 * i, 2 + 2 * i] = hes[2 + 2 * i, 1 + 2 * i] = \
-                self._n2 * np.sum(fbex[i] * e[i]) * bcT[0, i]
-            for j in range(i + 1, m):
-                eij = e[i] * e[j]
-                eijx = eij * self._x
-                seijx = np.sum(eijx)
-                # bi*bj, ci*cj, bi*cj, bj*ci
-                hes[1 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * np.sum(eij) * b[i, 0] * b[j, 0]
-                hes[2 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * np.sum(eijx * self._x) * bcT[0, i] * bcT[0, j]
-                hes[1 + 2 * i, 2 + 2 * j] = hes[2 + 2 * j, 1 + 2 * i] = \
-                    self._n2 * seijx * bcT[0, j] * b[i, 0]
-                hes[2 + 2 * i, 1 + 2 * j] = hes[1 + 2 * j, 2 + 2 * i] = \
-                    self._n2 * seijx * bcT[0, i] * b[j, 0]
-
-        return mse, jac, hes
-
-
-'''
-class SignedDecayingMultiExponentialErrorB():
-    """
-    Callable class returning the MSE and its Jacobian and Hessian for a
-    multi-exponential ``y = a + b_i * exp(-exp(q_i) * x)`` fit with parameters
-    ``p = (a, b_1, q_1, b_2, q_2, ...)``.
-
-    TODO
-    """
-    def __init__(self, x, y, z, p0):
-        self._x = x
-        self._y = y
-        self._ni = 1 / len(x)
-        self._n2 = 2 * self._ni
-
-        p0 = np.array(p0)
-        d = len(p0)
-        assert (d - 1) % 2 == 0 and d > 1
-        m = (d - 1) // 2
-        self._a = p0[0]
-        self._c = -np.exp(p0[2::2]).reshape((m, 1))             # (m, 1)
-        self._m = m
-
-        # TODO
-        self._z = z
-
-    def __call__(self, p):
-        if self._m is None:
-            d = m = len(p)
-        else:
-            d = m = self._m
-
-        # Unpack
-        p = np.asarray(p)
-        b = (self._z * np.exp(p)).reshape((m, 1))  # (m, 1)
-
-        # MSE
-        e = np.exp(self._c * self._x)         # (m, n)
-        be = b * e                            # (m, n)
-        f = self._a - self._y + np.sum(be, axis=0)  # (n, )
-        mse = np.sum(f**2) * self._ni
-
-        # Jacobian
-        ex = e * self._x        # (m, n)
-        bcT = (b * self._c).T   # (1, m)
-        jac = self._n2 * np.sum(f * e, axis=1) * b.T
-        jac = jac[0]
-
-        # Hessian
-        fbe = (f + be)        # (m, n)
-        fbex = fbe * self._x  # (m, n)
-        # aa, ab, ac
-        hes = np.zeros((d, d))
-        for i in range(m):
-            # bi^2
-            hes[i, i] = \
-                self._n2 * np.sum(fbe[i] * e[i]) * b[i, 0]
-            for j in range(i + 1, m):
-                # bi*bj
-                hes[i, j] = hes[j, i] = \
-                    self._n2 * np.sum(e[i] * e[j]) * b[i, 0] * b[j, 0]
-
-        return mse, jac, hes
-'''
+        e = np.exp(c * self._x)               # (m, n)  e^(cx)
+        be = b * e                            # (m, n) be^(cx)
+        f = a - self._y + np.sum(be, axis=0)  # (n, ) a - y + sum_j(be^(cx))
+        return self._ni * np.sum(f**2)
 
 
 class ErrorWithFixedParameter():
     """
-    Wraps around an error class and fixes one parameter.
+    Wraps around an error class and turns one parameter into a constant.
 
     This is used in profiling methods.
 
@@ -497,88 +369,48 @@ class ErrorWithFixedParameter():
         return m, j, h
 
 
-class DecayingEqualSignConstraint():
+class MultiExponentialConstraint():
     """
-    Constraint for fitting decaying exponentials ``a + b_i * exp(c_i * x)``,
-    where all ``b`` have the same sign.
+    Constraint for use with :class:`MultiExponentialError` that keeps the ``c``
+    constants ordered.
 
-    In full:
+    In each set (positive and negative ``b`` parameters), a constraint is
+    checked such that ``c[i] > c[i + 1]``.
 
-    1. All ``b`` have the same sign.
-    2. All ``c`` are negative.
-    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
-       largest tau). Exponentials are ordered by dominance, so that
-       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
+    Arguments:
 
-    """
-    def __call__(self, p):
-        b, c = p[1::2], p[2::2]
-        return (np.all(c < 0) and np.all(c[:-1] > c[1:]) and
-                (np.all(b <= 0) or np.all(b >= 0)))
-
-
-class EqualSignConstraint():
-    """
-    Constraint for fitting decaying exponentials
-
-
-     ``a + b_i * exp(c_i * x)``,
-    where all ``b`` have the same sign.
-
-    In full:
-
-    1. All ``b`` have the same sign.
-    2. All ``c`` are negative.
-    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
-       largest tau). Exponentials are ordered by dominance, so that
-       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
+    ``x``, ``y``
+        The time series.
+    ``npos``
+        The number of positive exponential terms.
+    ``nneg``
+        The number of negative exponential terms.
 
     """
-    def __call__(self, p):
-        b = p[1::2]
-        return np.all(b <= 0) or np.all(b >= 0)
 
+    def __init__(self, npos, nneg):
+        npos, nneg = int(npos), int(nneg)
+        if npos < 0:
+            raise ValueError(
+                'Number of positive exponential terms can not be negative.')
+        if nneg < 0:
+            raise ValueError(
+                'Number of negative exponential terms can not be negative.')
+        if npos + nneg == 0:
+            raise ValueError(
+                'Total number of exponential terms must be greater than zero.')
 
-class DecayingOppositeSignConstraint():
-    """
-    Constraint for fitting decaying exponentials ``a + b_i * exp(c_i * x)``
-    where all ``b_i`` have the same sign until ``i = n_initial``, after which
-    they all have the opposite sign.
-
-    In full:
-
-
-
-
-
-    1. All ``b`` have the same sign.
-    2. All ``c`` are negative.
-    3. The dominant (slowest) exponential has the smallest absolute ``c`` (or
-       largest tau). Exponentials are ordered by dominance, so that
-       ``abs(c[i]) < abs(c[i + 1])`` or ``c[i] > c[i + 1]``
-
-    "d11" exponentials: ``b[0] * b[1] < 0``,
-    ``c[0] < 0``, ``c[1] < 0``, and ``c[1] > c[0]``,
-    """
-    #def __init__(self, i):
+        self._npos = npos
 
     def __call__(self, p):
-        #return p[2] < 0 and p[4] < 0 and p[4] > p[2] and p[1] * p[3] < 0
-        return p[2] < 0 and p[4] < 0 and p[1] * p[3] < 0
-
-
-class D11Constraint():
-    """
-    Constraint for fitting "d11" exponentials: ``b[0] * b[1] < 0``,
-    ``c[0] < 0``, ``c[1] < 0``, and ``c[1] > c[0]``,
-    """
-    def __call__(self, p):
-        return p[2] < 0 and p[4] < 0 and p[4] > p[2] and p[1] * p[3] < 0
+        c = p[2::2]
+        cp, cn = c[:self._npos], c[self._npos:]
+        return (np.all(cp[:-1] > cp[1:]) and np.all(cn[:-1] > cn[1:]))
 
 
 class ConstraintWithFixedParameter():
     """
-    Wraps around a constraint and fixes one parameter.
+    Wraps around an error class and turns one parameter into a constant.
 
     Arguments:
 
