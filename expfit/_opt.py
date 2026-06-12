@@ -79,7 +79,7 @@ class LMResult:
         ))
 
 
-def lm(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
+def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -141,6 +141,20 @@ def lm(f, p0, gtol=1e-7, max_iter=200, constraint=None, verbose=False):
     m, j, h = f(p[0])
     evaluations = 1
     accepted = 0
+
+    # Check dimensions
+    if not np.isscalar(m):
+        raise ValueError('MSE must be a scalar')
+    j = np.asarray(j)
+    if j.shape != n:
+        raise ValueError(
+            'Jacobian must match shape of initial point.'
+            f' Got {j.shape}, expecting ({n}, )')
+    h = np.asarray(h)
+    if not len(h.shape) == 2 and np.all(h.shape == n):
+        raise ValueError(
+            'Hessian must match shape of initial point.'
+            f' Got {h.shape}, expecting ({n}, {n})')
 
     # Check if constraint holds for initial position
     if constraint is not None and not constraint(p[0]):

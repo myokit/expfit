@@ -49,6 +49,7 @@ from ._err import (  # noqa
     exp,
     MultiExponentialError,
     rmse,
+    SignedDecayingMultiExponentialError,
     SingleExponentialError,
 )
 
@@ -68,7 +69,9 @@ from ._fit import (  # noqa
     fit1,
     fitd2,
     fitd11,
+    fitd11log,
     fitd2log,
+    fitd2loglog,
 )
 
 from ._tau import (  # noqa

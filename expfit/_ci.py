@@ -48,6 +48,7 @@ class ExponentialFit:
 
         self._err = error
         self._cst = constraint
+        self._mjh = None
         self._cov = None
 
     def __len__(self):
@@ -231,7 +232,9 @@ class ExponentialFit:
             if self._err is None:
                 raise CIUnavailableError()
 
-            mse, jac, hes = self._err(self._p)
+            if self._mjh is None:
+                self._mjh = self._err(self._p)
+            mse, jac, hes = self._mjh
             self._cov = np.linalg.inv(hes) * (2 * mse / self._nt)
 
         return self._cov
@@ -241,6 +244,24 @@ class ExponentialFit:
         if self._err is None:
             raise CIUnavailableError()
         return self._err
+
+    def jac(self):
+        """ Returns the Jacobian at the obtained solution. """
+        if self._mjh is None:
+            self._mjh = self._err(self._p)
+        return self._mjh[1]
+
+    def hes(self):
+        """ Returns the Hessian at the obtained solution. """
+        if self._mjh is None:
+            self._mjh = self._err(self._p)
+        return self._mjh[2]
+
+    def mse(self):
+        """ Returns the MSE at the obtained solution. """
+        if self._mjh is None:
+            self._mjh = self._err(self._p)
+        return self._mjh[0]
 
     def mse_cutoff(self, level=90):
         """

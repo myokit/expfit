@@ -12,9 +12,9 @@ import numpy as np
 import expfit
 
 
-class TestD11(unittest.TestCase):
+class TestD11Log(unittest.TestCase):
     """
-    Tests fitting of d11 (one down one up) exponentials.
+    Tests fitting of d11 (one down one up) exponentials. LOG LOG LOG
     """
     @classmethod
     def setUpClass(cls):
@@ -37,7 +37,7 @@ class TestD11(unittest.TestCase):
         v += self.r.normal(0, s, size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        p = expfit.fitd11(t, v, plot=plot_params)
+        p = expfit.fitd11log(t, v, plot=plot_params)
         rt = expfit.rmse(t, v, (a, b, c, d, e))
         rf = expfit.rmse(t, v, p)
 
@@ -84,7 +84,7 @@ class TestD11(unittest.TestCase):
         v = expfit.exp(t, p)
         v += self.r.normal(0, s, size=n)
 
-        q = expfit.fitd11(t, v, plot=p if plot else False)
+        q = expfit.fitd11log(t, v, plot=p if plot else False)
         rt = expfit.rmse(t, v, p)
         rf = expfit.rmse(t, v, q)
 
