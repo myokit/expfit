@@ -13,7 +13,9 @@ def exp(x, p):
     """
     p = np.asarray(p)
     d = len(p)
-    assert (d - 1) % 2 == 0
+    if d < 3 or (d - 1) % 2 != 0:
+        raise ValueError(f'Invalid number of parameters ({d}).')
+
     m = (d - 1) // 2
     b = p[1::2].reshape((m, 1))
     c = p[2::2].reshape((m, 1))
@@ -26,7 +28,9 @@ def expc(x, p):
     """
     p = np.asarray(p)
     d = len(p)
-    assert (d - 1) % 2 == 0
+    if d < 3 or (d - 1) % 2 != 0:
+        raise ValueError(f'Invalid number of parameters ({d}).')
+
     m = (d - 1) // 2
     b = p[1::2].reshape((m, 1))
     c = p[2::2].reshape((m, 1))
@@ -57,8 +61,6 @@ def rmsec(x, y, p):
     **Note**: the returned RMSE is the root of the MSE returned by
     :class:`SingleExponentialError` and :class:`MultiExponentialError`
     """
-    # Treat `a` separately: this is  more accurate when a == -b
-    # for very large a and b (e.g. straight line)
     p = np.copy(p)
     a = p[0]
     p[0] = 0
@@ -135,22 +137,44 @@ class MultiExponentialError():
 
     This error uses the form::
 
-        y = a + sum(exp(b[i]) * exp(-exp(c[i]) * x))
-              - sum(exp(b[j]) * exp(-exp(c[j]) * x))
+        y = a + sum(exp(b'[i]) * exp(-exp(c'[i]) * x))
+              - sum(exp(b'[j]) * exp(-exp(c'[j]) * x))
 
     where ``i`` ranges from ``0`` to ``npos - 1`` and ``j`` ranges from ``0``
     to ``nneg - 1``. The parameter vector is::
 
-        p = (a, b[0], c[0], b[1], c[1], ..., b[n - 1], c[n -1])
+        p = (a, b'[0], c'[0], b'[1], c'[1], ..., b'[n - 1], c'[n -1])
 
     where ``n = npos + nneg``. The values of ``npos`` and ``nneg`` are constant
     and must be set at construction time.
 
+    Compared to the single exponential error, the ``b`` and ``c`` parameters
+    are transformed as::
+
+        a' = a
+        b' = log(abs(b))
+        c' = log(-c)
+
     Example::
 
-        x = np.linspace(0, 1, 100)
-        y = 5 - 0.9 * np.exp(1 * x) + 1.1 * np.exp(4 * x)
-        e = SingleExponentialError(x, y, npos=1, nneg=1)
+        x = np.linspace(0, 1, 20)
+        y = 5 + 1.1 * np.exp(4 * x)
+        e1 = expfit.SingleExponentialError(x, y)
+        e2 = expfit.MultiExponentialError(x, y, npos=1, nneg=0)
+        m1, j1, h1 = e1([1, 2, -3])
+        m2, j2, h2 = e2([1, np.log(2), np.log(3)])
+
+        # The MSE of both errors is the same:
+        print(m1 == m2)
+
+        # But the Jacobian of e2 is in log-transformed space
+        print(j1 == j2)
+
+    A multi-exponential example::
+
+        x = np.linspace(0, 1, 20)
+        y = 5 + 1.1 * np.exp(4 * x) - 0.9 * np.exp(1 * x)
+        e = expfit.MultiExponentialError(x, y, npos=1, nneg=1)
         mse, jac, hes = e([1, 2, 3, 4, 5])
 
     Arguments:
@@ -185,8 +209,6 @@ class MultiExponentialError():
         self._z = np.ones(self._m)
         self._z[npos:] = -1
         self._np = 1 + 2 * self._m
-
-        print(npos, nneg, self._z)
 
     def __call__(self, p):
         if len(p) != self._np:
@@ -244,6 +266,17 @@ class MultiExponentialError():
 
         return mse, jac, hes
 
+    def mse(self, p):
+        """ Calculate the MSE without Jacobian or Hessian. """
+        if len(p) != self._np:
+            raise ValueError(f'Expecting {self._np} parameters, got {len(p)}.')
+
+        p = np.asarray(p)
+        b = (self._z * np.exp(p[1::2])).reshape((self._m, 1))
+        c = -np.exp(p[2::2]).reshape((self._m, 1))
+        return self._ni * np.sum(
+            (p[0] - self._y + np.sum(b * np.exp(c * self._x), axis=0))**2)
+
 
 class TauFormError():
     """
@@ -268,7 +301,8 @@ class TauFormError():
 
     def __call__(self, p):
         d = len(p)
-        assert (d - 1) % 2 == 0 and d > 1
+        if d < 3 or (d - 1) % 2 != 0:
+            raise ValueError(f'Invalid number of parameters ({d}).')
         m = (d - 1) // 2
 
         # Unpack
@@ -276,6 +310,8 @@ class TauFormError():
         a = p[0]
         b = p[1::2].reshape((m, 1))       # (m, 1)
         c = -1 / p[2::2].reshape((m, 1))  # (m, 1)
+
+
 
         # MSE
         e = np.exp(c * self._x)               # (m, n)  e^(cx)
@@ -326,20 +362,13 @@ class TauFormError():
     def mse(self, p):
         """ Calculate the MSE without Jacobian or Hessian. """
         d = len(p)
-        assert (d - 1) % 2 == 0 and d > 1
+        if d < 3 or (d - 1) % 2 != 0:
+            raise ValueError(f'Invalid number of parameters ({d}).')
         m = (d - 1) // 2
-
-        # Unpack
         p = np.asarray(p)
-        a = p[0]
-        b = p[1::2].reshape((m, 1))       # (m, 1)
-        c = -1 / p[2::2].reshape((m, 1))  # (m, 1)
-
-        # MSE
-        e = np.exp(c * self._x)               # (m, n)  e^(cx)
-        be = b * e                            # (m, n) be^(cx)
-        f = a - self._y + np.sum(be, axis=0)  # (n, ) a - y + sum_j(be^(cx))
-        return self._ni * np.sum(f**2)
+        return self._ni * np.sum((p[0] - self._y + np.sum(
+            p[1::2].reshape((m, 1)) * np.exp(
+                -1 / p[2::2].reshape((m, 1)) * self._x), axis=0))**2)
 
 
 class ErrorWithFixedParameter():

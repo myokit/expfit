@@ -13,41 +13,45 @@ import expfit
 
 
 def mse(x, y, p):
-    """ Multi-exponential mean-squared error """
+    """ Multi-exponential mean-squared error. """
+    m = (len(p) - 1) // 2
+    p = np.asarray(p)
+    b = p[1::2].reshape((m, 1))
+    c = p[2::2].reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
+
+
+def mse_log(x, y, p):
+    """ Log-transformed multi-exponential MSE, all positive b. """
+    m = (len(p) - 1) // 2
+    p = np.asarray(p)
+    b = np.exp(p[1::2]).reshape((m, 1))
+    c = -np.exp(p[2::2]).reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
+
+
+def mse_log21(x, y, p):
+    """ Log-transformed multi-exponential MSE, 2 positive, 1 negative b. """
+    m = (len(p) - 1) // 2
+    p = np.asarray(p)
+    b = np.exp(p[1::2]).reshape((m, 1))
+    b[-1] *= -1
+    c = -np.exp(p[2::2]).reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
+
+
+def mse_tau(x, y, p):
+    """ Tau-form multi-exponential MSE. """
     d = len(p)
-    assert (d - 1) % 2 == 0 and d > 1
     m = (d - 1) // 2
     p = np.asarray(p)
-    bs = p[1::2].reshape((m, 1))
-    cs = p[2::2].reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
-
-
-def mse_tr_pos(x, y, p):
-    """ Transformed multi-exponential mean-squared error """
-    d = len(p)
-    assert (d - 1) % 2 == 0 and d > 1
-    m = (d - 1) // 2
-    p = np.asarray(p)
-    bs = np.exp(p[1::2]).reshape((m, 1))
-    cs = -np.exp(p[2::2]).reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
-
-
-def mse_tr_ppn(x, y, p):
-    """ Transformed multi-exponential mean-squared error, pos pos neg bs """
-    d = len(p)
-    assert (d - 1) % 2 == 0 and d > 1
-    m = (d - 1) // 2
-    p = np.asarray(p)
-    bs = np.exp(p[1::2]).reshape((m, 1))
-    bs[-1] *= -1
-    cs = -np.exp(p[2::2]).reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(bs * np.exp(cs * x), axis=0))**2) / len(x)
+    b = p[1::2].reshape((m, 1))
+    c = -1 / p[2::2].reshape((m, 1))
+    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
 
 
 def mse_jac_fd(x, y, p, dp, f=mse):
-    """ Multi-exponential MSE plus jacobian by finite differences """
+    """ Multi-exponential MSE plus jacobian by finite differences. """
     e = f(x, y, p)
     jac = np.zeros(len(p))
     p = np.array(p, dtype=float)
@@ -59,7 +63,7 @@ def mse_jac_fd(x, y, p, dp, f=mse):
 
 
 def mse_jac_hes_fd(x, y, p, dp=1e-6, f=mse):
-    """ Multi-exponential MSE, Jacobian, and Hessian by finite differences """
+    """ Multi-exponential MSE, Jacobian, and Hessian by finite differences. """
     d = len(p)
     mse, jac = mse_jac_fd(x, y, p, dp, f=f)
     hes = np.zeros((d, d))
@@ -75,6 +79,8 @@ class TestError(unittest.TestCase):
     """ Tests the different error classes. """
 
     def test_exp(self):
+        # Exponential function in tau form
+
         x = np.linspace(0, 1, 123)
         a, b, c = 1, 2, 3
         y = a + b * np.exp(-x / c)
@@ -85,11 +91,9 @@ class TestError(unittest.TestCase):
         y = a + b * np.exp(-x / c) + d * np.exp(-x / e)
         np.testing.assert_allclose(y, expfit.exp(x, (a, b, c, d, e)), rtol=1e-15)
 
-        x = [1, 2, 3]
-        y = expfit.exp(x, [4])
-        self.assertEqual(list(y), [4, 4, 4])
-
     def test_expc(self):
+        # Exponential function in c-form
+
         x = np.linspace(0, 1, 123)
         a, b, c = 1, 2, 3
         y = a + b * np.exp(c * x)
@@ -99,10 +103,6 @@ class TestError(unittest.TestCase):
         a, b, c, d, e = 5, 6, -7, 8, -9
         y = a + b * np.exp(c * x) + d * np.exp(e * x)
         np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c, d, e)))
-
-        x = [1, 2, 3]
-        y = expfit.exp(x, [4])
-        self.assertEqual(list(y), [4, 4, 4])
 
     def test_rmse(self):
         x = np.linspace(1, 2, 50)
@@ -200,27 +200,16 @@ class TestError(unittest.TestCase):
     def test_multi_error(self):
 
         # Single error comparison: MSE only
-        p = np.array([1, 2, -3])
         x = np.linspace(0, 1, 123)
-        y = expfit.expc(x, p)
+        y = expfit.expc(x, [1, 2, -3])
         e1 = expfit.MultiExponentialError(x, y, 1, 0)
         e2 = expfit.SingleExponentialError(x, y)
         p0 = np.array([1, 2, -2])
         q0 = np.array([1, np.log(2), np.log(2)])
-        m1, j1, h1 = e1(q0)
-        m2, j2, h2 = e2(p0)
-        self.assertEqual(m1, m2)
+        self.assertEqual(e1(q0)[0], e2(p0)[0])
 
-        p = np.array([1, -2, -3])
-        x = np.linspace(0, 1, 123)
-        y = expfit.expc(x, p)
-        e1 = expfit.MultiExponentialError(x, y, 0, 1)
-        e2 = expfit.SingleExponentialError(x, y)
-        p0 = np.array([1, -1, -2])
-        q0 = np.array([p0[0], np.log(1), np.log(2)])
-        m1, j1, h1 = e1(q0)
-        m2, j2, h2 = e2(p0)
-        self.assertEqual(m1, m2)
+        # Test mse() method
+        self.assertEqual(e1(p0)[0], e1.mse(p0))
 
         # Multi with zeros
         e1 = expfit.MultiExponentialError(x, y, 1, 0)
@@ -237,30 +226,66 @@ class TestError(unittest.TestCase):
         e1 = expfit.MultiExponentialError(x, y, 2, 0)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
         m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tr_pos)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log)
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-4))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 6e-3))
+        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
+        self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
 
         e1 = expfit.MultiExponentialError(x, y, 2, 1)
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tr_ppn)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log21)
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 5e-5))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 0.03))
+        self.assertTrue(np.all(np.abs(h1 - h2) < 0.01))
+
+    def test_tau_error(self):
+
+        # MSE test against multie error
+        x = np.linspace(1, 2, 50)
+        y = expfit.expc(x, [2, 1, -2])
+        e1 = expfit.TauFormError(x, y)
+        e2 = expfit.MultiExponentialError(x, y, 1, 1)
+        m1, j1, h1 = e1([5, 2, 0.5, -1, 0.25])
+        m2, j2, h2 = e2([5, np.log(2), np.log(2), np.log(1), np.log(4)])
+        self.assertEqual(m1, m2)
 
         # Test mse() method
-         self.assertEqual(e1(p)[0], e1.mse(p))
+        self.assertEqual(e1([1, 2, 3, 4, 5])[0], e1.mse([1, 2, 3, 4, 5]))
+
+        # Test against finite differences
+        p = np.array([1, 1.1, 0.5, 1.2, 1])
+        y = expfit.exp(x, p)
+        e1 = expfit.TauFormError(x, y)
+        p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
+        m1, j1, h1 = e1(p)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
+        self.assertEqual(j1.shape, (5, ))
+        self.assertEqual(h1.shape, (5, 5))
+        self.assertAlmostEqual(m1, m2)
+        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
+        self.assertTrue(np.all(np.abs(h1 - h2) < 1e-5))
+
+        e1 = expfit.TauFormError(x, y)
+        p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
+        m1, j1, h1 = e1(p)
+        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
+        self.assertEqual(j1.shape, (7, ))
+        self.assertEqual(h1.shape, (7, 7))
+        self.assertAlmostEqual(m1, m2)
+        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
+        self.assertTrue(np.all(np.abs(h1 - h2) < 1e-3))
 
     def test_fixed_parameter(self):
+        # Test the wrapper that fixes a single parameter
+
         x = np.linspace(0, 1, 123)
         y = expfit.exp(x, (1, 2, 3))
-        e1 = expfit.MultiExponentialError(x, y)
+        e1 = expfit.MultiExponentialError(x, y, 0, 1)
         e2 = expfit.ErrorWithFixedParameter(e1, (2, 3, 4), 0)
         m1, j1, h1 = e1((2, 4, 5))
         m2, j2, h2 = e2((4, 5))

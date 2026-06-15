@@ -18,7 +18,7 @@ class TestTrans(unittest.TestCase):
     """
     def test_zoom_transform(self):
         x = np.linspace(0, 1, 111)
-        y = expfit.exp(x, (8, 2, 7))
+        y = expfit.expc(x, (8, 2, 7))
 
         tr = expfit.ZoomTransform(x, y)
         a, b, c = 1, 2, 3
@@ -39,7 +39,7 @@ class TestTrans(unittest.TestCase):
         self.assertAlmostEqual(x[2], 0.92909091)
 
         x = np.linspace(0, 1, 50)
-        y = expfit.exp(x, (1, 1, 1))
+        y = expfit.expc(x, (1, 1, 1))
         tr = expfit.ZoomTransform(x, y)
         a, b, c = 1, 2, 3
         p, q, r = tr.transform(a, b, c)
