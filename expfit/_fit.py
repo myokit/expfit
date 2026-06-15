@@ -175,8 +175,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
 
     # Catch non-decaying
     if c0 > 0:
-        raise RuntimeError(
-            'Initial estimate indicates exponential not decaying.')
+        raise expfit.NotDecayingError()
 
     # Calculate area, to determine new b constants
     A0 = expfit._trapezoid(v - a0, t)
@@ -212,7 +211,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
-    print(f'Done in {1 + i}, {r.evaluations}')
+    #print(f'Done in {1 + i}, {r.evaluations}')
 
     # Detransform parameters
     p = expfit.ExponentialFit._from_multi(t, v, r.x, npos)
@@ -420,7 +419,7 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
         # Show component and PL CI on main axes
         b = (f'Fit {nth(i)} ($\\tau$={p[j]:.2g},'
              f' FI[{flo:.3g}, {fhi:.3g}],'
-             f' PL[{plo[2]:.3g}, {phi[2]:.3g}])')
+             f' PL[{plo[j]:.3g}, {phi[j]:.3g}])')
         pc = (p[0], p[1 + 2 * i], p[2 + 2 * i])
         pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
         pchi = (plo[0], phi[1 + 2 * i], phi[2 + 2 * i])
@@ -450,7 +449,10 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 
-        ax.legend(loc=(0, 1.01), ncols=2, frameon=False, handlelength=1.5)
+        if ptrue is not None:
+            ax.axvline(ptrue[j], color='k', ls='--', label='Known')
+
+        ax.legend(loc=(0, 1.01), ncols=3, frameon=False, handlelength=1.5)
         tau_axes.append(ax)
 
     # Finalise main panel

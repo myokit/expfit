@@ -91,7 +91,7 @@ class TestCI(unittest.TestCase):
 
             # Lower and upper FIM and PL bounds
             alo1, ahi1 = cipa[0][0], cipa[1][0]
-            alo2, ahi2 = p[0] - cifa, p[0] + cifa
+            alo2, ahi2 = cifa[0], cifa[1]
             alo, ahi = min(alo1, alo2), max(ahi1, ahi2)
 
             # Profile
@@ -130,7 +130,7 @@ class TestCI(unittest.TestCase):
 
             # Lower and upper FIM and PL bounds
             blo1, bhi1 = cipb[0][1], cipb[1][1]
-            blo2, bhi2 = p[1] - cifb, p[1] + cifb
+            blo2, bhi2 = cifb[0], cifb[1]
             blo, bhi = min(blo1, blo2), max(bhi1, bhi2)
 
             # Profile
@@ -176,10 +176,10 @@ class TestCI(unittest.TestCase):
             plt.show()
 
         with self.subTest(a=a0, b=b0, s=s0, n=n):
-            self.assertAlmostEqual(cipa[0][0], a - cifa, delta=delta)
-            self.assertAlmostEqual(cipa[1][0], a + cifa, delta=delta)
-            self.assertAlmostEqual(cipb[0][1], b - cifb, delta=delta)
-            self.assertAlmostEqual(cipb[1][1], b + cifb, delta=delta)
+            self.assertAlmostEqual(cipa[0][0], cifa[0], delta=delta)
+            self.assertAlmostEqual(cipa[1][0], cifa[1], delta=delta)
+            self.assertAlmostEqual(cipb[0][1], cifb[0], delta=delta)
+            self.assertAlmostEqual(cipb[1][1], cifb[1], delta=delta)
             self.assertLess(cipa[0][0], a0)
             self.assertGreater(cipa[1][0], a0)
             self.assertLess(cipb[0][1], b0)
@@ -210,8 +210,7 @@ class TestCI(unittest.TestCase):
         y = a0 + b0 * x + self.r.normal(0, s0, size=x.shape)
         a, b = p = fit(x, y)
 
-        cif = p.ci_fisher(0)
-        alo, ahi = a - cif, a + cif
+        alo, ahi = p.ci_fisher(0)
         xx, yy = p.profile(0, alo, ahi, evals=5)
 
         if plot:  # pragma: no cover
@@ -243,7 +242,7 @@ class TestCI(unittest.TestCase):
         plot = False
 
         self.r = np.random.default_rng(1)
-        p0 = np.array([1, -9, -2, -4, -7])
+        p0 = np.array([1, -9, 0.5, -4, .14])
         n = 100
         t = np.linspace(0, 2, n)
         v = expfit.exp(t, p0)
@@ -255,24 +254,26 @@ class TestCI(unittest.TestCase):
             plt.show()
 
         c1 = p.ci_fisher(2)
-        self.assertAlmostEqual(c1, 0.173733, delta=1e-5)
-        self.assertLess(p[2] - c1, p0[2])
-        self.assertGreater(p[2] + c1, p0[2])
+        self.assertAlmostEqual(c1[0], 0.452697, delta=1e-5)
+        self.assertAlmostEqual(c1[1], 0.534724, delta=1e-5)
+        self.assertLess(c1[0], p0[2])
+        self.assertGreater(c1[1], p0[2])
 
         c2 = p.ci_fisher(4)
-        self.assertAlmostEqual(c2, 1.561660, delta=1e-5)
-        self.assertLess(p[4] - c2, p0[4])
-        self.assertGreater(p[4] + c2, p0[4])
+        self.assertAlmostEqual(c2[0], 0.107269, delta=1e-5)
+        self.assertAlmostEqual(c2[1], 0.164461, delta=1e-5)
+        self.assertLess(c2[0], p0[4])
+        self.assertGreater(c2[1], p0[4])
 
         c1 = p.ci_profile(2)
-        self.assertAlmostEqual(c1[0][2], -2.179512, delta=1e-5)
-        self.assertAlmostEqual(c1[1][2], -1.823063, delta=1e-5)
+        self.assertAlmostEqual(c1[0][2], 0.459819, delta=1e-5)
+        self.assertAlmostEqual(c1[1][2], 0.546345, delta=1e-5)
         self.assertLess(c1[0][2], p0[2])
         self.assertGreater(c1[1][2], p0[2])
 
         c2 = p.ci_profile(4)
-        self.assertAlmostEqual(c2[0][4], -8.993409, delta=1e-5)
-        self.assertAlmostEqual(c2[1][4], -5.833916, delta=1e-5)
+        self.assertAlmostEqual(c2[0][4], 0.109693, delta=1e-5)
+        self.assertAlmostEqual(c2[1][4], 0.167122, delta=1e-5)
         self.assertLess(c2[0][4], p0[4])
         self.assertGreater(c2[1][4], p0[4])
 

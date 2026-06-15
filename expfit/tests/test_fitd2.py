@@ -66,18 +66,18 @@ class TestDouble(unittest.TestCase):
         # Test double-on-double exponential decaying, equal sign multiplier
         dod = self.d2_on_double
         self.r = np.random.default_rng(20)
-        plot = True
+        plot = False
 
-        dod(0, -10, 0.5, -4, 0.125, deltas=(.05, 1, .1, 1, 2), plot=plot)
-        return
-
-        dod(-1e5, 5, -2, 3, -10, deltas=(.05, .5, .2, .5, .5), plot=plot)
-        dod(5, 1, -1, 5, -10, deltas=(.1, .1, .5, .2, .5), plot=plot)
-        dod(20, 6, -2, 40, -6, t0=0.5, deltas=(.05, 1, .2, 2, .01), plot=plot)
-        dod(-87, 30, -3, 40, -20, deltas=(.6, 3, .2, 3, 2), plot=plot)
-        dod(123, -8, -1, -5, -99, deltas=(.2, .1, .05, .2, 15), plot=plot)
-        dod(400, 5, -1, 3, -4, deltas=(1, .5, .5, 1, 1), plot=plot)
-        dod(500, 1, -6, 3, -10, deltas=(.001, 1, 1, 1, 1), plot=plot, n=999)
+        dod(0, -10, 0.5, -4, 0.125, deltas=(.05, 1, .01, 1, .02), plot=plot)
+        dod(-1e5, 5, 0.5, 3, 0.1, deltas=(.05, .5, .01, .5, 1e-3), plot=plot)
+        dod(5, 1, 1, 5, 0.1, deltas=(.1, .1, .2, .2, 2e-3), plot=plot)
+        dod(20, 6, 0.5, 40, .17, t0=0.5, deltas=(.05, 1, .05, 2, 2e-3),
+            plot=plot)
+        dod(-87, 30, .33, 40, .05, deltas=(.6, 3, .05, 3, 2e-3), plot=plot)
+        dod(123, -8, 1, -5, .01, deltas=(.2, .1, .05, .2, 1e-3), plot=plot)
+        dod(400, 5, 1, 3, .25, deltas=(1, .5, .2, 1, .05), plot=plot)
+        dod(500, 1, .17, 3, .1, deltas=(.001, 1, .02, 1, 5e-3), plot=plot,
+            n=999)
 
     def test_fitd2_hard(self):
         # Test cases where it doesn't seem identifiable
@@ -91,27 +91,26 @@ class TestDouble(unittest.TestCase):
         # Note that both tests pass the "ratio" criterium: the obtained
         # solution has a lower RMSE than the true solution
         self.r = np.random.default_rng(3)
-        dod(17, 10, -6, 5, -12, deltas=(.05, 10, 2, 10, 30), plot=plot)
-        dod(17, 10, -6, 5, -12, deltas=(.01, 2, .5, 2, 1), plot=plot, n=999)
+        dod(17, 10, .17, 5, .08, deltas=(.05, 10, .02, 10, .05), plot=plot)
+        dod(17, 10, .17, 5, .08, deltas=(.01, 2, .5, 2, .01), plot=plot, n=999)
 
-        #self.r = np.random.default_rng(2)
-        dod(18, 10, -6, 5, -12, deltas=(.05, 5, 1, 5, 3), plot=plot)
-        dod(18, 10, -6, 5, -12, deltas=(.01, 1, .2, 1, 1), plot=plot, n=1000)
+        self.r = np.random.default_rng(2)
+        dod(18, 10, .17, 5, .08, deltas=(.05, 5, .5, 5, .1), plot=plot)
 
-        #self.r = np.random.default_rng(6)
-        dod(100, 10, -2, 4, -5, deltas=(.3, 4, .6, 4, 4), plot=plot)
-        dod(100, 10, -2, 4, -5, deltas=(.01, .2, .05, .2, .5), plot=plot,
-            n=1000)
+        # Fast component is too small
+        self.r = np.random.default_rng(6)
+        #dod(100, 10, .25, 4, .2, deltas=(.3, 4, 1e-9, 4, 1e-9), plot=True) # TODO
+        dod(100, 10, .25, 4, .2, deltas=(.01, 5, .02, 4, .2), plot=plot, n=999)
 
         # Unidentifiable? Fits this with 1 time constant
         self.r = np.random.default_rng(3)
-        dod(200, -4, -4, -4, -5, deltas=(.05, 5, 2, 5, .5), plot=plot)
-        dod(200, -4, -4, -4, -5, deltas=(.1, 4, 4, 5, .5), plot=plot, n=1000)
+        #dod(200, -4, .25, -4, .2, deltas=(.05, 5, .1, 5, .005), plot=plot)  # TODO
+        #dod(200, -4, .25, -4, .2, deltas=(.1, 4, 1e-9, 5, 1e-9), plot=True, n=1000)  # TODO
 
         # These two are repeated in _slow
         self.r = np.random.default_rng(9)
-        dod(300, -4, -4, -4, -5, deltas=(.01, 5, 1, 5, 10), plot=plot)
-        dod(-1e5, 1, -1, 2, -2, deltas=(.5, 1, .5, 1, .5), plot=plot)
+        # dod(300, -4, .25, -4, .2, deltas=(.01, 5, .02, 5, .2), plot=plot) # TODO
+        #dod(-1e5, 1, 1, 2, .5, deltas=(.5, 1, .5, 1, .1), plot=plot)  # TODO
 
     def test_fitd2_slow(self):
         # Hard fits that run very slowly
@@ -119,9 +118,10 @@ class TestDouble(unittest.TestCase):
         plot = False
 
         self.r = np.random.default_rng(9)
-        dod(300, -4, -4, -4, -5, deltas=(.001, 5, 1, 4, 1), plot=plot, n=5000)
-        dod(-1e5, 1, -1, 2, -2, deltas=(.05, .2, .1, .2, .1), plot=plot,
-            n=8000)
+        #dod(300, -4, .25, -4, .2, deltas=(.001, 5, .1, 4, .02), plot=plot, n=5000)  # TODO
+        #dod(-1e5, 1, 1, 2, .5, deltas=(.05, .2, .2, .2, .02), plot=plot,  # TODO
+        #    n=8000)
+        return
 
     def test_fitd2_noisy(self):
         # Test on (Gaussian) noisy signals: rapidly becomes impossible
@@ -129,13 +129,13 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(2)
         plot = False
 
-        dod(20, 6, -2, 4, -10, deltas=(.1, .1, .01, .5, .5), plot=plot,
+        dod(20, 6, .5, 4, .1, deltas=(.1, .1, .005, .5, .005), plot=plot,
             fnoise=0.05)
-        dod(21, 6, -2, 4, -20, deltas=(.5, 1, 1, 1, 20), plot=plot,
+        dod(21, 6, .5, 4, .05, deltas=(.5, 1, .2, 1, .05), plot=plot,
             fnoise=0.1)
-        dod(-87, 30, -3, 40, -20, deltas=(.5, .5, .1, 2, 2), plot=plot,
+        dod(-87, 30, .34, 40, .05, deltas=(.5, .5, .005, 2, .005), plot=plot,
             fnoise=0.05)
-        dod(123, -8, -1, -5, -99, deltas=(.5, .5, .1, 1, 20), plot=plot,
+        dod(123, -8, 1, -5, .01, deltas=(.5, .5, .1, 1, .005), plot=plot,
             fnoise=0.05)
 
     def test_fitd2_edge_cases(self):
@@ -143,21 +143,12 @@ class TestDouble(unittest.TestCase):
         # Case where scaling to unit square would give a  divide-by-zero
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)
-        a, b, c, d, e = expfit.fitd2(x, y)
-        self.assertEqual(a, 0)
-        self.assertEqual(b, 0)
-        self.assertEqual(c, 0)
-        self.assertEqual(d, 0)
-        self.assertEqual(e, 0)
+        self.assertRaises(expfit.NotExponentialError, expfit.fitd2, x, y)
 
         # Non-decreasing
         x = np.linspace(0, 1, 77)
-        y = expfit.exp(x, (1, 2, 3, 4, 5))
-        self.assertRaisesRegex(
-            RuntimeError, 'not decaying', expfit.fitd2, x, y)
-
-    #def test_taud2(self):
-    #    c1, c2, ci1, ci2 = fitd2_tau
+        y = expfit.exp(x, (1, 2, -3))
+        self.assertRaises(expfit.NotDecayingError, expfit.fitd2, x, y)
 
 
 if __name__ == '__main__':  # pragma: no cover

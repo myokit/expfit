@@ -15,6 +15,17 @@ class NotExponentialError(RuntimeError):
         super().__init__(f'No exponential found in time series{end}')
 
 
+class NotDecayingError(RuntimeError):
+    """
+    Raised if a decaying exponential was expected but an expanding one was
+    found.
+    """
+    def __init__(self, msg=None):
+        end = f': {msg}' if msg is not None else '.'
+        super().__init__(
+            f'Exponential found in time series is not decaying{end}')
+
+
 class CIUnavailableError(RuntimeError):
     """
     Raised if confidence intervals are requested but the fit result does not

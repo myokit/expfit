@@ -25,6 +25,7 @@ from ._expfit_version import (  # noqa
 
 from ._ex import (  # noqa
     CIUnavailableError,
+    NotDecayingError,
     NotExponentialError,
 )
 
