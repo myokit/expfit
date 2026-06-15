@@ -40,16 +40,27 @@ class ExponentialFit:
         An optional constraint object, used CI methods.
 
     """
-    def __init__(self, x, y, p, error=None, constraint=None):
-        self._xy = x, y
+    def __init__(self, t, v, p, error=None, constraint=None):
+        self._tv = t, v
         self._p = tuple(p)
         self._np = len(self._p)
-        self._nt = len(x)
+        self._nt = len(t)
 
         self._err = error
         self._cst = constraint
         self._mjh = None
         self._cov = None
+
+    @classmethod
+    def _from_multi(cls, t, v, p, npos):
+        """
+        Create and detransform ``p`` from the log version used by
+        :class:`MultiExponentialError`.
+        """
+        p[1::2] = np.exp(p[1::2])
+        p[1::2][npos:] *= -1
+        p[2::2] = 1 / np.exp(p[2::2])
+        return cls(t, v, p, expfit.TauFormError(t, v))  # TODO Constraint
 
     def __len__(self):
         return self._np
@@ -119,7 +130,7 @@ class ExponentialFit:
             print(f'Cut off: {cutoff}')
 
         # Set initial step size based on FIM bounds with same level
-        fim = self.ci_fisher(i, level)
+        fim = self._ci_fisher(i, level)
 
         # Set stopping criterion for bisection, based on cut-off
         bisection_tol = 1e-4 * (cutoff - e_hat)
@@ -195,8 +206,8 @@ class ExponentialFit:
 
     def ci_fisher(self, i, level=90):
         """
-        Finds and returns a confidence interval for the parameter at index
-        ``i`` using a Fisher information method.
+        Finds and returns a symmetric confidence interval for the parameter at
+        index ``i`` using a Fisher information method.
 
         Arguments:
 
@@ -206,8 +217,13 @@ class ExponentialFit:
             A :class:`CLevel` or an integer setting the confidence level, e.g.
             90 percent.
 
-        Returns a single value ``x``, for an interval of ``mu - x, mu + x``.
+        Returns a tuple containing the lower and upper bound.
         """
+        d = self._ci_fisher(i, level)
+        return self._p[i] - d, self._p[i] + d
+
+    def _ci_fisher(self, i, level):
+        """ Internal version of ci_fisher, returns size of bound only. """
         if self._cov is None:
             self.cov()
 
