@@ -141,13 +141,14 @@ def fit1(t, v, plot=False):
 
 def fitd2(t, v, plot=False, opt_plot=False):
     """
-    Fits a decaying double-exponential to a time series.
+    Fits a decaying double-exponential to a time series, with equal signed
+    multipliers for both components.
 
     Returns parameters for::
 
-        v = a + b0 * exp(-t / tau1) + b1 * exp(-t / tau2)
+        v = a + b_0 * exp(-t / tau_0) + b_1 * exp(-t / tau_1)
 
-    where ``tau0 > tau1``.
+    where ``tau_0 > tau_1``.
 
     Arguments:
 
@@ -236,27 +237,26 @@ def fitd2(t, v, plot=False, opt_plot=False):
     return p
 
 
-def fitd11(t, v, plot=False):
+def fitd11(t, v, plot=False, opt_plot=False):
     """
-    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
-    where ``b0`` and ``b1`` have different signs, ``c0`` and ``c1`` are both
-    negative, and ``c1 > c0``.
+    Fits a decaying double-exponential to a time series, with opposite signed
+    multipliers for both components.
 
-    TODO
-    TODO
-    TODO
-    TODO
-    TODO
-    TODO
-    TODO
+    Returns parameters for::
+
+        v = a + b_0 * exp(-t / tau_0) + b_1 * exp(-t / tau_1)
+
+    where ``tau_0 > tau_1``.
 
     Arguments:
 
     ``t``, ``v``
         The time series
     ``plot``
-        Optional parameter to create a plot of the method's workings. Can be a
-        boolean or an array of known (true) parameters.
+        Optional parameter to create a plot showing the final results,
+        including confidence intervals on the time constants.
+    ``opt_plot``
+        Optional parameter to create a plot of the optimisation routine.
 
     Returns an :class:`ExponentialFit`.
     """
@@ -279,7 +279,7 @@ def fitd11(t, v, plot=False):
     e = expfit.MultiExponentialError(t, v, npos, nneg, pos_first)
     q0 = e.transform(p0)
     with np.errstate(all='ignore'):
-        r = expfit.lm(e, q0)
+        r = expfit.lm(e, q0, plot=opt_plot)
         if plot is not False:  # pragma: no cover
             print(r)
 

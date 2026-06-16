@@ -37,7 +37,7 @@ class TestD11(unittest.TestCase):
         v += self.r.normal(0, s, size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        p = expfit.fitd11(t, v, plot=plot_params)
+        p = expfit.fitd11(t, v, plot=plot_params, opt_plot=plot)
         rt = expfit.rmse(t, v, (a, b, c, d, e))
         rf = expfit.rmse(t, v, p)
 
