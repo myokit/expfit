@@ -67,16 +67,18 @@ class TestD11(unittest.TestCase):
         self.r = np.random.default_rng(101)
         plot = False
 
-        d(10, 20, -15, -20, -2, s=0.2, deltas=(.1, .2, .5, .02, .01),
-          plot=plot)
-        d(10, 80, -15, -20, -2, s=0.2, deltas=(.1, .1, .001, .1, .1),
-          plot=plot)
-        d(10, 40, -15, -20, -2, s=0.2, t0=0.1, deltas=(.1, 2, .5, .2, .1),
-          plot=plot)
-        d(7, -100, -10, 15, -5, s=0.2, t0=0.1, deltas=(.1, 10, 1, 6, 1),
-          plot=plot)
-        d(5, -10, -15, 10, -2, s=0.2, t0=0.1, deltas=(.1, 1, 1, .5, .1),
-          plot=plot)
+        d(10, 20, .07, -20, .5, s=0.2, deltas=(.05, .2, .002, .05, .005),
+            plot=plot)
+        d(10, 80, .07, -20, .5, s=1, deltas=(.5, .5, .002, .5, .05),
+            plot=plot)
+        d(10, 40, .07, -20, .5, s=0.2, t0=0.1, deltas=(.05, 2, .005, .5, .005),
+            plot=plot)
+        d(7, -100, .1, 15, .2, s=0.4, t0=0.1, deltas=(.2, 10, .01, 10, .1),
+            plot=plot)
+        d(5, -10, .07, 10, .5, s=0.2, t0=0.1, deltas=(.05, 2, .01, .5, .02),
+            plot=plot)
+        d(1, 6, .2, -4, .5, s=0.3, n=500, deltas=(.5, 3, .1, 3, .7),
+            plot=plot)
 
     def d11_on_d12(self, p, s, t0=0, duration=2, n=100, ratio=1, plot=False):
         """ Tests a d11 fit on a d12 signal. """
@@ -102,11 +104,24 @@ class TestD11(unittest.TestCase):
         # Test on a double second exponential
 
         d = self.d11_on_d12
-        self.r = np.random.default_rng(101)
+        self.r = np.random.default_rng(11)
         plot = False
 
-        d((1, 6, -5, -4, -2, -2, -4), s=0.01, plot=plot)
-        d((1, 6, -5, -4, -2, -2, -4), s=0.1, n=500, plot=plot)
+        d((1, 10, .05, -4, 4, -4, 0.1), s=0.01, plot=plot, ratio=7)
+        d((1, 10, .05, -4, 4, -4, 0.1), s=0.1, plot=plot, ratio=1.5)
+
+    def test_fitd11_edge_cases(self):
+        # Test on bad signals
+
+        self.r = np.random.default_rng(1111)
+
+        x = np.linspace(0, 1)
+        y = expfit.exp(x, (1, 0, 1))
+        self.assertRaises(expfit.NotOpposingError, expfit.fitd11, x, y)
+        y = expfit.exp(x, (1, 1, 1))
+        self.assertRaises(expfit.NotOpposingError, expfit.fitd11, x, y)
+        y = expfit.exp(x, (1, 1, -1, -1, 1))
+        self.assertRaises(expfit.NotDecayingError, expfit.fitd11, x, y)
 
 
 if __name__ == '__main__':  # pragma: no cover

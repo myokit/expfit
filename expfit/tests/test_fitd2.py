@@ -99,29 +99,30 @@ class TestDouble(unittest.TestCase):
 
         # Fast component is too small
         self.r = np.random.default_rng(6)
-        #dod(100, 10, .25, 4, .2, deltas=(.3, 4, 1e-9, 4, 1e-9), plot=True) # TODO
+        #dod(100, 10, .25, 4, .2, deltas=(.3, 4, 1e-9, 4, 1e-9), plot=True)
         dod(100, 10, .25, 4, .2, deltas=(.01, 5, .02, 4, .2), plot=plot, n=999)
 
         # Unidentifiable? Fits this with 1 time constant
         self.r = np.random.default_rng(3)
-        #dod(200, -4, .25, -4, .2, deltas=(.05, 5, .1, 5, .005), plot=plot)  # TODO
-        #dod(200, -4, .25, -4, .2, deltas=(.1, 4, 1e-9, 5, 1e-9), plot=True, n=1000)  # TODO
+        #dod(200, -4, .25, -4, .2, deltas=(.05, 5, .1, 5, .005), plot=plot)
+        #dod(200, -4, .25, -4, .2, deltas=(.1, 4, 1e-9, 5, 1e-9), plot=True,
+        #    n=1000)
 
         # These two are repeated in _slow
         self.r = np.random.default_rng(9)
-        # dod(300, -4, .25, -4, .2, deltas=(.01, 5, .02, 5, .2), plot=plot) # TODO
-        #dod(-1e5, 1, 1, 2, .5, deltas=(.5, 1, .5, 1, .1), plot=plot)  # TODO
+        # dod(300, -4, .25, -4, .2, deltas=(.01, 5, .02, 5, .2), plot=plot)
+        #dod(-1e5, 1, 1, 2, .5, deltas=(.5, 1, .5, 1, .1), plot=plot)
 
     def test_fitd2_slow(self):
         # Hard fits that run very slowly
-        dod = self.d2_on_double
-        plot = False
+        #dod = self.d2_on_double
+        #plot = False
 
         self.r = np.random.default_rng(9)
-        #dod(300, -4, .25, -4, .2, deltas=(.001, 5, .1, 4, .02), plot=plot, n=5000)  # TODO
-        #dod(-1e5, 1, 1, 2, .5, deltas=(.05, .2, .2, .2, .02), plot=plot,  # TODO
+        #dod(300, -4, .25, -4, .2, deltas=(.001, 5, .1, 4, .02), plot=plot,
+        #    n=5000)
+        #dod(-1e5, 1, 1, 2, .5, deltas=(.05, .2, .2, .2, .02), plot=plot,
         #    n=8000)
-        return
 
     def test_fitd2_noisy(self):
         # Test on (Gaussian) noisy signals: rapidly becomes impossible

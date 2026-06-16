@@ -51,17 +51,6 @@ class ExponentialFit:
         self._mjh = None
         self._cov = None
 
-    @classmethod
-    def _from_multi(cls, t, v, p, npos):
-        """
-        Create and detransform ``p`` from the log version used by
-        :class:`MultiExponentialError`.
-        """
-        p[1::2] = np.exp(p[1::2])
-        p[1::2][npos:] *= -1
-        p[2::2] = 1 / np.exp(p[2::2])
-        return cls(t, v, p, expfit.TauFormError(t, v))  # TODO Constraint
-
     def __len__(self):
         return self._np
 

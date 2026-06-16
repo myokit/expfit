@@ -154,7 +154,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
             'Jacobian must match shape of initial point.'
             f' Got {j.shape}, expecting ({n}, )')
     h = np.asarray(h)
-    if not len(h.shape) == 2 and np.all(h.shape == n):
+    if len(h.shape) != 2 or h.shape != (n, n):
         raise ValueError(
             'Hessian must match shape of initial point.'
             f' Got {h.shape}, expecting ({n}, {n})')

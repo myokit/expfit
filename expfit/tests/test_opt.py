@@ -63,7 +63,7 @@ class TestOpt(unittest.TestCase):
         # Test string
         self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
 
-    def test_opt(self):
+    def test_lm(self):
 
         # Find minimum of quadratic
         f = Poly2(2, 3, 4)
@@ -113,6 +113,24 @@ class TestOpt(unittest.TestCase):
         r = expfit.lm(f, [10], constraint=lambda p: False)
         self.assertFalse(r.success)
         self.assertEqual(r.message, 'Initial position fails constraint')
+
+    def test_lm_bad_error(self):
+        # Test optimiser recognises wrong size mse, jac & hes
+
+        e = lambda p: ([1, 2], [1, 2], [1, 2])
+        self.assertRaisesRegex(
+            ValueError, 'MSE must be a scalar',
+            expfit.lm, e, [1, 2])
+
+        e = lambda p: (1, [1], [1, 2])
+        self.assertRaisesRegex(
+            ValueError, 'Jacobian must match shape of initial point',
+            expfit.lm, e, [1, 2])
+
+        e = lambda p: (1, [1, 2], [[1, 2, 3], [3, 4, 5], [6, 7, 8]])
+        self.assertRaisesRegex(
+            ValueError, 'Hessian must match shape of initial point',
+            expfit.lm, e, [1, 2])
 
 
 if __name__ == '__main__':  # pragma: no cover

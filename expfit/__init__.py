@@ -27,6 +27,7 @@ from ._ex import (  # noqa
     CIUnavailableError,
     NotDecayingError,
     NotExponentialError,
+    NotOpposingError,
 )
 
 from ._vetting import (  # noqa

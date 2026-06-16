@@ -21,21 +21,6 @@ class TestSingle(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def test_fit1_error(self):
-
-        #TODO TODO TODO TODO TODO THIS CAN GO IS IN TEST_ERR ???? TODO TODO
-
-        a, b, c = 1, 2, -3
-        x = np.linspace(0, 1, 99)
-        y = expfit.exp(x, (a, b, c))
-        self.assertAlmostEqual(expfit.rmse(x, y, (a, b, c)), 0, 14)
-        y = 3 * np.ones(x.shape)
-        self.assertEqual(
-            expfit.rmse(x, y, (0, 0, c)), np.sqrt(np.sum(y**2) / len(x)))
-        y = expfit.exp(x, (10, b, c))
-        self.assertAlmostEqual(
-            expfit.rmse(x, y, (a, b, c)), np.sqrt(81), 14)
-
     def test_fit1_edge_cases(self):
         # Test for a specific divide by zero case
 
@@ -290,7 +275,7 @@ class TestSingle(unittest.TestCase):
         y = expfit.exp(x, (a0, b0, c0, d0, e0))
         y += -0.2 * x
         a, b, c = expfit.fit1(x, y, plot=plot)
-        if plot:
+        if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
         self.assertAlmostEqual(a, a0, -1)
@@ -308,7 +293,7 @@ class TestSingle(unittest.TestCase):
         y = expfit.exp(x, (a0, b0, c0))
         y += 0.1 * np.sin(10.2 * np.pi * x)
         a, b, c = expfit.fit1(x, y, plot=plot)
-        if plot:
+        if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
         self.assertAlmostEqual(a, a0, -1)
@@ -336,7 +321,7 @@ class TestSingle(unittest.TestCase):
         y += v
 
         a, b, c = expfit.fit1(x, y, plot=plot)
-        if plot:
+        if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
         self.assertAlmostEqual(a, a0, 1)

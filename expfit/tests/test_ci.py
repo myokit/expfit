@@ -306,6 +306,24 @@ class TestCI(unittest.TestCase):
         self.assertEqual(e.mse_cutoff(cl) / (1 + cl.chi2() / 3), 1)
         self.assertEqual(e.mse_cutoff(95) / (1 + cl.chi2() / 3), 1)
 
+    def test_mse_jac_hes(self):
+        # Test access to mse, jac, hes, throught fit result
+
+        x = np.array([0, 1, 2])
+        y = np.array([2, 3, 4])
+        p = np.array([-1, 2])
+        f = Linear1d(x, y)
+        e = expfit.ExponentialFit(x, y, p, f)
+        mse, jac, hes = f(p)
+        self.assertEqual(e.mse(), mse)
+        e = expfit.ExponentialFit(x, y, p, f)
+        self.assertEqual(list(e.jac()), list(jac))
+        e = expfit.ExponentialFit(x, y, p, f)
+        h2 = e.hes()
+        self.assertEqual(h2.shape, (2, 2))
+        self.assertEqual(list(h2[0]), list(hes[0]))
+        self.assertEqual(list(h2[1]), list(hes[1]))
+
     def test_clevel(self):
         cl = expfit.CLevel(90)
         self.assertEqual(cl.norm(), 1.6448536269514722)

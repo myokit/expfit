@@ -185,7 +185,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
     npos, nneg = (2, 0) if b0 > 0 else (0, 2)
     e = expfit.MultiExponentialError(t, v, npos, nneg)
-    c = expfit.MultiExponentialConstraint(npos, nneg)
+    #c = expfit.MultiExponentialConstraint(npos, nneg)
     max_iter = 10
     for i in range(max_iter):
         # Increase the difference between dominant and second exponential.
@@ -198,12 +198,9 @@ def fitd2(t, v, plot=False, opt_plot=False):
         p0[1] = p0[3] = b0 * (A0 / A)
 
         # Fit with transformed parameters
-        q0 = np.copy(p0)
-        q0[1::2][npos:] *= -1
-        q0[1::2] = np.log(q0[1::2])
-        q0[2::2] = np.log(-q0[2::2])
+        q0 = e.transform(p0)
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, q0) #, constraint=c, plot=opt_plot)
+            r = expfit.lm(e, q0)  # constraint=c, plot=opt_plot)
             if plot is not False:  # pragma: no cover
                 print(r)
         if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
@@ -211,10 +208,10 @@ def fitd2(t, v, plot=False, opt_plot=False):
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
-    #print(f'Done in {1 + i}, {r.evaluations}')
 
     # Detransform parameters
-    p = expfit.ExponentialFit._from_multi(t, v, r.x, npos)
+    et = expfit.TauFormError(t, v)
+    p = expfit.ExponentialFit(t, v, e.detransform(r.x), et)
 
     if plot is not False:  # pragma: no cover
         pk = None
@@ -223,7 +220,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
             pk = plot
         except (TypeError, AssertionError):
             pass
-        p0 = expfit.ExponentialFit._from_multi(t, v, q0, npos)
+        p0 = expfit.ExponentialFit(t, v, e.detransform(q0), et)
         fig, (ax, iax, tax) = tau_plot(t, v, r, p, p0, pk)
         iax[0].plot(t, expfit.expc(t, (a0, b0, c0)), 'k--', lw=1.5,
                     label=f'Single ($\\tau$={-1 / c0:.3g})')
@@ -238,60 +235,12 @@ def fitd11(t, v, plot=False):
     where ``b0`` and ``b1`` have different signs, ``c0`` and ``c1`` are both
     negative, and ``c1 > c0``.
 
-    Arguments:
-
-    ``t``, ``v``
-        The time series
-    ``plot``
-        Optional parameter to create a plot of the method's workings. Can be a
-        boolean or an array of known (true) parameters.
-
-    Returns an :class:`ExponentialFit`.
-    """
-    t, v = expfit.vet_series(t, v)
-
-    # Perform initial estimates in transformed space
-    tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False, plot=False)
-    p0 = tr.detransform(q0)
-    del tr, q0
-
-    # Avoid nans etc.
-    #if c0 == 0:
-    #    return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
-
-    # Catch non-decaying
-    #if c0 > 0:
-    #    raise RuntimeError(
-    #        'Initial estimate for c > 0, exponential not decaying')
-
-    # Fit double (in untransformed space)
-    c = expfit.D11Constraint()
-    e = expfit.MultiExponentialError(t, v)
-    with np.errstate(all='ignore'):
-        r = expfit.lm(e, p0, constraint=c)
-        if plot is not False:  # pragma: no cover
-            print(r)
-    p = expfit.ExponentialFit(t, v, r.x, error=e, constraint=c)
-
-    if plot is not False:  # pragma: no cover
-        pt = None
-        try:
-            assert len(plot) == 5
-            pt = plot
-        except (TypeError, AssertionError):
-            pass
-        plot_double(t, v, r, p, p0, pt)
-
-    return p
-
-
-def fitd11log(t, v, plot=False):
-    """
-    Fits a double-exponential ``y = a + b0 * exp(c0 * x) + b1 * exp(c1 * x)``,
-    where ``b0`` and ``b1`` have different signs, ``c0`` and ``c1`` are both
-    negative, and ``c1 > c0``.
-
+    TODO
+    TODO
+    TODO
+    TODO
+    TODO
+    TODO
     TODO
 
     Arguments:
@@ -312,42 +261,35 @@ def fitd11log(t, v, plot=False):
     p0 = tr.detransform(q0)
     del tr, q0
 
-    # Avoid nans etc.
-    #if c0 == 0:
-    #    return expfit.ExponentialFit(t, v, (a0, b0, 0, 0, 0))
+    # Catch edge cases
+    if p0[1] * p0[3] >= 0:
+        raise expfit.NotOpposingError()
+    if p0[2] > 0 or p0[4] > 0:
+        raise expfit.NotDecayingError()
 
-    # Catch non-decaying
-    #if c0 > 0:
-    #    raise RuntimeError(
-    #        'Initial estimate for c > 0, exponential not decaying')
-
-    # Fit double (in untransformed space)
+    # Fit double
     # Assume dominant (slowest) rate found, next will be faster
-    z = np.array([1 if b > 0 else -1 for b in p0[1::2]])
-    e = expfit.SignedDecayingMultiExponentialError(t, v, z)
-    q0 = np.copy(p0)
-    q0[1::2] = np.log(q0[1::2] * z)
-    q0[2::2] = np.log(-q0[2::2])
+    npos, nneg, pos_first = 1, 1, p0[1] > 0
+    e = expfit.MultiExponentialError(t, v, npos, nneg, pos_first)
+    q0 = e.transform(p0)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0)
         if plot is not False:  # pragma: no cover
             print(r)
 
-    p = r.x
-    p[1::2] = np.exp(p[1::2]) * z
-    p[2::2] = -np.exp(p[2::2])
-    c = expfit.D11Constraint()
-    e = expfit.MultiExponentialError(t, v)
-    p = expfit.ExponentialFit(t, v, p, error=e, constraint=c)
+    # Detransform parameters
+    et = expfit.TauFormError(t, v)
+    p = expfit.ExponentialFit(t, v, e.detransform(r.x), et)
 
     if plot is not False:  # pragma: no cover
         pt = None
+        p0 = expfit.ExponentialFit(t, v, e.detransform(q0), et)
         try:
             assert len(plot) == 5
             pt = plot
         except (TypeError, AssertionError):
             pass
-        plot_double(t, v, r, p, p0, pt)
+        tau_plot(t, v, r, p, p0, pt)
 
     return p
 
@@ -427,8 +369,8 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
         ax0.fill_between(t, e(t, pclo), e(t, pchi), color=c, alpha=0.1)
         ax0.plot(t, e(t, pclo), lw=0.4, color=c)
         ax0.plot(t, e(t, pchi), lw=0.4, color=c)
-        ax0.plot(t, e(t, plo), 'tab:green', ls='--', lw=0.4)
-        ax0.plot(t, e(t, phi), 'tab:green', ls='--', lw=0.4)
+        #ax0.plot(t, e(t, plo), 'tab:green', ls='--', lw=0.4)
+        #ax0.plot(t, e(t, phi), 'tab:green', ls='--', lw=0.4)
 
         # Show profile on dedicated axes
         ax = fig.add_subplot(gr3[0, i])
@@ -445,7 +387,7 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
         # FIM approximation
         x = np.linspace(flo, fhi, 100)
         q = 0.5 / np.diag(np.linalg.inv(p.hes()))
-        ax.plot(x , p.mse() + q[j] * (x - p[j])**2, label='FI')
+        ax.plot(x, p.mse() + q[j] * (x - p[j])**2, label='FI')
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 
@@ -499,7 +441,7 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
     return fig, (ax0, info_axes, tau_axes)
 
 
-def nth(i):
+def nth(i):  # pragma: no cover
     """ Converts 0 to '1st', 1 to '2d' etc. """
     if i == 0:
         return '1st'

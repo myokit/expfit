@@ -160,13 +160,12 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
                 msg = 'Minimum size reached'
 
         # Show last segment
-        if plot:
+        if plot:  # pragma: no cover
             if n <= n_min:
                 msg = 'Segment already has minimum length'
                 plot_line(ax, x, ls, start, msg=msg)
             elif x is x_new:
                 plot_line(ax, x_new, l_new, start, msg=msg, dotted=True)
-
 
         return (x, y), ls
 
@@ -285,7 +284,7 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
 
     # Estimate start, end, max, and min
     # Skip points, to ensure at least a segment of length 3
-    imn, imx = 3 + np.argmin(y[3:]), np.argmax(y[:-3])
+    imn, imx = 3 + np.argmin(y[3:-3]), 3 + np.argmax(y[3:-3])
     mn = max(abs(y[0] - y[imn]), abs(y[-1] - y[imn]))
     mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
     isplit = imn if mn > mx else imx
@@ -302,12 +301,14 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(14, 9))
         ax = fig.add_subplot()
-        ax.plot(x, y, 's-' if len(x) < 50 else '-')
-        ax.axvline(x[isplit], color='tab:orange', lw=1)
-        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p1))
-        ax.plot(x, expfit.expc(x, (a1, b0, c0)), 'k')
-        ax.plot(x, expfit.expc(x, p1), 'r')
-        ax.plot(x, expfit.expc(x, (a1, b0, c0, b1, c1)), '--')
+        ax.plot(x, y, 's-' if len(x) < 50 else '-', label='Data')
+        ax.axvline(x[isplit], color='k', ls='--', lw=1, label='Split')
+        ax.plot(x, expfit.expc(x, p1), 'r', label='Second')
+        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p1),
+                label='Data with second subtracted')
+        ax.plot(x, expfit.expc(x, (a1, b0, c0)), 'k', label='First')
+        ax.plot(x, expfit.expc(x, (a1, b0, c0, b1, c1)), label='Combined')
+        ax.legend()
 
     return a1, b0, c0, b1, c1
 

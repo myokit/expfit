@@ -89,7 +89,11 @@ class TestError(unittest.TestCase):
         x = np.linspace(5, 15, 200)
         a, b, c, d, e = 5, 6, 0.2, 8, 0.3
         y = a + b * np.exp(-x / c) + d * np.exp(-x / e)
-        np.testing.assert_allclose(y, expfit.exp(x, (a, b, c, d, e)), rtol=1e-15)
+        np.testing.assert_allclose(
+            y, expfit.exp(x, (a, b, c, d, e)), rtol=1e-15)
+
+        self.assertRaisesRegex(
+            ValueError, 'number of parameters', expfit.exp, x, (a, b))
 
     def test_expc(self):
         # Exponential function in c-form
@@ -104,7 +108,12 @@ class TestError(unittest.TestCase):
         y = a + b * np.exp(c * x) + d * np.exp(e * x)
         np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c, d, e)))
 
+        self.assertRaisesRegex(
+            ValueError, 'number of parameters', expfit.expc, x, (a, b))
+
     def test_rmse(self):
+        # RMSE in tau form
+
         x = np.linspace(1, 2, 50)
         p1 = 3, 2, 3
         p2 = 4, 7, 2
@@ -124,6 +133,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(r, expfit.rmse(x, y2, p1))
 
     def test_rmsec(self):
+        # RMSE in c form
+
         x = np.linspace(1, 2, 50)
         p1 = 3, 2, 3
         p2 = 4, 7, 2
@@ -143,6 +154,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(r, expfit.rmsec(x, y2, p1))
 
     def test_single_error(self):
+        # Test the single exponential error
+
         x = np.linspace(0, 1, 123)
         y = expfit.expc(x, (1, 2, 3))
         e = expfit.SingleExponentialError(x, y)
@@ -198,6 +211,7 @@ class TestError(unittest.TestCase):
         self.assertEqual(e(p)[0], e.mse(p))
 
     def test_multi_error(self):
+        # Test the multi exponential error
 
         # Single error comparison: MSE only
         x = np.linspace(0, 1, 123)
@@ -243,7 +257,24 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1 - j2) < 5e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.01))
 
+        self.assertRaisesRegex(
+            ValueError, 'Expecting 7 parameters, got 2.',
+            e1, (1, 2))
+        self.assertRaisesRegex(
+            ValueError, 'Expecting 7 parameters, got 2.',
+            e1.mse, (1, 2))
+        self.assertRaisesRegex(
+            ValueError, 'positive exponential',
+            expfit.MultiExponentialError, x, y, -1, 1)
+        self.assertRaisesRegex(
+            ValueError, 'negative exponential',
+            expfit.MultiExponentialError, x, y, 1, -1)
+        self.assertRaisesRegex(
+            ValueError, 'Total number',
+            expfit.MultiExponentialError, x, y, 0, 0)
+
     def test_tau_error(self):
+        # Test the tau form error
 
         # MSE test against multie error
         x = np.linspace(1, 2, 50)
@@ -279,6 +310,13 @@ class TestError(unittest.TestCase):
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
         self.assertTrue(np.all(np.abs(h1 - h2) < 1e-3))
+
+        self.assertRaisesRegex(
+            ValueError, r'Invalid number of parameters \(2\).',
+            e1, (1, 2))
+        self.assertRaisesRegex(
+            ValueError, r'Invalid number of parameters \(2\).',
+            e1.mse, (1, 2))
 
     def test_fixed_parameter(self):
         # Test the wrapper that fixes a single parameter

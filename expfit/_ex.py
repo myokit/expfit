@@ -26,6 +26,15 @@ class NotDecayingError(RuntimeError):
             f'Exponential found in time series is not decaying{end}')
 
 
+class NotOpposingError(RuntimeError):
+    """
+    Raised if two opposing (opposite sign) exponentials are requested, but not
+    found in the signal.
+    """
+    def __init__(self, msg=None):
+        super().__init__('No opposing exponentials found in the signal.')
+
+
 class CIUnavailableError(RuntimeError):
     """
     Raised if confidence intervals are requested but the fit result does not

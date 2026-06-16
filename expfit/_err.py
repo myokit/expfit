@@ -185,9 +185,12 @@ class MultiExponentialError():
         The number of positive exponential terms.
     ``nneg``
         The number of negative exponential terms.
+    ``positive_first``
+        Determines whether positive or negative terms are first in the
+        parameter vector.
 
     """
-    def __init__(self, x, y, npos, nneg):
+    def __init__(self, x, y, npos, nneg, positive_first=True):
         self._x = x
         self._y = y
         self._ni = 1 / len(x)
@@ -206,9 +209,13 @@ class MultiExponentialError():
             raise ValueError(
                 'Total number of exponential terms must be greater than zero.')
 
-        self._z = np.ones(self._m)
-        self._z[npos:] = -1
         self._np = 1 + 2 * self._m
+
+        self._z = np.ones(self._m)
+        if positive_first:
+            self._z[npos:] = -1
+        else:
+            self._z[:nneg] = -1
 
     def __call__(self, p):
         if len(p) != self._np:
@@ -277,6 +284,24 @@ class MultiExponentialError():
         return self._ni * np.sum(
             (p[0] - self._y + np.sum(b * np.exp(c * self._x), axis=0))**2)
 
+    def transform(self, p):
+        """ Converts ``p`` from tau-form to log-transformed. """
+        if len(p) != self._np:
+            raise ValueError(f'Expecting {self._np} parameters, got {len(p)}.')
+        q = np.copy(p)
+        q[1::2] = np.log(self._z * p[1::2])
+        q[2::2] = np.log(-p[2::2])
+        return q
+
+    def detransform(self, q):
+        """ Converts ``q`` from log-transformed to tau-form. """
+        if len(q) != self._np:
+            raise ValueError(f'Expecting {self._np} parameters, got {len(q)}.')
+        p = np.copy(q)
+        p[1::2] = self._z * np.exp(q[1::2])
+        p[2::2] = 1 / np.exp(q[2::2])
+        return p
+
 
 class TauFormError():
     """
@@ -310,8 +335,6 @@ class TauFormError():
         a = p[0]
         b = p[1::2].reshape((m, 1))       # (m, 1)
         c = -1 / p[2::2].reshape((m, 1))  # (m, 1)
-
-
 
         # MSE
         e = np.exp(c * self._x)               # (m, n)  e^(cx)
