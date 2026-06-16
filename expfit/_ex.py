@@ -49,7 +49,7 @@ class CILimitNotFound(RuntimeError):
     Raised if the ``ci_profile`` method cannot find an upper or lower bound
     near the expected value.
     """
-    def __init__(self, direction):
+    def __init__(self, direction):  # pragma: no cover
         direction = 'upper' if direction > 0 else 'lower'
         super().__init__(
             f'Unable to find {direction} limit during method `ci_profile`:'

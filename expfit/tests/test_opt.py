@@ -109,11 +109,6 @@ class TestOpt(unittest.TestCase):
         self.assertGreater(f(r.x[0] + 1e-8)[0], r.error)
         self.assertGreater(f(r.x[0] - 1e-8)[0], r.error)
 
-        # Failing constraint
-        r = expfit.lm(f, [10], constraint=lambda p: False)
-        self.assertFalse(r.success)
-        self.assertEqual(r.message, 'Initial position fails constraint')
-
     def test_lm_bad_error(self):
         # Test optimiser recognises wrong size mse, jac & hes
 

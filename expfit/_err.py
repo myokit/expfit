@@ -286,22 +286,28 @@ class MultiExponentialError():
         return self._ni * np.sum(
             (p[0] - self._y + np.sum(b * np.exp(c * self._x), axis=0))**2)
 
-    def transform(self, p):
-        """ Converts ``p`` from tau-form to log-transformed. """
+    def transform(self, p, tau=False):
+        """ Converts ``p`` from c or tau form to log-transformed. """
         if len(p) != self._np:
             raise ValueError(f'Expecting {self._np} parameters, got {len(p)}.')
-        q = np.copy(p)
+        q = np.array(p, dtype=float, copy=True)
         q[1::2] = np.log(self._z * p[1::2])
-        q[2::2] = np.log(-p[2::2])
+        if tau:
+            q[2::2] = -np.log(p[2::2])
+        else:
+            q[2::2] = np.log(-p[2::2])
         return q
 
-    def detransform(self, q):
+    def detransform(self, q, tau=False):
         """ Converts ``q`` from log-transformed to tau-form. """
         if len(q) != self._np:
             raise ValueError(f'Expecting {self._np} parameters, got {len(q)}.')
-        p = np.copy(q)
+        p = np.array(q, dtype=float, copy=True)
         p[1::2] = self._z * np.exp(q[1::2])
-        p[2::2] = 1 / np.exp(q[2::2])
+        if tau:
+            p[2::2] = np.exp(-q[2::2])
+        else:
+            p[2::2] = -np.exp(q[2::2])
         return p
 
 
@@ -424,48 +430,4 @@ class ErrorWithFixedParameter():
         j = np.delete(j, self._i, 0)
         h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
         return m, j, h
-
-
-class MultiExponentialConstraint():
-    """
-    Constraint for use with :class:`MultiExponentialError` that keeps the ``c``
-    constants ordered.
-
-    In each set (positive and negative ``b`` parameters), a constraint is
-    checked such that ``c[i] > c[i + 1]``.
-
-    Arguments:
-
-    ``x``, ``y``
-        The time series.
-
-    """
-    def __call__(self, p):
-        c = p[2::2]
-        return np.all(c[1:] > c[:-1])
-
-
-class ConstraintWithFixedParameter():
-    """
-    Wraps around an error class and turns one parameter into a constant.
-
-    Arguments:
-
-    ``error``
-        The error to wrap.
-    ``p``
-        The best solution
-    ``ifix``
-        The index in the parameter vector of the parameter to hold fixed.
-
-    """
-    def __init__(self, constraint, p, ifix):
-        self._c = constraint
-        self._p = np.copy(p)
-        self._i = int(ifix)
-
-    def __call__(self, p):
-        self._p[:self._i] = p[:self._i]
-        self._p[self._i + 1:] = p[self._i:]
-        return self._c(self._p)
 

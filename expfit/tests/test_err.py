@@ -273,6 +273,55 @@ class TestError(unittest.TestCase):
             ValueError, 'Total number',
             expfit.MultiExponentialError, x, y, 0, 0)
 
+    def test_multi_error_transform(self):
+        # Transformations
+
+        x = np.linspace(0, 1, 123)
+        y = expfit.exp(x, [1, 2, 0.3])
+        e1 = expfit.MultiExponentialError(x, y, 1, 1, positive_first=False)
+        t = np.array([2, -3, 0.5, 5, 0.1])
+        p = np.array([2, -3, -2, 5, -10])
+        q = np.array([2, np.log(3), np.log(2), np.log(5), np.log(10)])
+
+        r = e1.transform(p, False)
+        self.assertEqual(q.shape, r.shape)
+        self.assertAlmostEqual(q[0], r[0], delta=1e-15)
+        self.assertAlmostEqual(q[1], r[1], delta=1e-15)
+        self.assertAlmostEqual(q[2], r[2], delta=1e-15)
+        self.assertAlmostEqual(q[3], r[3], delta=1e-15)
+        self.assertAlmostEqual(q[4], r[4], delta=1e-15)
+
+        r = e1.transform(t, True)
+        self.assertEqual(q.shape, r.shape)
+        self.assertAlmostEqual(q[0], r[0], delta=1e-15)
+        self.assertAlmostEqual(q[1], r[1], delta=1e-15)
+        self.assertAlmostEqual(q[2], r[2], delta=1e-15)
+        self.assertAlmostEqual(q[3], r[3], delta=1e-15)
+        self.assertAlmostEqual(q[4], r[4], delta=1e-15)
+
+        r = e1.detransform(q, False)
+        self.assertEqual(q.shape, r.shape)
+        self.assertAlmostEqual(p[0], r[0], delta=1e-15)
+        self.assertAlmostEqual(p[1], r[1], delta=1e-15)
+        self.assertAlmostEqual(p[2], r[2], delta=1e-15)
+        self.assertAlmostEqual(p[3], r[3], delta=1e-15)
+        self.assertAlmostEqual(p[4], r[4], delta=1e-14)
+
+        r = e1.detransform(q, True)
+        self.assertEqual(q.shape, r.shape)
+        self.assertAlmostEqual(t[0], r[0], delta=1e-15)
+        self.assertAlmostEqual(t[1], r[1], delta=1e-15)
+        self.assertAlmostEqual(t[2], r[2], delta=1e-15)
+        self.assertAlmostEqual(t[3], r[3], delta=1e-15)
+        self.assertAlmostEqual(t[4], r[4], delta=1e-15)
+
+        self.assertRaisesRegex(
+            ValueError, 'Expecting 5 parameters, got 3',
+            e1.transform, [1, 2, 3])
+        self.assertRaisesRegex(
+            ValueError, 'Expecting 5 parameters, got 6',
+            e1.detransform, [1, 2, 3, 4, 5, 6])
+
     def test_tau_error(self):
         # Test the tau form error
 

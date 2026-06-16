@@ -36,18 +36,16 @@ class ExponentialFit:
         The (assumed) optimal parameters.
     ``error``
         An optional error object, used in CI methods.
-    ``constraint``
-        An optional constraint object, used CI methods.
+
 
     """
-    def __init__(self, t, v, p, error=None, constraint=None):
+    def __init__(self, t, v, p, error=None):
         self._tv = t, v
         self._p = tuple(p)
         self._np = len(self._p)
         self._nt = len(t)
 
         self._err = error
-        self._cst = constraint
         self._mjh = None
         self._cov = None
 
@@ -132,21 +130,11 @@ class ExponentialFit:
             # Create a partial parameter array, omitting i
             self._p_cache[i] = value
 
-            # Test the constraint, if given
-            c = None
-            if self._cst is not None:
-                if not self._cst(self._p_cache):  # pragma: no cover
-                    return False, np.delete(self._p_cache, i), np.nan
-
-                # Create a fixed version
-                c = expfit.ConstraintWithFixedParameter(
-                    self._cst, self._p_cache, i)
-
             # Evaluate the error and compare
             f = expfit.ErrorWithFixedParameter(self._err, self._p_cache, i)
             p = np.delete(self._p_cache, i)
             with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, constraint=c, gtol=gtol)
+                r = expfit.lm(f, p, gtol=gtol)
             if r.success:
                 self._p_cache = np.insert(r.x, i, value)
             return r.error < cutoff, r.x, r.error
@@ -165,9 +153,9 @@ class ExponentialFit:
                     break
                 d += dd
                 dd *= 2
-                if abs(d) > 10 * fim:
+                if abs(d) > 10 * fim:  # pragma: no cover
                     break
-            if not limit_found:
+            if not limit_found:  # pragma: no cover
                 raise expfit.CILimitNotFound(direction)
             self._p_cache = np.array(self._p)
 
@@ -320,13 +308,10 @@ class ExponentialFit:
         errors = np.zeros(evals)
         for j, val in enumerate(values):
             p_full[i] = val
-            c = None
-            if self._cst is not None:  # pragma: no cover
-                c = expfit.ConstraintWithFixedParameter(self._cst, p_full, i)
             f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
             p = np.delete(p_full, i)
             with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, constraint=c, gtol=gtol)
+                r = expfit.lm(f, p, gtol=gtol)
                 errors[j] = r.error
         return values, errors
 

@@ -190,7 +190,6 @@ def fitd2(t, v, plot=False, opt_plot=False):
     # Set up error
     npos, nneg = (2, 0) if b0 > 0 else (0, 2)
     e = expfit.MultiExponentialError(t, v, npos, nneg)
-    c = expfit.MultiExponentialConstraint()
 
     max_iter = 10
     opt_fig = opt_plot
@@ -206,7 +205,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
         # Fit with transformed parameters
         q0 = e.transform(p0)
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, q0, constraint=c, plot=opt_fig)
+            r = expfit.lm(e, q0, plot=opt_fig)
             if plot is not False:  # pragma: no cover
                 print(r)
             opt_fig = r.plot
@@ -219,7 +218,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
 
     # Detransform parameters
     et = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, e.detransform(r.x), et)
+    p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
 
     if plot is not False:  # pragma: no cover
         pk = None
@@ -228,7 +227,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
             pk = plot
         except (TypeError, AssertionError):
             pass
-        p0 = expfit.ExponentialFit(t, v, e.detransform(q0), et)
+        p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
         fig, (ax, iax, tax) = tau_plot(t, v, r, p, p0, pk)
         iax[0].plot(t, expfit.expc(t, (a0, b0, c0)), 'k--', lw=1.5,
                     label=f'Single ($\\tau$={-1 / c0:.3g})')
@@ -286,11 +285,11 @@ def fitd11(t, v, plot=False):
 
     # Detransform parameters
     et = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, e.detransform(r.x), et)
+    p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
 
     if plot is not False:  # pragma: no cover
         pt = None
-        p0 = expfit.ExponentialFit(t, v, e.detransform(q0), et)
+        p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
         try:
             assert len(plot) == 5
             pt = plot
