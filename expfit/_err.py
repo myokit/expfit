@@ -187,7 +187,9 @@ class MultiExponentialError():
         The number of negative exponential terms.
     ``positive_first``
         Determines whether positive or negative terms are first in the
-        parameter vector.
+        parameter vector. To satisfy the :class:`MultiExponentialConstraint`,
+        the slowest process (visible at the end of the time series) must be
+        listed first.
 
     """
     def __init__(self, x, y, npos, nneg, positive_first=True):
@@ -436,31 +438,11 @@ class MultiExponentialConstraint():
 
     ``x``, ``y``
         The time series.
-    ``npos``
-        The number of positive exponential terms.
-    ``nneg``
-        The number of negative exponential terms.
 
     """
-
-    def __init__(self, npos, nneg):
-        npos, nneg = int(npos), int(nneg)
-        if npos < 0:
-            raise ValueError(
-                'Number of positive exponential terms can not be negative.')
-        if nneg < 0:
-            raise ValueError(
-                'Number of negative exponential terms can not be negative.')
-        if npos + nneg == 0:
-            raise ValueError(
-                'Total number of exponential terms must be greater than zero.')
-
-        self._npos = npos
-
     def __call__(self, p):
         c = p[2::2]
-        cp, cn = c[:self._npos], c[self._npos:]
-        return (np.all(cp[:-1] > cp[1:]) and np.all(cn[:-1] > cn[1:]))
+        return np.all(c[1:] > c[:-1])
 
 
 class ConstraintWithFixedParameter():

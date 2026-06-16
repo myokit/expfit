@@ -43,3 +43,15 @@ class CIUnavailableError(RuntimeError):
     def __init__(self):
         super().__init__('CI methods unavailable for this exponential fit')
 
+
+class CILimitNotFound(RuntimeError):
+    """
+    Raised if the ``ci_profile`` method cannot find an upper or lower bound
+    near the expected value.
+    """
+    def __init__(self, direction):
+        direction = 'upper' if direction > 0 else 'lower'
+        super().__init__(
+            f'Unable to find {direction} limit during method `ci_profile`:'
+            ' expansion reached maximum iterations, or went beyond 10 times'
+            ' the FIM estimate.')

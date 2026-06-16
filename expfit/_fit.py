@@ -177,32 +177,40 @@ def fitd2(t, v, plot=False, opt_plot=False):
     if c0 > 0:
         raise expfit.NotDecayingError()
 
-    # Calculate area, to determine new b constants
-    A0 = expfit._trapezoid(v - a0, t)
-
     # Fit double (in untransformed space)
+
+    # Calculate area, to determine new b constants
+    A0 = (b0 / c0) * (np.exp(c0 * t[-1]) - np.exp(c0 * t[0]))
+
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
+    p0[1] *= 0.7    # The second exponential will contribute
+    p0[2] *= 0.5    # The first c will be overestimated
+
+    # Set up error
     npos, nneg = (2, 0) if b0 > 0 else (0, 2)
     e = expfit.MultiExponentialError(t, v, npos, nneg)
-    #c = expfit.MultiExponentialConstraint(npos, nneg)
+    c = expfit.MultiExponentialConstraint()
+
     max_iter = 10
+    opt_fig = opt_plot
     for i in range(max_iter):
-        # Increase the difference between dominant and second exponential.
-        p0[2] *= 0.707106781
-        p0[4] *= 1.414213562
+        # Speed up the second exponential
+        p0[4] *= 1.4
 
         # Set b constants to get same area under the curve as original estimate
-        A = (p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0])) +
-             p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0])))
-        p0[1] = p0[3] = b0 * (A0 / A)
+        A1 = p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0]))
+        A2 = p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0]))
+        p0[1] = p0[3] = b0 * (A0 / (A1 + A2))
 
         # Fit with transformed parameters
         q0 = e.transform(p0)
         with np.errstate(all='ignore'):
-            r = expfit.lm(e, q0)  # constraint=c, plot=opt_plot)
+            r = expfit.lm(e, q0, constraint=c, plot=opt_fig)
             if plot is not False:  # pragma: no cover
                 print(r)
+            opt_fig = r.plot
+
         if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
             break
         elif i + 1 == max_iter:  # pragma: no cover
@@ -268,7 +276,6 @@ def fitd11(t, v, plot=False):
         raise expfit.NotDecayingError()
 
     # Fit double
-    # Assume dominant (slowest) rate found, next will be faster
     npos, nneg, pos_first = 1, 1, p0[1] > 0
     e = expfit.MultiExponentialError(t, v, npos, nneg, pos_first)
     q0 = e.transform(p0)
@@ -355,20 +362,28 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
     for i in range(d):
         j = 2 + 2 * i
         flo, fhi = p.ci_fisher(j)
-        plo, phi = p.ci_profile(j)
+        try:
+            profile = True
+            plo, phi = p.ci_profile(j)
+        except expfit.CILimitNotFound:
+            profile = False
+
         c = colors[i][1]
 
         # Show component and PL CI on main axes
-        b = (f'Fit {nth(i)} ($\\tau$={p[j]:.2g},'
-             f' FI[{flo:.3g}, {fhi:.3g}],'
-             f' PL[{plo[j]:.3g}, {phi[j]:.3g}])')
+        b = f'Fit {nth(i)} ($\\tau$={p[j]:.2g}, FI[{flo:.3g}, {fhi:.3g}]'
+        if profile:
+            b = f'{b}, PL[{plo[j]:.3g}, {phi[j]:.3g}])'
+        else:
+            b = f'{b}, PL Failed)'
         pc = (p[0], p[1 + 2 * i], p[2 + 2 * i])
-        pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
-        pchi = (plo[0], phi[1 + 2 * i], phi[2 + 2 * i])
         ax0.plot(t, e(t, pc), lw=1, ls='--', color=c, label=b)
-        ax0.fill_between(t, e(t, pclo), e(t, pchi), color=c, alpha=0.1)
-        ax0.plot(t, e(t, pclo), lw=0.4, color=c)
-        ax0.plot(t, e(t, pchi), lw=0.4, color=c)
+        if profile:
+            pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
+            pchi = (plo[0], phi[1 + 2 * i], phi[2 + 2 * i])
+            ax0.fill_between(t, e(t, pclo), e(t, pchi), color=c, alpha=0.1)
+            ax0.plot(t, e(t, pclo), lw=0.4, color=c)
+            ax0.plot(t, e(t, pchi), lw=0.4, color=c)
         #ax0.plot(t, e(t, plo), 'tab:green', ls='--', lw=0.4)
         #ax0.plot(t, e(t, phi), 'tab:green', ls='--', lw=0.4)
 
@@ -378,16 +393,17 @@ def tau_plot(t, v, r, p, p0, ptrue=None):  # pragma: no cover
         ax.set_ylabel('MSE')
 
         # Profile log-likelihood (MSE)
-        values, errors = p.profile(j, plo[j], phi[j])
-        ax.plot(values, errors, label='Profile')
-        ax.axvline(p[j], color='gray')
-        ax.axvline(plo[j], color='tab:blue', lw=1, ls='--')
-        ax.axvline(phi[j], color='tab:blue', lw=1, ls='--')
+        if profile:
+            values, errors = p.profile(j, plo[j], phi[j])
+            ax.plot(values, errors, label='Profile')
+            ax.axvline(p[j], color='gray')
+            ax.axvline(plo[j], color='tab:blue', lw=1, ls='--')
+            ax.axvline(phi[j], color='tab:blue', lw=1, ls='--')
 
         # FIM approximation
         x = np.linspace(flo, fhi, 100)
         q = 0.5 / np.diag(np.linalg.inv(p.hes()))
-        ax.plot(x, p.mse() + q[j] * (x - p[j])**2, label='FI')
+        ax.plot(x, p.mse() + q[j] * (x - p[j])**2, 'tab:orange', label='FI')
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 

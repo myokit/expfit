@@ -261,6 +261,12 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
 
 def estimate_initial_opposing(x, y, plot=False, vet=True):
     """
+
+
+    TODO
+
+
+
     Split the time series ``(x, y)`` into two segments, trending in different
     directions.
 
@@ -290,11 +296,10 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
     isplit = imn if mn > mx else imx
 
     # Fit exponentials to both segments
-    p1 = expfit.estimate_initial_single(x[isplit:], y[isplit:], vet=False)
-    p0 = expfit.estimate_initial_single(
-        x[:isplit], y[:isplit] - expfit.expc(x[:isplit], p1), vet=False)
-    a0, b0, c0 = p0
-    a1, b1, c1 = p1
+    p0 = a0, b0, c0 = expfit.estimate_initial_single(
+        x[isplit:], y[isplit:], vet=False)
+    a1, b1, c1 = expfit.estimate_initial_single(
+        x[:isplit], y[:isplit] - expfit.expc(x[:isplit], p0), vet=False)
 
     # Create plot
     if plot:  # pragma: no cover
@@ -303,14 +308,14 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
         ax = fig.add_subplot()
         ax.plot(x, y, 's-' if len(x) < 50 else '-', label='Data')
         ax.axvline(x[isplit], color='k', ls='--', lw=1, label='Split')
-        ax.plot(x, expfit.expc(x, p1), 'r', label='Second')
-        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p1),
-                label='Data with second subtracted')
-        ax.plot(x, expfit.expc(x, (a1, b0, c0)), 'k', label='First')
-        ax.plot(x, expfit.expc(x, (a1, b0, c0, b1, c1)), label='Combined')
+        ax.plot(x, expfit.expc(x, p0), 'r', label='Dominant')
+        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p0),
+                label='Data with dominant subtracted')
+        ax.plot(x, expfit.expc(x, (a0, b1, c1)), 'k', label='Second')
+        ax.plot(x, expfit.expc(x, (a0, b0, c0, b1, c1)), label='Combined')
         ax.legend()
 
-    return a1, b0, c0, b1, c1
+    return a0, b0, c0, b1, c1
 
 
 '''

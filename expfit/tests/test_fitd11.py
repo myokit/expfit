@@ -67,17 +67,17 @@ class TestD11(unittest.TestCase):
         self.r = np.random.default_rng(101)
         plot = False
 
-        d(10, 20, .07, -20, .5, s=0.2, deltas=(.05, .2, .002, .05, .005),
+        d(10, -20, .5, 20, .07, s=0.2, deltas=(.05, .05, .005, .2, .002),
             plot=plot)
-        d(10, 80, .07, -20, .5, s=1, deltas=(.5, .5, .002, .5, .05),
+        d(11, -20, .5, 80, .07, s=1, deltas=(.5, .5, .05, .5, .002),
             plot=plot)
-        d(10, 40, .07, -20, .5, s=0.2, t0=0.1, deltas=(.05, 2, .005, .5, .005),
+        d(12, -20, .5, 40, .07, s=0.2, t0=0.1, deltas=(.05, .5, .005, 2, .005),
             plot=plot)
-        d(7, -100, .1, 15, .2, s=0.4, t0=0.1, deltas=(.2, 10, .01, 10, .1),
+        d(7, 15, .2, -100, .1, s=0.4, t0=0.1, deltas=(.2, 10, .1, 10, .01),
             plot=plot)
-        d(5, -10, .07, 10, .5, s=0.2, t0=0.1, deltas=(.05, 2, .01, .5, .02),
+        d(5, 10, .5, -10, .07, s=0.2, t0=0.1, deltas=(.05, .5, .02, 2, .01),
             plot=plot)
-        d(1, 6, .2, -4, .5, s=0.3, n=500, deltas=(.5, 3, .1, 3, .7),
+        d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 3, .7, 3, .1),
             plot=plot)
 
     def d11_on_d12(self, p, s, t0=0, duration=2, n=100, ratio=1, plot=False):
@@ -107,8 +107,8 @@ class TestD11(unittest.TestCase):
         self.r = np.random.default_rng(11)
         plot = False
 
-        d((1, 10, .05, -4, 4, -4, 0.1), s=0.01, plot=plot, ratio=7)
-        d((1, 10, .05, -4, 4, -4, 0.1), s=0.1, plot=plot, ratio=1.5)
+        d((1, -4, 4, -4, 0.1, 10, .05), s=0.01, plot=plot, ratio=7)
+        d((1, -4, 4, -4, 0.1, 10, .05), s=0.1, plot=plot, ratio=1.5)
 
     def test_fitd11_edge_cases(self):
         # Test on bad signals

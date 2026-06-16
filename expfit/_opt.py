@@ -167,6 +167,11 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     #constraint = None
     # TODO
 
+    # Store position etc for plot
+    if plot is not False:  # pragma: no cover
+        # Position, mse, alpha
+        log = [[p[0], m, alpha]]
+
     for iterations in range(max_iter):
         if err:
             break
@@ -220,13 +225,16 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
             alpha *= 10
             if alpha > 1e20:  # pragma: no cover
                 err = 'Lambda factor grew too large'
+
         if verbose:  # pragma: no cover
             print()
 
-    time = timeit.default_timer() - time
+        if ok and plot is not False:  # pragma: no cover
+            log.append([p[0], m, alpha])
 
-    # Create and return result object
+    # Create result object
     res = LMResult()
+    res.time = timeit.default_timer() - time
     res.x = p[0]
     res.error = m
     res.jac = j
@@ -235,7 +243,6 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     res.iterations = 1 + iterations
     res.evaluations = evaluations
     res.accepted = accepted
-    res.time = time
     if err:
         res.message = err
     elif iterations + 1 == max_iter:
@@ -243,6 +250,85 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     else:
         res.success = True
         res.message = 'Optimisation successful'
+
+    # Create plot
+    if plot is not False:  # pragma: no cover
+        d = (len(p[0]) - 1) // 2
+
+        if isinstance(plot, tuple):
+            fig, axa, axb, axc, axm, axl, diagonals = plot
+            for line in diagonals:
+                line.remove()
+        else:
+            import matplotlib.pyplot as plt
+            fig = plt.figure(figsize=(11, 7.5))
+            fig.subplots_adjust(0.075, 0.06, 0.99, 0.95, wspace=0.22, hspace=0.4)
+            grid = fig.add_gridspec(3, d - 1, height_ratios=(1, 3, 3))
+
+            grd2 = grid[0, :].subgridspec(1, 3)
+            axa = fig.add_subplot(grd2[0])
+            axa.set_xlabel('Iterations')
+            axa.set_ylabel('a')
+
+            axm = fig.add_subplot(grd2[1])
+            axm.set_xlabel('Iterations')
+            axm.set_ylabel('MSE')
+            axm.set_yscale('log')
+
+            axl = fig.add_subplot(grd2[2])
+            axl.set_xlabel('Iterations')
+            axl.set_ylabel('Alpha')
+            axl.set_yscale('log')
+
+            axb, axc = [], []
+            for i in range(d - 1):
+                ax = fig.add_subplot(grid[1, i])
+                axb.append(ax)
+                ax.set_xlabel(f'b{1 + i}')
+                ax.set_ylabel(f'b{2 + i}')
+
+                ax = fig.add_subplot(grid[2, i])
+                axc.append(ax)
+                ax.set_xlabel(f'c{1 + i}')
+                ax.set_ylabel(f'c{2 + i}')
+
+        a = [row[0][0] for row in log]
+        b = [[row[0][1 + 2 * i] for row in log] for i in range(d)]
+        c = [[row[0][2 + 2 * i] for row in log] for i in range(d)]
+        m = [row[1] for row in log]
+        l = [row[2] for row in log]
+
+        n = len(a)
+        import matplotlib
+        cmap = matplotlib.colormaps['jet']
+        norm = matplotlib.colors.Normalize(0, n)
+        cols = [cmap(norm(j)) for j in range(n)]
+
+        axa.plot(a, '-')
+        axm.plot(m, '-')
+        axl.plot(l, '-')
+        for j in range(n):
+            axa.plot(j, a[j], 's', color=cols[j])
+            axm.plot(j, m[j], 's', color=cols[j])
+            axl.plot(j, l[j], 's', color=cols[j])
+
+        for i in range(d - 1):
+            axb[i].plot(b[i], b[i + 1], '-')
+            axc[i].plot(c[i], c[i + 1], '-')
+            for j in range(len(a)):
+                axb[i].plot(b[i][j], b[i + 1][j], 's', color=cols[j])
+                axc[i].plot(c[i][j], c[i + 1][j], 's', color=cols[j])
+
+        diagonals = []
+        for i in range(d - 1):
+            x = axc[i].get_xlim()
+            diagonals.append(axc[i].plot(x, x, '#ccc', ls='--', lw=1)[0])
+
+        # Pass plot back for repeated optimisation plots
+        res.plot = fig, axa, axb, axc, axm, axl, diagonals
+    else:
+        res.plot = False
+
     return res
 
 

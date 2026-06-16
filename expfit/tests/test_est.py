@@ -253,42 +253,42 @@ class TestEstimates(unittest.TestCase):
         return tr.detransform(*ret)
 
     def test_estimate_initial_opposing(self):
-        f = expfit.expc
+        e = expfit.expc
         plot = False
 
-        p = 8, 3, -7, -1, -5
+        p = 8, -1, -5, 3, -7
         x = np.linspace(0.5, 1.5, 200)
-        q = self.estimate_initial_opposing(x, f(x, p), plot=plot)
+        q = self.estimate_initial_opposing(x, e(x, p), plot=plot)
         self.assertAlmostEqual(q[0], 8, delta=0.001)
-        self.assertAlmostEqual(q[1], 3, delta=2)
-        self.assertAlmostEqual(q[2], -7, delta=4)
-        self.assertAlmostEqual(q[3], -1, delta=2)
-        self.assertAlmostEqual(q[4], -5, delta=3)
+        self.assertAlmostEqual(q[1], -1, delta=2)
+        self.assertAlmostEqual(q[2], -5, delta=3)
+        self.assertAlmostEqual(q[3], 3, delta=2)
+        self.assertAlmostEqual(q[4], -7, delta=4)
 
-        p = -3, -200, -10, 10, -6
+        p = -3, 10, -6, -200, -10
         x = np.linspace(0.5, 1.5, 200)
-        q = self.estimate_initial_opposing(x, f(x, p), plot=plot)
+        q = self.estimate_initial_opposing(x, e(x, p), plot=plot)
         self.assertAlmostEqual(q[0], -3, delta=0.005)
-        self.assertAlmostEqual(q[1], -200, delta=120)
-        self.assertAlmostEqual(q[2], -10, delta=2)
-        self.assertAlmostEqual(q[3], 10, delta=10)
-        self.assertAlmostEqual(q[4], -6, delta=3)
+        self.assertAlmostEqual(q[1], 10, delta=10)
+        self.assertAlmostEqual(q[2], -6, delta=3)
+        self.assertAlmostEqual(q[3], -200, delta=120)
+        self.assertAlmostEqual(q[4], -10, delta=2)
 
         # Test vetting can be disabled
         x = np.linspace(0, 1, 10)
-        expfit.estimate_initial_opposing(x, f(x, p))
+        expfit.estimate_initial_opposing(x, e(x, p))
         self.assertRaisesRegex(
             ValueError, 'Both arrays in series must have same length',
-            expfit.estimate_initial_opposing, x, f(x[1:], p))
+            expfit.estimate_initial_opposing, x, e(x[1:], p))
         self.assertRaisesRegex(
             ValueError, 'operands could not be broadcast',
-            expfit.estimate_initial_opposing, x, f(x[1:], p), vet=False)
+            expfit.estimate_initial_opposing, x, e(x[1:], p), vet=False)
 
         # Test size check
         x = np.linspace(0, 1, 5)
         self.assertRaisesRegex(
             ValueError, 'At least 10 points',
-            expfit.estimate_initial_opposing, x, f(x, p))
+            expfit.estimate_initial_opposing, x, e(x, p))
 
     '''
     def test_estimate_noise_level(self):

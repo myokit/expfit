@@ -24,6 +24,7 @@ from ._expfit_version import (  # noqa
 #
 
 from ._ex import (  # noqa
+    CILimitNotFound,
     CIUnavailableError,
     NotDecayingError,
     NotExponentialError,

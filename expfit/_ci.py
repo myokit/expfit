@@ -156,17 +156,19 @@ class ExponentialFit:
         for direction in (-1, 1):
 
             # Start from the FIM bounds, expanding if necessary
+            limit_found = False
             d = fim * direction
             dd = fim * 0.1 * direction
             for j in range(max_iter):
                 if not test(self._p[i] + d)[0]:
+                    limit_found = True
                     break
                 d += dd
                 dd *= 2
-            if j + 1 == max_iter:  # pragma: no cover
-                raise RuntimeError(
-                    'Unable to find upper/lower limit for profile CI:'
-                    ' maximum iterations reached')
+                if abs(d) > 10 * fim:
+                    break
+            if not limit_found:
+                raise expfit.CILimitNotFound(direction)
             self._p_cache = np.array(self._p)
 
             # Bisect

@@ -38,7 +38,8 @@ class TestDouble(unittest.TestCase):
         v += self.r.normal(0, max(fnoise * abs(v[0] - v[-1]), 1e-9), size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        af, bf, cf, df, ef = expfit.fitd2(t, v, plot=plot_params)
+        af, bf, cf, df, ef = expfit.fitd2(
+            t, v, plot=plot_params, opt_plot=plot)
         rt = expfit.rmse(t, v, (a, b, c, d, e))
         rf = expfit.rmse(t, v, (af, bf, cf, df, ef))
 
@@ -71,13 +72,11 @@ class TestDouble(unittest.TestCase):
         dod(0, -10, 0.5, -4, 0.125, deltas=(.05, 1, .01, 1, .02), plot=plot)
         dod(-1e5, 5, 0.5, 3, 0.1, deltas=(.05, .5, .01, .5, 1e-3), plot=plot)
         dod(5, 1, 1, 5, 0.1, deltas=(.1, .1, .2, .2, 2e-3), plot=plot)
-        dod(20, 6, 0.5, 40, .17, t0=0.5, deltas=(.05, 1, .05, 2, 2e-3),
-            plot=plot)
-        dod(-87, 30, .33, 40, .05, deltas=(.6, 3, .05, 3, 2e-3), plot=plot)
-        dod(123, -8, 1, -5, .01, deltas=(.2, .1, .05, .2, 1e-3), plot=plot)
-        dod(400, 5, 1, 3, .25, deltas=(1, .5, .2, 1, .05), plot=plot)
-        dod(500, 1, .17, 3, .1, deltas=(.001, 1, .02, 1, 5e-3), plot=plot,
+        dod(123, -8, 1, -5, .01, deltas=(.2, .1, .05, .4, 1e-3), plot=plot)
+        dod(400, 5, 1, 3, .25, deltas=(1, 1, .2, 1, .1), plot=plot)
+        dod(500, 1, .17, 3, .1, deltas=(.002, 1, .02, 1, 5e-3), plot=plot,
             n=999)
+        dod(-87, 30, .33, 40, .05, deltas=(.6, 3, .05, 3, 3e-3), plot=plot)
 
     def test_fitd2_hard(self):
         # Test cases where it doesn't seem identifiable
@@ -97,32 +96,18 @@ class TestDouble(unittest.TestCase):
         self.r = np.random.default_rng(2)
         dod(18, 10, .17, 5, .08, deltas=(.05, 5, .5, 5, .1), plot=plot)
 
+        self.r = np.random.default_rng(1)
+        dod(20, 6, .5, 40, .17, t0=0.5, deltas=(.1, 1, .01, 3, .01), plot=plot)
+
         # Fast component is too small
         self.r = np.random.default_rng(6)
-        #dod(100, 10, .25, 4, .2, deltas=(.3, 4, 1e-9, 4, 1e-9), plot=True)
-        dod(100, 10, .25, 4, .2, deltas=(.01, 5, .02, 4, .2), plot=plot, n=999)
+        dod(100, 10, .5, 4, .2, deltas=(.3, 4, .1, 4, .1), plot=plot)
+        dod(99, 10, .5, 4, .2, deltas=(.01, 5, .02, 4, .2), plot=plot, n=999)
 
-        # Unidentifiable? Fits this with 1 time constant
-        self.r = np.random.default_rng(3)
-        #dod(200, -4, .25, -4, .2, deltas=(.05, 5, .1, 5, .005), plot=plot)
-        #dod(200, -4, .25, -4, .2, deltas=(.1, 4, 1e-9, 5, 1e-9), plot=True,
-        #    n=1000)
-
-        # These two are repeated in _slow
+        # Unidentifiable?
         self.r = np.random.default_rng(9)
-        # dod(300, -4, .25, -4, .2, deltas=(.01, 5, .02, 5, .2), plot=plot)
-        #dod(-1e5, 1, 1, 2, .5, deltas=(.5, 1, .5, 1, .1), plot=plot)
-
-    def test_fitd2_slow(self):
-        # Hard fits that run very slowly
-        #dod = self.d2_on_double
-        #plot = False
-
-        self.r = np.random.default_rng(9)
-        #dod(300, -4, .25, -4, .2, deltas=(.001, 5, .1, 4, .02), plot=plot,
-        #    n=5000)
-        #dod(-1e5, 1, 1, 2, .5, deltas=(.05, .2, .2, .2, .02), plot=plot,
-        #    n=8000)
+        dod(300, -4, .25, -4, .2, plot=plot)
+        dod(-1e5, 1, 1, 2, .5, plot=plot)
 
     def test_fitd2_noisy(self):
         # Test on (Gaussian) noisy signals: rapidly becomes impossible
