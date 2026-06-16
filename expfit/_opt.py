@@ -132,7 +132,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
     n = np.prod(p.shape)
     p = p.reshape((1, n))
     eye = np.eye(n)
-    alpha = 1000    # Cautious start
+    alpha = 1e-3  # Brave start
     err = False
 
     m, j, h = f(p[0])

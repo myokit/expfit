@@ -226,16 +226,16 @@ class TestCI(unittest.TestCase):
         self.assertEqual(len(xx), 5)
         self.assertEqual(xx[0], alo)
         self.assertEqual(xx[4], ahi)
-        self.assertAlmostEqual(xx[1], -8.163763428098646, delta=1e-15)
-        self.assertAlmostEqual(xx[2], -5.489527397607351, delta=1e-15)
-        self.assertAlmostEqual(xx[3], -2.815291367116057, delta=1e-15)
+        self.assertAlmostEqual(xx[1], -8.163763431014484, delta=1e-15)
+        self.assertAlmostEqual(xx[2], -5.489527400523189, delta=1e-15)
+        self.assertAlmostEqual(xx[3], -2.815291370031893, delta=1e-15)
 
         self.assertEqual(len(yy), 5)
-        self.assertAlmostEqual(yy[0], 304.636783309129, delta=1e-12)
-        self.assertAlmostEqual(yy[1], 299.200319775216, delta=1e-12)
+        self.assertAlmostEqual(yy[0], 304.636783317032, delta=1e-12)
+        self.assertAlmostEqual(yy[1], 299.200319779168, delta=1e-12)
         self.assertAlmostEqual(yy[2], 297.388165267725, delta=1e-12)
-        self.assertAlmostEqual(yy[3], 299.200319786655, delta=1e-12)
-        self.assertAlmostEqual(yy[4], 304.636783332006, delta=1e-12)
+        self.assertAlmostEqual(yy[3], 299.200319782703, delta=1e-12)
+        self.assertAlmostEqual(yy[4], 304.636783324102, delta=1e-12)
 
     def test_double(self):
         # Test on double
