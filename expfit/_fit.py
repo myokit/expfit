@@ -162,6 +162,10 @@ def fitd2(t, v, plot=False, opt_plot=False):
     """
     t, v = expfit.vet_series(t, v)
 
+    # Convert `plot` to boolean
+    pt = plot
+    plot = plot is not False
+
     # Estimate the dominant rate
     tr = expfit.UnitSquareTransform(t, v)
     q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
@@ -204,37 +208,29 @@ def fitd2(t, v, plot=False, opt_plot=False):
         q0 = e.transform(p0)
         with np.errstate(all='ignore'):
             r = expfit.lm(e, q0, plot=opt_fig)
-            if plot is not False:  # pragma: no cover
+            if plot:  # pragma: no cover
                 print(r)
             opt_fig = r.plot
-
-        #print(r.x)
         if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
             break
         elif i + 1 == max_iter:  # pragma: no cover
             raise RuntimeError(
                 f'Unable to find good fit after {max_iter} attempts.')
+    #print(f'Done in {1 + i} repeats. Last opt had {r.iterations} iter.')
 
     # Detransform parameters
     et = expfit.TauFormError(t, v)
     p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
 
-    #print(f'Done in {1 + i} repeats. Last opt had {r.iterations} iter.')
-    if plot is not False:  # pragma: no cover
+    if plot:  # pragma: no cover
         from ._plot import tau_plot
-
         p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
-        pk = None
+        pe = expfit.ExponentialFit(t, v, (a0, b0, -1 / c0), et)
         try:
-            assert len(plot) == 5
-            pk = plot
+            assert len(pt) == 5
         except (TypeError, AssertionError):
-            pass
-
-        fig, (ax, iax, tax) = tau_plot(t, v, r, p, p0, pk)
-        iax[0].plot(t, expfit.expc(t, (a0, b0, c0)), 'k--', lw=1.5,
-                    label=f'Single ($\\tau$={-1 / c0:.3g})')
-        iax[0].legend(frameon=False)
+            pt = None
+        tau_plot(t, v, r, p, p0, pe, pt)
 
     return p
 
@@ -290,7 +286,6 @@ def fitd11(t, v, plot=False, opt_plot=False):
 
     if plot is not False:  # pragma: no cover
         from ._plot import tau_plot
-
         p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
         pt = None
         try:
@@ -298,7 +293,7 @@ def fitd11(t, v, plot=False, opt_plot=False):
             pt = plot
         except (TypeError, AssertionError):
             pass
-        tau_plot(t, v, r, p, p0, pt)
+        tau_plot(t, v, r, p, p0, pt=pt)
 
     return p
 

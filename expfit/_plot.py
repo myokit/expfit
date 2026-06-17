@@ -83,7 +83,7 @@ def initial_estimate_plot(x, y, estimate):
     return fig, ax
 
 
-def tau_plot(t, v, r, p, p0, ptrue=None):
+def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     """
     Creates a plot of a multi-exponential (decaying) fit, highlighting the time
     constants.
@@ -98,7 +98,10 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
         An :class:`ExponentialFit` for the obtained result.
     ``p0``
         An :class:`ExponentialFit` for the initial guess.
-    ``p0``
+    ``pe``
+        An optional :class:`ExponentialFit` for the initial single exponential
+        estimate.'
+    ``pt``
         An optional :class:`ExponentialFit` for the true parameters.
 
     Returns a tuple ``(fig, (main_axes, right_axes, tau_axes))``
@@ -109,7 +112,7 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
     fig = plt.figure(figsize=(11, 7.5))
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95, wspace=0.22, hspace=0.25)
     gr1 = fig.add_gridspec(2, 2, width_ratios=(4, 1), height_ratios=(3, 1))
-    gr2 = gr1[0, 1].subgridspec(2 if ptrue is None else 3, 1)
+    gr2 = gr1[0, 1].subgridspec(2 if pt is None else 3, 1)
     gr3 = gr1[1, :].subgridspec(1, d)
 
     # Show data
@@ -121,11 +124,11 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
 
     # Try showing known solution
     e = expfit.exp
-    if ptrue is not None:
+    if pt is not None:
         for i in range(d):
-            pc = (ptrue[0], ptrue[1 + 2 * i], ptrue[2 + 2 * i])
+            pc = (pt[0], pt[1 + 2 * i], pt[2 + 2 * i])
             ax0.plot(t, e(t, pc), color=colors[i][0],
-                     label=f'Known {nth(i)} ($\\tau$={ptrue[2 + 2 * i]:.3g})',)
+                     label=f'Known {nth(i)} ($\\tau$={pt[2 + 2 * i]:.3g})',)
 
     # Show fit
     if r.success:
@@ -189,8 +192,8 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 
-        if ptrue is not None:
-            ax.axvline(ptrue[j], color='k', ls='--', label='Known')
+        if pt is not None:
+            ax.axvline(pt[j], color='k', ls='--', label='Known')
 
         ax.legend(loc=(0, 1.01), ncols=3, frameon=False, handlelength=1.5)
         tau_axes.append(ax)
@@ -202,8 +205,11 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
     ax1 = fig.add_subplot(gr2[0])
     ax1.set_xlabel('t')
     ax1.set_ylabel('v')
-    ax1.plot(t, v, code, color='tab:blue')
-    ax1.plot(t, e(t, p0), 'k:', lw=1.5, label='Initial')
+    ax1.plot(t, v, code)
+    if pe is not None:
+        ax1.plot(t, e(t, pe), 'k--', lw=1.5,
+                 label=f'Single, $\\tau$={pe[2]:.3g}')
+    ax1.plot(t, e(t, p0), '-', lw=1, label='Initial')
     ax1.legend(frameon=False)
 
     # Show final fit residuals
@@ -214,11 +220,11 @@ def tau_plot(t, v, r, p, p0, ptrue=None):
     info_axes = [ax1, ax2]
 
     # Show error comparison with known
-    if ptrue is not None:
+    if pt is not None:
         ax3 = fig.add_subplot(gr2[2])
         info_axes.append(ax3)
 
-        found, known = np.array(p), np.asarray(ptrue)
+        found, known = np.array(p), np.asarray(pt)
         e = p.error()
         padding = 0.25
         s = np.linspace(-padding, 1 + padding, 100)
