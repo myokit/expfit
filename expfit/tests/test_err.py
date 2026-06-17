@@ -244,6 +244,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
+        print(np.max(np.abs(h1 - h2)))
+
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
 
