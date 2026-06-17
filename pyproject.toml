@@ -50,7 +50,7 @@ modules = ['expfit']
 [tool.coverage.run]
 command_line = '-m unittest'
 source = ['expfit']
-omit = []
+omit = ['expfit/_plot.py']
 
 [tool.coverage.report]
 show_missing = 'true'

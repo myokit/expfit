@@ -235,80 +235,8 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
 
     # Create plot
     if plot is not False:  # pragma: no cover
-        d = (len(p[0]) - 1) // 2
-
-        if isinstance(plot, tuple):
-            fig, axa, axb, axc, axm, axl, diagonals = plot
-            for line in diagonals:
-                line.remove()
-        else:
-            import matplotlib.pyplot as plt
-            fig = plt.figure(figsize=(11, 7.5))
-            fig.subplots_adjust(
-                0.075, 0.06, 0.99, 0.95, wspace=0.22, hspace=0.4)
-            grid = fig.add_gridspec(3, d - 1, height_ratios=(1, 3, 3))
-
-            grd2 = grid[0, :].subgridspec(1, 3)
-            axa = fig.add_subplot(grd2[0])
-            axa.set_xlabel('Iterations')
-            axa.set_ylabel('a')
-
-            axm = fig.add_subplot(grd2[1])
-            axm.set_xlabel('Iterations')
-            axm.set_ylabel('MSE')
-            axm.set_yscale('log')
-
-            axl = fig.add_subplot(grd2[2])
-            axl.set_xlabel('Iterations')
-            axl.set_ylabel('Alpha')
-            axl.set_yscale('log')
-
-            axb, axc = [], []
-            for i in range(d - 1):
-                ax = fig.add_subplot(grid[1, i])
-                axb.append(ax)
-                ax.set_xlabel(f'b{1 + i}')
-                ax.set_ylabel(f'b{2 + i}')
-
-                ax = fig.add_subplot(grid[2, i])
-                axc.append(ax)
-                ax.set_xlabel(f'c{1 + i}')
-                ax.set_ylabel(f'c{2 + i}')
-
-        a = [row[0][0] for row in log]
-        b = [[row[0][1 + 2 * i] for row in log] for i in range(d)]
-        c = [[row[0][2 + 2 * i] for row in log] for i in range(d)]
-        m = [row[1] for row in log]
-        l = [row[2] for row in log]
-
-        n = len(a)
-        import matplotlib
-        cmap = matplotlib.colormaps['jet']
-        norm = matplotlib.colors.Normalize(0, n)
-        cols = [cmap(norm(j)) for j in range(n)]
-
-        axa.plot(a, '-')
-        axm.plot(m, '-')
-        axl.plot(l, '-')
-        for j in range(n):
-            axa.plot(j, a[j], 's', color=cols[j])
-            axm.plot(j, m[j], 's', color=cols[j])
-            axl.plot(j, l[j], 's', color=cols[j])
-
-        for i in range(d - 1):
-            axb[i].plot(b[i], b[i + 1], '-')
-            axc[i].plot(c[i], c[i + 1], '-')
-            for j in range(len(a)):
-                axb[i].plot(b[i][j], b[i + 1][j], 's', color=cols[j])
-                axc[i].plot(c[i][j], c[i + 1][j], 's', color=cols[j])
-
-        diagonals = []
-        for i in range(d - 1):
-            x = axc[i].get_xlim()
-            diagonals.append(axc[i].plot(x, x, '#ccc', ls='--', lw=1)[0])
-
-        # Pass plot back for repeated optimisation plots
-        res.plot = fig, axa, axb, axc, axm, axl, diagonals
+        from ._plot import opt_plot
+        res.plot = opt_plot(log)
     else:
         res.plot = False
 
@@ -320,7 +248,16 @@ class LeastSquaresFit():
     Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
     by ``offset + slope * x``.
 
-    Properties: ``offset``, ``slope``, ``mu_x``, ``mu_y``.
+    Properties:
+
+    ``offset``, ``slope``
+        The fit, using ``y = offset + slope * x``
+    ``mu_x``, ``mu_y``
+        The mean ``x`` and ``y`` on the segment fit to.
+    ``x``, ``y``
+        Arrays containing the minimum and maximum ``x`` fit too, and the
+        corresponding ``y`` values.
+
     """
     def __init__(self, x, y, vet=True):
         if vet:
@@ -335,7 +272,11 @@ class LeastSquaresFit():
         xy = np.sum(x * y) - n * self.mu_x * self.mu_y
         self.slope = xy / xx
         self.offset = self.mu_y - self.slope * self.mu_x
-        self._p = (self.offset, self.slope)
+        self.x = np.array((x[0], x[-1]), dtype=float)
+        self.y = self.offset + self.slope * self.x
+
+    def __repr__(self):
+        return f'<expfit.LeastSquaresFit({self.offset:.3}+{self.slope:.3}x)>'
 
     def __str__(self):
         return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'

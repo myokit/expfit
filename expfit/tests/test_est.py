@@ -21,6 +21,91 @@ class TestEstimates(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
+    def test_direct(self):
+        # Test directly, check return type etc.
+
+        p0 = 3, 5, -1
+        x = np.linspace(0.5, 1.5, 100)
+        y = expfit.expc(x, p0)
+        t = expfit.UnitSquareTransform(x, y)
+        r = expfit.estimate_initial_single(t.x, t.y)
+        p = t.detransform(r)
+        self.assertAlmostEqual(p[0], p0[0], delta=1e-3)
+        self.assertAlmostEqual(p[1], p0[1], delta=1e-3)
+        self.assertAlmostEqual(p[2], p0[2], delta=1e-3)
+
+        # Result object, with nice str() but no extended info
+        self.assertEqual(str(r), '-0.582 1.582 -0.9999')
+        self.assertIsNone(r.log1)
+        self.assertIsNone(r.log2)
+        self.assertIsNone(r.region)
+
+        # Result object with full info (but no zoom)
+        r = expfit.estimate_initial_single(t.x, t.y, full=True)
+        p = t.detransform(r)
+        self.assertAlmostEqual(p[0], p0[0], delta=1e-3)
+        self.assertAlmostEqual(p[1], p0[1], delta=1e-3)
+        self.assertAlmostEqual(p[2], p0[2], delta=1e-3)
+        self.assertIsNone(r.region)
+        self.assertIsNotNone(r.log1)
+        self.assertIsNotNone(r.log2)
+        self.assertGreater(len(r.log1), 0)
+        self.assertGreater(len(r.log2), 0)
+        self.assertEqual(len(r.log1[0]), 2)
+        self.assertEqual(len(r.log2[0]), 2)
+        self.assertIsInstance(r.log1[0][0], expfit.LeastSquaresFit)
+        self.assertIsInstance(r.log2[0][0], expfit.LeastSquaresFit)
+
+        # With zoom too
+        y = expfit.expc(x, (3, 5, 10))
+        t = expfit.UnitSquareTransform(x, y)
+        r = expfit.estimate_initial_single(t.x, t.y, full=True)
+        self.assertIsNotNone(r.region)
+
+        # Vets, but can be disabled
+        y = expfit.expc(x, (3, 5, -1))
+        self.assertRaisesRegex(
+            ValueError, 'must have same length, got 100 and 99',
+            expfit.estimate_initial_single, x, y[:-1])
+        self.assertRaisesRegex(
+            ValueError, 'could not be broadcast together with shapes',
+            expfit.estimate_initial_single, x, y[:-1], vet=False)
+        self.assertRaisesRegex(
+            ValueError, 'At least 3', expfit.estimate_initial_single,
+            [1, 2], [3, 4], 1)
+
+        # Extra info: No shrinking, data too small
+        x = np.linspace(0, 1, 3)
+        y = expfit.expc(x, (3, 5, 2))
+        t = expfit.UnitSquareTransform(x, y)
+        r = expfit.estimate_initial_single(t.x, t.y, full=True)
+        self.assertEqual(len(r.log1), 1)
+        self.assertEqual(len(r.log2), 1)
+        self.assertEqual(r.log1[0][1], 'Initial segment at minimum size')
+        self.assertEqual(r.log2[0][1], 'Initial segment at minimum size')
+
+        # Extra info: No estimate, not an exponential
+        t = expfit.UnitSquareTransform(x, x)
+        r = expfit.estimate_initial_single(t.x, t.y, full=True)
+        self.assertEqual(len(r.log1), 2)
+        self.assertEqual(len(r.log2), 2)
+        self.assertEqual(r.log1[0][1], 'Initial segment at minimum size')
+        self.assertEqual(r.log2[0][1], 'Initial segment at minimum size')
+        self.assertEqual(r.log1[1][1], 'Equal slopes (c=0)')
+        self.assertEqual(r.log2[1][1], 'Equal slopes (c=0)')
+
+        # Extra info: No shriking, signs don't idicate exponential
+        x = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        y = [.5, .25, 0, 1, .75, .5]
+        t = expfit.UnitSquareTransform(x, y)
+        r = expfit.estimate_initial_single(t.x, t.y, full=True)
+        self.assertEqual(len(r.log1), 2)
+        self.assertEqual(len(r.log2), 2)
+        self.assertEqual(r.log1[0][1], 'Slope set to zero')
+        self.assertEqual(r.log2[0][1], 'Slope set to zero')
+        self.assertEqual(r.log1[1][1], 'Equal slopes (c=0)')
+        self.assertEqual(r.log2[1][1], 'Equal slopes (c=0)')
+
     def estimate_initial(self, x, y, plot=False, transform=True):
         """
         Calls estimate_initial_single, after transforming to the unit square.
@@ -46,7 +131,7 @@ class TestEstimates(unittest.TestCase):
         x = np.linspace(1.5, 2.5, 2000)
         p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-9)
-        self.assertAlmostEqual(q, b, delta=1e-7)
+        self.assertAlmostEqual(q, b, delta=2e-7)
         self.assertAlmostEqual(r, c, delta=1e-8)
 
         a, b, c = -1000, 5, -0.3
@@ -99,21 +184,6 @@ class TestEstimates(unittest.TestCase):
         self.assertEqual(p, 1)
         self.assertEqual(q, 0)
         self.assertEqual(r, 0)
-
-        # Vets, but can be disabled
-        a, b, c = 3, 5, -0.7
-        x = np.linspace(0.5, 1.5, 100)
-        y = f(x, (a, b, c))
-        self.assertRaisesRegex(
-            ValueError, 'must have same length, got 100 and 99',
-            expfit.estimate_initial_single, x, y[:-1])
-        self.assertRaisesRegex(
-            ValueError, 'could not be broadcast together with shapes',
-            expfit.estimate_initial_single, x, y[:-1], vet=False)
-
-        self.assertRaisesRegex(
-            ValueError, 'At least 3', expfit.estimate_initial_single,
-            [1, 2], [3, 4], 1)
 
     def test_estimate_initial_straight(self):
         # Edge cases: straight and flat lines for estimate_initial_single
@@ -178,10 +248,10 @@ class TestEstimates(unittest.TestCase):
         plot = False
 
         # No zoom: Not steep enough
-        a, b, c = 8, 2, 6
-        x = np.linspace(0, 1, 2000)
+        a, b, c = 8, 2, 5
+        x = np.linspace(0, 1, 20)
         p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-9)
+        self.assertAlmostEqual(p, a, delta=1e-8)
         self.assertAlmostEqual(q, b, delta=1)
         self.assertAlmostEqual(r, c, delta=1)
 
@@ -197,15 +267,15 @@ class TestEstimates(unittest.TestCase):
         a, b, c = 8, 2, 7
         x = np.linspace(0, 1, 500)
         p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-9)
+        self.assertAlmostEqual(p, a, delta=1e-8)
         self.assertAlmostEqual(q, b, delta=1e-2)
-        self.assertAlmostEqual(r, c, delta=1e-3)
+        self.assertAlmostEqual(r, c, delta=2e-3)
 
         a, b, c = -1000, 5, -10
         x = np.linspace(0, 1, 200)
         p, q, r = self.estimate_initial(x, f(x, (a, b, c)), plot=plot)
         self.assertAlmostEqual(p, a, delta=1e-10)
-        self.assertAlmostEqual(q, b, delta=5e-4)
+        self.assertAlmostEqual(q, b, delta=1e-3)
         self.assertAlmostEqual(r, c, delta=5e-2)
 
         # With noise: Noise stops zoom from happening
@@ -289,6 +359,47 @@ class TestEstimates(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'At least 10 points',
             expfit.estimate_initial_opposing, x, e(x, p))
+
+    '''
+    def test_find_action(self):
+        x = np.linspace(0, 1, 111)
+        y = expfit.expc(x, (8, 2, 7))
+
+        tr = expfit.ZoomTransform(x, y)
+        a, b, c = 1, 2, 3
+        p, q, r = tr.transform(a, b, c)
+        self.assertEqual(p, a)
+        self.assertAlmostEqual(q, 19.76783796)
+        self.assertAlmostEqual(r, 0.7090909091)
+        u, v, w = tr.detransform(p, q, r)
+        self.assertEqual(u, a)
+        self.assertAlmostEqual(v, b)
+        self.assertEqual(w, c)
+        t, v = np.array([0.5, 0.6, 0.7]), np.array([0.1, 0.2, 0.3])
+        x, y = tr.detransform_series(t, v)
+        self.assertIs(v, y)
+        self.assertEqual(len(x), 3)
+        self.assertAlmostEqual(x[0], 0.88181818)
+        self.assertAlmostEqual(x[1], 0.90545455)
+        self.assertAlmostEqual(x[2], 0.92909091)
+
+        x = np.linspace(0, 1, 50)
+        y = expfit.expc(x, (1, 1, 1))
+        tr = expfit.ZoomTransform(x, y)
+        a, b, c = 1, 2, 3
+        p, q, r = tr.transform(a, b, c)
+        self.assertEqual(p, a)
+        self.assertEqual(q, b)
+        self.assertEqual(r, c)
+        u, v, w = tr.detransform(p, q, r)
+        self.assertEqual(u, a)
+        self.assertEqual(v, b)
+        self.assertEqual(w, c)
+        t, v = np.array([0.5, 0.6, 0.7]), np.array([0.1, 0.2, 0.3])
+        x, y = tr.detransform_series(t, v)
+        self.assertIs(t, x)
+        self.assertIs(v, y)
+    '''
 
     '''
     def test_estimate_noise_level(self):

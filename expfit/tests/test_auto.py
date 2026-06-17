@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+#
+# Tests for expfit.auto
+#
+# This file is part of ExpFit.
+# See https://github.com/myokit/expfit for copyright, sharing, and licensing.
+#
+import unittest
+
+import numpy as np
+
+import expfit
+
+
+class TestAuto(unittest.TestCase):
+    """
+    Tests automatic determinination of number of exponentials.
+    """
+    @classmethod
+    def setUpClass(cls):
+        # Create in each test and seed!
+        cls.r = None
+
+    def test_auto(self):
+        # Test double-on-double exponential decaying, equal sign multiplier
+        self.r = np.random.default_rng(1)
+        plot = False
+
+        #p0 = 5, 5, 5, 5, 1, 5, .1
+        p0 = 5, 10, 2, 5, .5, 2, .1
+        t = np.linspace(0, 5, 300, endpoint=False)
+        v = expfit.exp(t, p0) + self.r.normal(0, 0.1, size=t.shape)
+
+        expfit.fitd2(t, v, plot=plot, opt_plot=True)
+        if plot:  # pragma: no cover
+            import matplotlib.pyplot as plt
+            plt.show()
+
+
+if __name__ == '__main__':  # pragma: no cover
+    unittest.main()

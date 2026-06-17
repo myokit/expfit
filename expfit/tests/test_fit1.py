@@ -12,7 +12,7 @@ import numpy as np
 import expfit
 
 
-class TestSingle(unittest.TestCase):
+class TestFit1(unittest.TestCase):
     """
     Tests fitting of single exponentials.
     """
@@ -82,7 +82,7 @@ class TestSingle(unittest.TestCase):
             if len(deltas) != 3 and ratio is None and rmse is None:
                 raise Exception('No test criteria set')  # pragma: no cover
 
-    def test_fit1_on_single_basic(self):
+    def test_fit1(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)
@@ -110,7 +110,7 @@ class TestSingle(unittest.TestCase):
         # Both sides of zero
         sos(-2.5, 5, 0.5, 2, 50, deltas=(0.1, 1e-2, 0.1), plot=plot)
 
-    def test_fit1_on_single_straight(self):
+    def test_fit1_straight(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)
@@ -121,7 +121,7 @@ class TestSingle(unittest.TestCase):
         sos(1, 0, 3, 1, 200, plot=plot)
         sos(1, 0, 3, 1, 200, plot=plot)
 
-    def test_fit1_on_single_noisy(self):
+    def test_fit1_noisy(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(12)
@@ -142,7 +142,7 @@ class TestSingle(unittest.TestCase):
             deltas=(1, 0.1, 1), plot=plot)
         sos(-10, -2, -0.1, 2, 600, fnoise=1, deltas=(1e8, 1e6, 10), plot=plot)
 
-    def test_fit1_on_single_dense(self):
+    def test_fit1_dense(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
         self.r = np.random.default_rng(1)

@@ -37,7 +37,6 @@ from ._vetting import (  # noqa
 
 from ._trans import (  # noqa
     UnitSquareTransform,
-    ZoomTransform,
 )
 
 from ._est import (  # noqa

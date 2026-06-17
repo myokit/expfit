@@ -9,7 +9,42 @@ import numpy as np
 import expfit
 
 
-def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
+class SingleExponentialEstimate:
+    """
+    Estimated parameters of a single exponential ``a + b * exp(c * x)``.
+
+    Can be used as a (read-only) sequence, or may provide extra information if
+    :meth:`estimate_initial_single` is called with ``full=True``. In this case
+    the following extra properties will be set:
+
+    ``log1``
+        A list where each entry is ``(least_squares_fit, message)``
+        containing a least squares fit to a segment at the start of the signal,
+        and a message describing it.
+    ``log2``
+        Like ``log1``, but for the end of the signal.
+    ``region``
+        Either ``None``, or the lower and upper indices of the region zoomed in
+        on.
+
+    """
+    def __init__(self, a, b, c):
+        self._p = np.array([a, b, c], dtype=float)
+        self.log1 = None
+        self.log2 = None
+        self.region = None
+
+    def __len__(self):
+        return 3
+
+    def __getitem__(self, subscript):
+        return self._p.__getitem__(subscript)
+
+    def __str__(self):
+        return ' '.join(f'{i:.4g}' for i in self._p)
+
+
+def estimate_initial_single(x, y, full=False, plot=False, vet=True):
     """
     Estimate ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
@@ -43,21 +78,33 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     If the time series does not appear to contain an exponential, the
     parameters ``(a, 0, 0)`` are returned, where ``a`` is the mean of ``y``.
 
+    Example::
+
+        t = np.linspace(0, 1, 50)
+        v = 1 + 3 * np.exp(-0.5 * t)
+        tr = expfit.UnitSquareTransform(t, v)
+        q = expfit.estimate_initial_single(tr.x, tr.y)
+        a, b, c = tr.detransform(q)
+        print(a, b, c)
+
     Arguments:
 
     ``x``, ``y``
         A time vector and the correspond values. Assumed to be transformed onto
         the unit square.
+    ``full=False``
+        Set to ``True`` to store debugging and visualisation information in
+        the returned :class:`SingleExponentialEstimate`.
     ``plot=False``
-        Set to ``True`` to create a full debugging plot.
-    ``axes=None``
-        If ``matplotlib.Axes`` are passed in, the selected segments and
-        estimated slopes will be drawn in.
+        Set to ``True`` to create a plot of the initial estimation process.
+        Setting this to ``True`` will has the side effect of setting
+        ``full=True``.
     ``vet=True``
         Set to ``False`` to disable checks on the dimensions of ``t`` and
         ``v``. This should only be done if the input data is already vetted.
 
-    Returns a tuple ``(a, b, c)``.
+    Returns a :class:`SingleExponentialEstimate` with the estimated
+    ``(a, b, c)``.
     """
     if vet:
         x_org, y_org = expfit.vet_series(x, y)
@@ -66,44 +113,16 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     if len(x_org) < 3:
         raise ValueError('At least 3 points are required')
 
-    # Transform to zoom in on the action
-    tr = expfit.ZoomTransform(x_org, y_org)
-    x, y = tr.x, tr.y
+    # Full information is returned if plot=True
+    full = full or plot
 
-    # Create plot
-    if plot:  # pragma: no cover
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(14, 9))
-        ax = fig.add_subplot()
-        if tr.ibounds is not None:
-            i, j = tr.ibounds
-            ax.axvspan(x_org[i], x_org[j - 1], color='#eee')
-        ax.plot(x_org, y_org, 's-' if len(x_org) < 50 else '-')
-
-    if plot or axes is not None:  # pragma: no cover
-        def plot_line(ax, x, ls, start=True, msg=None, dotted=False):
-            n = len(x)
-            x, y = tr.detransform_series(
-                np.array((x[0], x[-1])),
-                np.array((ls.mu_y + ls.slope * (x[0] - ls.mu_x),
-                          ls.mu_y + ls.slope * (x[-1] - ls.mu_x)))
-            )
-            mu_x, mu_y = tr.detransform_series(
-                np.array((ls.mu_x)), np.array((ls.mu_y))
-            )
-
-            color = 'k' if start else 'r'
-            label = f'Slope {ls.slope:.3} (n={n})'
-            if msg is not None:
-                label = f'{label}: {msg}'
-
-            line = ':' if dotted else '-'
-            fill = 'none' if dotted else 'full'
-            ax.plot(x, y, color=color, ls=line, zorder=10, label=label)
-            ax.plot(mu_x, mu_y, 's', color=color, fillstyle=fill, zorder=10)
-
-    # Straight line detection on t,v???
-    # Maybe.
+    # Select a subsection of the data, if the signal is too steep
+    zoom_region = find_action(x_org, y_org)
+    if zoom_region is None:
+        x, y = x_org, y_org
+    else:
+        i, j = zoom_region
+        x, y = x_org[i:j], y_org[i:j]
 
     #
     # To approximate the two derivatives, the start and end of the signal are
@@ -120,24 +139,31 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     #     slow side
     #   - The ratio of increase/decrease is between 0.8 and 1.25
     #
-    def shrink(seg, ls, n_min, start=True, increasing=True):
+    def shrink(seg, ls, n_min, start=True, increasing=True, log=None):
         increasing = bool(increasing)
         x, y = seg
+
         n = len(x)
+        if n < n_min:
+            if log is not None:
+                log.append((ls, 'Initial segment at minimum size'))
+            return seg, ls
 
         r = None
         msg = None
-        while n > n_min:
-            # Show previous segment
-            if plot:  # pragma: no cover
-                plot_line(ax, x, ls, start)
-
+        l_new = ls
+        for i in range(n):  # Avoid endless loop
             # Propose new segment
-            n = max((1 + n) // 2, n_min)
+            n = (1 + n) // 2
             x_new, y_new = (x[:n], y[:n]) if start else (x[-n:], y[-n:])
+            l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
+
+            # Stop if too small
+            if n < n_min:
+                msg = f'Minimum size reached ({n} < {n_min})'
+                break
 
             # Test slope sign and magnitude
-            l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
             if l_new.slope * ls.slope < 0:
                 msg = 'Slope sign changed'
                 break
@@ -156,16 +182,15 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
             # Accept
             r = r_new
             x, y, ls = x_new, y_new, l_new
-            if n == n_min:
-                msg = 'Minimum size reached'
+            if log is not None:
+                log.append((ls, f'Slope {ls.slope:.3}, n={len(x)}'))
 
-        # Show last segment
-        if plot:  # pragma: no cover
-            if n <= n_min:
-                msg = 'Segment already has minimum length'
-                plot_line(ax, x, ls, start, msg=msg)
-            elif x is x_new:
-                plot_line(ax, x_new, l_new, start, msg=msg, dotted=True)
+        # Sanity check: endless loop
+        assert i - 1 < len(seg[0]), 'Maximum iterations unexpectedly reached'
+
+        # Log last proposed segment
+        if log is not None:
+            log.append((l_new, msg))
 
         return (x, y), ls
 
@@ -177,6 +202,9 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     l1 = expfit.LeastSquaresFit(*seg1, vet=False)
     l2 = expfit.LeastSquaresFit(*seg2, vet=False)
 
+    # Log shrinking process for plot?
+    log1, log2 = ([], []) if full else (None, None)
+
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is
     # not an exponential).
@@ -184,20 +212,19 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     n_min = 5
     if l0.slope * l1.slope < 0:
         l1.slope, l1.offset = 0.0, l1.mu_y
+        if log1 is not None:
+            log1.append((l1, 'Slope set to zero'))
     else:
         seg1, l1 = shrink(
-            seg1, l1, n_min, True, abs(l1.slope) > abs(l2.slope))
+            seg1, l1, n_min, True, abs(l1.slope) > abs(l2.slope), log1)
 
     if l0.slope * l2.slope < 0:
         l2.slope, l2.offset = 0.0, l2.mu_y
+        if log2 is not None:
+            log2.append((l2, 'Slope set to zero'))
     else:
         seg2, l2 = shrink(
-            seg2, l2, n_min, False, abs(l2.slope) > abs(l1.slope))
-
-    # Show final segments on user-provided axes
-    if axes is not None:  # pragma: no cover
-        plot_line(axes, seg1[0], l1, True)
-        plot_line(axes, seg2[0], l2, False)
+            seg2, l2, n_min, False, abs(l2.slope) > abs(l1.slope), log2)
 
     #
     # Use the derived segments to estimate the parameters
@@ -205,11 +232,14 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
 
     # Return a consistent result when things go wrong
     def fail(seg1, seg2, l1, l2, msg):
-        if plot:  # pragma: no cover
-            plot_line(ax, seg1[0], l1, True, msg)
-            plot_line(ax, seg2[0], l2, False, msg)
-            ax.legend()
-        return np.mean(y_org), 0.0, 0.0
+        r = SingleExponentialEstimate(np.mean(y_org), 0, 0)
+        if full:
+            log1.append((l1, msg))
+            log2.append((l2, msg))
+            r.log1 = log1
+            r.log2 = log2
+            r.region = zoom_region
+        return r
 
     # Unpack
     x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
@@ -249,14 +279,64 @@ def estimate_initial_single(x, y, plot=False, axes=None, vet=True):
     if rr > 2:
         return fail(seg1, seg2, l1, l2, 'Flat line is better fit')
 
+    # Create results object
+    r = SingleExponentialEstimate(a, b, c)
+    if full:
+        r.log1 = log1
+        r.log2 = log2
+        r.region = zoom_region
+
     # Show initial estimate
     if plot:  # pragma: no cover
-        p, q, r = tr.detransform(a, b, c)
-        ax.plot(x_org, p + q * np.exp(r * x_org),
-                label=f'Initial estimate {p:.4}, {q:.4}, {r:.4}')
-        ax.legend()
+        from ._plot import initial_estimate_plot
+        initial_estimate_plot(x_org, y_org, r)
 
-    return tr.detransform(a, b, c)
+    return r
+
+
+def find_action(x, y, r_factor=20, n_min=10):
+    """
+    For very steep exponentials, isolates a region of the series ``(x, y)`` for
+    use in initial estimates.
+
+    The method tests wether there is a segment at the start or end of the
+    signal, in which the range of ``y`` exceeds ``r_factor`` times the range
+    outside this segment. If this segment exists, and has length greather than
+    ``n_min``, the method returns the indices corresponding to that segment. If
+    no such segment is found, ``None`` is returned.
+
+    Example::
+
+        zoom_region = find_action(x, y)
+        if zoom_region is not None:
+            i, j = zoom_region
+            x, y = x[i:j], y[i:j]
+
+    """
+    n = len(y)
+    m = n // 2
+    s1, s2 = y[:m], y[m:]
+    r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+
+    if r2 != 0 and r1 / r2 > r_factor:
+        while r2 != 0 and r1 / r2 > r_factor and m > 1:
+            m = max(m // 2, 1)
+            s1, s2 = y[:m], y[m:]
+            r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+
+        if m >= n_min:
+            return 0, m
+
+    elif r1 != 0 and r2 / r1 > r_factor:
+        while r1 != 0 and r2 / r1 > r_factor and m > 1:
+            m = max(m // 2, 1)
+            s1, s2 = y[:-m], y[-m:]
+            r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
+
+        if m >= n_min:
+            return n - m, n
+
+    return None
 
 
 def estimate_initial_opposing(x, y, plot=False, vet=True):

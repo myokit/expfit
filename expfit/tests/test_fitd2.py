@@ -12,7 +12,7 @@ import numpy as np
 import expfit
 
 
-class TestDouble(unittest.TestCase):
+class TestFitd2(unittest.TestCase):
     """
     Tests fitting of double exponentials.
     """

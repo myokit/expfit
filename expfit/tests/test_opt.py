@@ -62,6 +62,7 @@ class TestOpt(unittest.TestCase):
 
         # Test string
         self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
+        self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
 
     def test_lm(self):
 
