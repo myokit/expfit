@@ -189,8 +189,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
     p0[2] *= 0.5    # The first c will be overestimated
 
     # Set up error
-    npos, nneg = (2, 0) if b0 > 0 else (0, 2)
-    e = expfit.MultiExponentialError(t, v, npos, nneg)
+    e = expfit.MultiExponentialError(t, v, 2, 0, b0 > 0)
 
     max_iter = 10
     opt_fig = opt_plot
@@ -211,6 +210,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
                 print(r)
             opt_fig = r.plot
 
+        #print(r.x)
         if np.exp(r.x[4] - r.x[2]) > 1.1 and r.success:
             break
         elif i + 1 == max_iter:  # pragma: no cover
@@ -221,6 +221,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
     et = expfit.TauFormError(t, v)
     p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
 
+    #print(f'Done in {1 + i} repeats. Last opt had {r.iterations} iter.')
     if plot is not False:  # pragma: no cover
         pk = None
         try:
@@ -275,8 +276,7 @@ def fitd11(t, v, plot=False, opt_plot=False):
         raise expfit.NotDecayingError()
 
     # Fit double
-    npos, nneg, pos_first = 1, 1, p0[1] > 0
-    e = expfit.MultiExponentialError(t, v, npos, nneg, pos_first)
+    e = expfit.MultiExponentialError(t, v, 1, 1, p0[1] > 0)
     q0 = e.transform(p0)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)

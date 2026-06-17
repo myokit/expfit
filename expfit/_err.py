@@ -137,16 +137,20 @@ class MultiExponentialError():
 
     This error uses the form::
 
-        y = a + sum(exp(b'[i]) * exp(-exp(c'[i]) * x))
-              - sum(exp(b'[j]) * exp(-exp(c'[j]) * x))
+        y = a + sum(z[j] * exp(b'[j]) * exp(-exp(c'[j]) * x))
 
-    where ``i`` ranges from ``0`` to ``npos - 1`` and ``j`` ranges from ``0``
-    to ``nneg - 1``. The parameter vector is::
+    where ``j`` ranges from ``0`` to ``m - 1``. The parameter vector is::
 
-        p = (a, b'[0], c'[0], b'[1], c'[1], ..., b'[n - 1], c'[n -1])
+        p = (a, b'[0], c'[0], b'[1], c'[1], ..., b'[m - 1], c'[m -1])
 
-    where ``n = npos + nneg``. The values of ``npos`` and ``nneg`` are constant
-    and must be set at construction time.
+    and ``(b'[j], c'[j])`` pairs are ordered from slow (largest time constant,
+    slowest process, smallest ``c'[j]`` value) to fast.
+
+    The array ``z`` is a constant created at construction time, and determines
+    the sign of each component. The first ``m_dominant`` terms will have the
+    same sign as the dominant term, and indicated by the boolean
+    ``dominant_positive``. The remaining ``m - m_dominant`` terms will have the
+    opposite sign.
 
     Compared to the single exponential error, the ``b`` and ``c`` parameters
     are transformed as::
@@ -160,7 +164,7 @@ class MultiExponentialError():
         x = np.linspace(0, 1, 20)
         y = 5 + 1.1 * np.exp(4 * x)
         e1 = expfit.SingleExponentialError(x, y)
-        e2 = expfit.MultiExponentialError(x, y, npos=1, nneg=0)
+        e2 = expfit.MultiExponentialError(x, y, 1, 1, True)
         m1, j1, h1 = e1([1, 2, -3])
         m2, j2, h2 = e2([1, np.log(2), np.log(3)])
 
@@ -181,43 +185,42 @@ class MultiExponentialError():
 
     ``x``, ``y``
         The time series.
-    ``npos``
-        The number of positive exponential terms.
-    ``nneg``
-        The number of negative exponential terms.
-    ``positive_first``
-        Determines whether positive or negative terms are first in the
-        parameter vector. To satisfy the :class:`MultiExponentialConstraint`,
-        the slowest process (visible at the end of the time series) must be
-        listed first.
+    ``m_dominant``
+        The number of exponential terms with the same sign as the dominant
+        term.
+    ``m_opposite``
+        The number of exponential terms with the opposite sign to the dominant
+        term.
+    ``dominant_positive``
+        Determines the sign (strictly positive or negative) of the dominant
+        exponential term.
 
     """
-    def __init__(self, x, y, npos, nneg, positive_first=True):
+    def __init__(self, x, y, m_dominant, m_opposite, dominant_positive):
+
+        m_dom, m_opp = int(m_dominant), int(m_opposite)
+        if m_dom < 1:
+            raise ValueError(
+                'Number of exponential terms with same sign as dominant term'
+                ' must be one or greater.')
+        if m_opp < 0:
+            raise ValueError(
+                'Number of exponential terms with opposite sign to the'
+                ' dominant term can not be negative.')
+
         self._x = x
         self._y = y
         self._ni = 1 / len(x)
         self._n2 = 2 * self._ni
 
-        npos, nneg = int(npos), int(nneg)
-        if npos < 0:
-            raise ValueError(
-                'Number of positive exponential terms can not be negative.')
-        if nneg < 0:
-            raise ValueError(
-                'Number of negative exponential terms can not be negative.')
-
-        self._m = npos + nneg
-        if self._m == 0:
-            raise ValueError(
-                'Total number of exponential terms must be greater than zero.')
-
+        self._m = m_dom + m_opp
         self._np = 1 + 2 * self._m
 
         self._z = np.ones(self._m)
-        if positive_first:
-            self._z[npos:] = -1
+        if dominant_positive:
+            self._z[m_dom:] = -1
         else:
-            self._z[:nneg] = -1
+            self._z[:m_dom] = -1
 
     def __call__(self, p):
         if len(p) != self._np:

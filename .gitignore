@@ -14,3 +14,8 @@ venv
 # Annoyances
 .DS_Store
 .vscode
+
+# Profiling
+bench.py
+bench.sh
+bench

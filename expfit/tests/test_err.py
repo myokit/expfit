@@ -216,7 +216,7 @@ class TestError(unittest.TestCase):
         # Single error comparison: MSE only
         x = np.linspace(0, 1, 123)
         y = expfit.expc(x, [1, 2, -3])
-        e1 = expfit.MultiExponentialError(x, y, 1, 0)
+        e1 = expfit.MultiExponentialError(x, y, 1, 0, True)
         e2 = expfit.SingleExponentialError(x, y)
         p0 = np.array([1, 2, -2])
         q0 = np.array([1, np.log(2), np.log(2)])
@@ -226,8 +226,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(e1(p0)[0], e1.mse(p0))
 
         # Multi with zeros
-        e1 = expfit.MultiExponentialError(x, y, 1, 0)
-        e2 = expfit.MultiExponentialError(x, y, 2, 0)
+        e1 = expfit.MultiExponentialError(x, y, 1, 0, True)
+        e2 = expfit.MultiExponentialError(x, y, 2, 0, True)
         m1, j1, h1 = e1((0.9, 1.9, 2.9))
         m2, j2, h2 = e2((0.9, 1.9, 2.9, -np.inf, 0))
         self.assertEqual(m1, m2)
@@ -237,7 +237,7 @@ class TestError(unittest.TestCase):
         # Multi versus finite differences
         p = np.array([1, 1.1, 0.5, 1.2, 1])
         y = expfit.exp(x, p)
-        e1 = expfit.MultiExponentialError(x, y, 2, 0)
+        e1 = expfit.MultiExponentialError(x, y, 2, 0, True)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log)
@@ -247,7 +247,7 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
 
-        e1 = expfit.MultiExponentialError(x, y, 2, 1)
+        e1 = expfit.MultiExponentialError(x, y, 2, 1, True)
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log21)
@@ -264,21 +264,21 @@ class TestError(unittest.TestCase):
             ValueError, 'Expecting 7 parameters, got 2.',
             e1.mse, (1, 2))
         self.assertRaisesRegex(
-            ValueError, 'positive exponential',
-            expfit.MultiExponentialError, x, y, -1, 1)
+            ValueError, 'with same sign',
+            expfit.MultiExponentialError, x, y, -1, 1, True)
         self.assertRaisesRegex(
-            ValueError, 'negative exponential',
-            expfit.MultiExponentialError, x, y, 1, -1)
+            ValueError, 'with same sign',
+            expfit.MultiExponentialError, x, y, 0, 1, True)
         self.assertRaisesRegex(
-            ValueError, 'Total number',
-            expfit.MultiExponentialError, x, y, 0, 0)
+            ValueError, 'with opposite sign',
+            expfit.MultiExponentialError, x, y, 1, -1, True)
 
     def test_multi_error_transform(self):
         # Transformations
 
         x = np.linspace(0, 1, 123)
         y = expfit.exp(x, [1, 2, 0.3])
-        e1 = expfit.MultiExponentialError(x, y, 1, 1, positive_first=False)
+        e1 = expfit.MultiExponentialError(x, y, 1, 1, False)
         t = np.array([2, -3, 0.5, 5, 0.1])
         p = np.array([2, -3, -2, 5, -10])
         q = np.array([2, np.log(3), np.log(2), np.log(5), np.log(10)])
@@ -329,7 +329,7 @@ class TestError(unittest.TestCase):
         x = np.linspace(1, 2, 50)
         y = expfit.expc(x, [2, 1, -2])
         e1 = expfit.TauFormError(x, y)
-        e2 = expfit.MultiExponentialError(x, y, 1, 1)
+        e2 = expfit.MultiExponentialError(x, y, 1, 1, True)
         m1, j1, h1 = e1([5, 2, 0.5, -1, 0.25])
         m2, j2, h2 = e2([5, np.log(2), np.log(2), np.log(1), np.log(4)])
         self.assertEqual(m1, m2)
@@ -372,7 +372,7 @@ class TestError(unittest.TestCase):
 
         x = np.linspace(0, 1, 123)
         y = expfit.exp(x, (1, 2, 3))
-        e1 = expfit.MultiExponentialError(x, y, 0, 1)
+        e1 = expfit.MultiExponentialError(x, y, 1, 0, False)
         e2 = expfit.ErrorWithFixedParameter(e1, (2, 3, 4), 0)
         m1, j1, h1 = e1((2, 4, 5))
         m2, j2, h2 = e2((4, 5))
