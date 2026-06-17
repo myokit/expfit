@@ -157,7 +157,7 @@ class MultiExponentialError():
 
         a' = a
         b' = log(abs(b))
-        c' = log(-c)
+        c' = log(-c) = -log(tau)
 
     Example::
 
