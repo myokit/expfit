@@ -26,48 +26,28 @@ def fit1(t, v, plot=False):
     ``t``, ``v``
         The time series
     ``plot``
-        Optional parameter to create a plot of the method's workings.
+        Optional parameter to create a plot of the method's workings. Can be
+        set to ``True`` or to an array with the true ``(a, b, tau)``.
 
     Returns an :class:`ExponentialFit`.
     """
     t, v = expfit.vet_series(t, v)
 
+    # Convert `plot` to boolean
+    pt = plot
+    plot = plot is not False
+
     # Transform to unit square, to avoid overflows etc
     tr = expfit.UnitSquareTransform(t, v)
 
-    # Create initial plot
-    known = False
-    try:
-        if len(plot) == 3:  # pragma: no cover
-            known = plot
-            plot = True
-    except TypeError:
-        pass
-    if plot:  # pragma: no cover
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(9, 7.5))
-        ax0 = fig.add_subplot(2, 1, 1)
-        fig.subplots_adjust(0.11, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.44)
-        ax0.set_xlabel('x')
-        ax0.set_ylabel('y')
-        ls, color = ('-', '#92cc92') if len(tr.x) > 10 else ('x-', 'tab:green')
-        ax0.plot(tr.x, tr.y, ls, color=color, label='Transformed data')
-    else:
-        ax0 = None
-
     # Get an initial estimate (in transformed space)
-    #q0 = expfit.estimate_initial_single(tr.x, tr.y, axes=ax0, vet=False)
-    #TODO
-    #TODO
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
-    #TODO
-    #TODO
+    q0 = expfit.estimate_initial_single(tr.x, tr.y, full=plot, vet=False)
 
     # Stop if the signal is not exponential
     if q0[1] == 0 or q0[2] == 0:
         raise expfit.NotExponentialError()
 
-    # Fit (in transformed space)
+    # Fit (in unit transformed space)
     e = expfit.SingleExponentialError(tr.x, tr.y)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0)
@@ -81,58 +61,12 @@ def fit1(t, v, plot=False):
     p = expfit.ExponentialFit(t, v, p, e)
 
     if plot:  # pragma: no cover
-        # Detransform and rewrite in tau form
-        p0 = tr.detransform(q0)
-        p0[2] = -1 / p0[2]
-        p0 = expfit.ExponentialFit(t, v, p0)
-        q0 = list(q0)
-        q0[2] = -1 / q0[2]
-        q0 = expfit.ExponentialFit(tr.x, tr.y, q0)
-        q = r.x
-        q[2] = -1 / q[2]
-        q = expfit.ExponentialFit(tr.x, tr.y, r.x)
-
-        # Create strings for plot labels
-        strest = ', '.join(f'{i:.3}' for i in q0)
-        strq = ', '.join(f'{i:.3}' for i in q)
-        stre = f'rmse {np.sqrt(r.error):.4}'
-        if r.success:
-            strfit = f'{r.iterations} iter, {stre}'
-        else:
-            strfit = f'{r.message}, {stre}'
-
-        # Plot initial estimate and fit
-        e = expfit.exp
-        ax0.plot(tr.x, e(tr.x, q0), '-', label=f'Initial ({strest})')
-        ax0.plot(tr.x, e(tr.x, q), '--', label=f'Fit ({strq}), {strfit}')
-        ax0.legend()
-
-        # Plot numerical results
-        lines = [f'Transformed Init: {q0}', f'             Fit:  {q}',
-                 f'Real-world  Init: {p0}', f'             Fit:  {p}']
-        ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
-                 ha='right', font='monospace')
-
-        # Show the residuals for initial estimate and fit
-        ax1 = fig.add_subplot(2, 2, 3)
-        ax1.set_xlabel('x')
-        ax1.set_ylabel('Residuals (transformed)')
-        ax1.plot(tr.x, tr.y - e(tr.x, q0), label='Initial')
-        ax1.plot(tr.x, tr.y - e(tr.x, q), label='Fit')
-        ax1.legend()
-
-        # Show untransformed, including the original data
-        ax2 = fig.add_subplot(2, 2, 4)
-        ax2.set_xlabel('t')
-        ax2.set_ylabel('v')
-        label = 'Original data'
-        with np.errstate(divide='ignore'):
-            if known:
-                label = f'{label} (tau={known[2]:+.3f})'
-            ax2.plot(t, v, ls, color=color, label=label)
-            ax2.plot(t, e(t, p0), '-', label=f'Initial (tau={p0[2]:+.3f})')
-            ax2.plot(t, e(t, p), '--', label=f'fFit (tau={p[2]:+.3f})')
-        ax2.legend()
+        from ._plot import fit1_plot
+        try:
+            assert len(pt) == 3
+        except (TypeError, AssertionError):
+            pt = None
+        fit1_plot(t, v, tr, r, p, q0, pt)
 
     return p
 

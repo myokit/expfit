@@ -43,6 +43,7 @@ from ._est import (  # noqa
     estimate_initial_single,
     estimate_initial_opposing,
     #estimate_noise_level,
+    SingleExponentialEstimate,
 )
 
 from ._err import (  # noqa

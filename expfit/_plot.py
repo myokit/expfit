@@ -83,6 +83,96 @@ def initial_estimate_plot(x, y, estimate):
     return fig, ax
 
 
+def fit1_plot(t, v, tr, r, p, q0, pt=None):
+    """
+    Creates a plot of a single-exponential fit, highlighting the initial
+    estimate.
+
+    Arguments:
+
+    ``t``, ``v``
+        The untransformed time series.
+    ``tr``
+        A :class:`UnitSquareTransform` on ``(t, v)``.
+    ``r``
+        An :class:`LMResult`.
+    ``p``
+        An :class:`ExponentialFit` result, in tau-form.
+    ``q0``
+        A :class:`SingleExponentialEstimate`, in unit transformed space and
+        c-form.
+    ``pt``
+        An optional parameter vector with the known solution, in untransformed
+        space and tau-form.
+
+    Returns a tuple ``(fig, (ax0, ax1, ax2))``.
+    """
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=(9, 7.5))
+    fig.subplots_adjust(0.11, 0.06, 0.995, 0.995, wspace=0.3, hspace=0.44)
+
+    # Show transformed data, intial estimate, and fit
+    ax0 = fig.add_subplot(2, 1, 1)
+    ax0.set_xlabel('x')
+    ax0.set_ylabel('y')
+
+    ls, color = ('-', '#92cc92') if len(tr.x) > 10 else ('x-', 'tab:green')
+    ax0.plot(tr.x, tr.y, ls, color=color, label='Transformed data')
+
+    f1 = lambda p: ', '.join(f'{i:.3}' for i in p)
+    ax0.plot(tr.x, expfit.expc(tr.x, q0), '-', label=f'Initial ({f1(q0)})')
+    if q0.log1 is not None and len(q0.log1) > 0:
+        lsfit = q0.log1[-1][0]
+        ax0.plot(lsfit.x, lsfit.y, 'k', zorder=4)
+        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'ks', zorder=4)
+    if q0.log2 is not None and len(q0.log2) > 0:
+        lsfit = q0.log2[-1][0]
+        ax0.plot(lsfit.x, lsfit.y, 'r', zorder=4)
+        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'rs', zorder=4)
+
+    label = f'RMSE {np.sqrt(r.error):.4}'
+    label = (f'Fit ({f1(r.x)}), {r.iterations} iter, {label}' if r.success else
+             f'Fit ({f1(r.x)}), {r.message}, {label}')
+    ax0.plot(tr.x, expfit.expc(tr.x, r.x), '--', label=label)
+    ax0.legend()
+
+    # Show numerical results
+    f2 = lambda p: ' '.join(f'{i:+.5e}' for i in p)
+    p0 = tr.detransform(q0)
+    p0[2] = -1 / p0[2]
+    lines = [f'Transformed Init: {f2(q0)}', f'             Fit:  {f2(r.x)}',
+             f'Real-world  Init: {f2(p0)}', f'             Fit:  {f2(p)}']
+    ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
+             ha='right', font='monospace')
+
+    # Show the residuals for initial estimate and fit
+    ax1 = fig.add_subplot(2, 2, 3)
+    ax1.set_xlabel('t')
+    ax1.set_ylabel('Residuals')
+    ax1.plot(t, v - expfit.exp(t, p0), label='Initial')
+    rmse = expfit.rmse(t, v, p)
+    ax1.plot(t, v - expfit.exp(t, p), label=f'Fit, RMSE {rmse:.5}')
+    if pt is not None:
+        rmse = expfit.rmse(t, v, pt)
+        ax1.plot(t, v - expfit.exp(t, pt), ':', label=f'True, RMSE {rmse:.5}')
+    ax1.legend()
+
+    # Show detransformed initial and fit
+    ax2 = fig.add_subplot(2, 2, 4)
+    ax2.set_xlabel('t')
+    ax2.set_ylabel('v')
+    label = 'Original data'
+    with np.errstate(divide='ignore'):
+        if pt is not None:
+            label = f'{label}, tau={pt[2]:+.3f}'
+        ax2.plot(t, v, ls, color=color, label=label)
+        ax2.plot(t, expfit.exp(t, p0), '-', label=f'Initial, tau={p0[2]:+.3f}')
+        ax2.plot(t, expfit.exp(t, p), '--', label=f'Fit, tau={p[2]:+.3f}')
+    ax2.legend()
+
+    return fig, (ax0, ax1, ax2)
+
+
 def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     """
     Creates a plot of a multi-exponential (decaying) fit, highlighting the time
