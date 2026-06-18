@@ -194,9 +194,13 @@ def fitd11(t, v, plot=False, opt_plot=False):
     """
     t, v = expfit.vet_series(t, v)
 
+    # Convert `plot` to boolean
+    pt = plot
+    plot = plot is not False
+
     # Perform initial estimates in transformed space
     tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False, plot=False)
+    q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False)
     p0 = tr.detransform(q0)
     del tr, q0
 
@@ -211,23 +215,182 @@ def fitd11(t, v, plot=False, opt_plot=False):
     q0 = e.transform(p0)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)
-        if plot is not False:  # pragma: no cover
+        if plot:  # pragma: no cover
             print(r)
 
     # Detransform parameters
     et = expfit.TauFormError(t, v)
     p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
 
-    if plot is not False:  # pragma: no cover
+    if plot:  # pragma: no cover
         from ._plot import tau_plot
         p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
-        pt = None
         try:
-            assert len(plot) == 5
-            pt = plot
+            assert len(pt) == 5
         except (TypeError, AssertionError):
-            pass
+            pt = None
         tau_plot(t, v, r, p, p0, pt=pt)
 
     return p
+
+
+def order(r):
+    """
+    Orders an optimisation result by time constant.
+    """
+    #TODO Two directions
+    c = r.x[2::2]
+    if np.any(c[1:] < c[:-1]):
+        i = np.argsort(c)
+        print()
+        print('REORDERING', i)
+        print()
+        r.x[1::2] = r.x[1::2][i]
+        r.x[2::2] = r.x[2::2][i]
+        r.jac[1::2] = r.jac[1::2][i]
+        r.jac[2::2] = r.jac[2::2][i]
+        r.hes[1::2] = r.hes[1::2][i]
+        r.hes[2::2] = r.hes[2::2][i]
+        r.hes[:, 1::2] = r.hes[:, 1::2][:, i]
+        r.hes[:, 2::2] = r.hes[:, 2::2][:, i]
+    return r
+
+
+
+def auto(t, v, plot=False, opt_plot=False):
+    """
+    """
+    t, v = expfit.vet_series(t, v)
+
+    # Convert `plot` to boolean
+    pt = plot
+    plot = plot is not False
+
+    # Perform initial estimates in transformed space
+    tr = expfit.UnitSquareTransform(t, v)
+    #q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False, plot=False)
+    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False, plot=True)
+    p0 = tr.detransform(q0)
+    del tr, q0
+
+    # Catch edge cases
+    #if p0[1] * p0[3] >= 0:
+    #    raise expfit.NotOpposingError()
+    #if p0[2] > 0 or p0[4] > 0:
+    #    raise expfit.NotDecayingError()
+
+    nd = 1
+    no = 0
+    dom_pos = p0[1] > 0
+
+    # Fit single
+    e = expfit.MultiExponentialError(t, v, nd, no, dom_pos)
+    q0 = e.transform(p0)
+    print('Start', p0)
+    print('Start', q0)
+    with np.errstate(all='ignore'):
+        r = expfit.lm(e, q0)
+        if plot:  # pragma: no cover
+            print(r)
+        if not r.success:
+            p0[2] *= 0.1
+            q0 = e.transform(p0)
+            r = expfit.lm(e, q0)
+            if plot:  # pragma: no cover
+                print(r)
+
+    a0, b0, c0 = e.detransform(r.x, tau=False)
+
+    # Store p_best in tau form
+    p_best = (a0, b0, -1 / c0)
+    E_best = r.error
+    p0_best = (p0[0], p0[1], -1 / p0[2])
+    p0_next = p0
+
+    # Estimate sigma
+    s = expfit.estimate_noise_level(t, v, vet=False)
+
+    # Calculate required improvement to accept
+    w = s**2 / len(t) * expfit.CLevel(90).chi2()
+    print('Required improvement: ', w)
+
+    # Calculate area, to determine new b constants
+    #A0 = (b0 / c0) * (np.exp(c0 * t[-1]) - np.exp(c0 * t[0]))
+    for i in range(4):
+        nd += 1
+        e = expfit.MultiExponentialError(t, v, nd, no, dom_pos)
+
+        p0 = np.zeros(1 + 2 * nd)
+        p0[0] = p0_next[0]
+        p0[1:-2:2] = p0_next[1::2]
+        p0[2:-2:2] = p0_next[2::2]
+        p0[-2:] = p0_next[-2:]
+
+        print('-'*70)
+        print(f'Trying with {nd} terms')
+        print('-'*70)
+
+        max_iter = 10
+        opt_fig = opt_plot
+        for j in range(max_iter):
+            print(p0)
+
+            p0[2] *= 0.7
+            for k in range(2, nd + 1):
+                p0[2 * k] *= 1.4**(k / 2)
+            print(p0)
+            print()
+
+            # Set initial b to get same area under the curve as single exp fit
+            #A = 0
+            #for k in range(nd):
+            #    b, c = p0[1 + 2 * k], p0[2 + 2 * k]
+            #    A += b / c * (np.exp(c * t[-1]) - np.exp(c * t[0]))
+            #p0[1::2] = b0 * (A0 / A)
+
+            # Fit with transformed parameters
+            q0 = e.transform(p0)
+            with np.errstate(all='ignore'):
+                r = expfit.lm(e, q0, plot=opt_fig)
+                if plot:  # pragma: no cover
+                    print(r)
+                opt_fig = r.plot
+            ok = r.success
+            if ok:
+                r = order(r)
+                for k in range(nd - 1):
+                    if np.exp(r.x[4 + 2 * k] - r.x[2 + 2 * k]) <= 1.1:
+                        print('TOO CLOSE', r.x[4 + 2 * k], r.x[2 + 2 * k])
+                        ok = False
+                        break
+            if ok:
+                break
+        if j + 1 == max_iter:  # pragma: no cover
+            print(f'Unable to find good fit after {max_iter} attempts.')
+
+        print()
+        print('Error', r.error)
+        print('Ebest', E_best)
+        print('Improvement', E_best - r.error)
+        print('Required   ', w)
+
+        if E_best - r.error > w:
+            p_best = e.detransform(r.x, tau=True)
+            E_best = r.error
+            p0_best = e.detransform(q0, tau=True)
+            p0_next = e.detransform(q0, tau=False)
+        else:
+            break
+
+    # Create CI object
+    et = expfit.TauFormError(t, v)
+    p = expfit.ExponentialFit(t, v, p_best, et)
+
+    if plot:  # pragma: no cover
+        from ._plot import tau_plot
+        try:
+            assert len(pt) % 2 == 1
+        except (TypeError, AssertionError):
+            pt = None
+        tau_plot(t, v, r, p, p0_best, pt=pt)
 

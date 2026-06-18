@@ -264,6 +264,8 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
         r1 = expfit.rmsec(x, y, (a1, b1, c))
         r2 = expfit.rmsec(x, y, (a2, b2, c))
         rm = expfit.rmsec(x, y, (am, bm, c))
+        print(r1, r2, rm)
+
         if rm < r1 and rm < r2:
             a, b = am, bm
             r = rm
@@ -383,6 +385,9 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
 
     # Create plot
     if plot:  # pragma: no cover
+
+        # TODO MOVE
+
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(14, 9))
         ax = fig.add_subplot()
@@ -398,7 +403,7 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
     return a0, b0, c0, b1, c1
 
 
-'''
+
 def estimate_noise_level(x, y, vet=True, plot=False):
     """
     Estimates the noise level by subtracting a dominant exponential from the
@@ -426,6 +431,9 @@ def estimate_noise_level(x, y, vet=True, plot=False):
     r = yy - expfit.exp(xx, p0)
 
     if plot:  # pragma: no cover
+
+        # TODO MOVE
+
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(14, 9))
         grid = fig.add_gridspec(3, 2)
@@ -443,5 +451,4 @@ def estimate_noise_level(x, y, vet=True, plot=False):
         plt.show()
 
     return np.std(r)
-'''
 

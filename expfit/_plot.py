@@ -11,9 +11,29 @@ import expfit
 
 colors = [
     ('tab:red', '#961b1c'),
+    ('tab:purple', '#683e8f'),  # '#5b3383'
+    ('tab:orange', '#bc5800'),
+    ('tab:purple', '#5b3383'),
+    ('tab:purple', '#5b3383'),
     ('tab:purple', '#5b3383'),
 ]
 # '#1f701f'
+
+
+def scale_lightness(color, scale=0.7):
+    """
+    Takes a color in matplotlib format, scales its lightness by ``scale``, and
+    returns a hex code.
+    """
+    import colorsys
+    import matplotlib
+    r, g, b = matplotlib.colors.ColorConverter.to_rgb(color)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    l = min(1, l * scale)
+    return matplotlib.colors.to_hex(colorsys.hls_to_rgb(h, l, s))
+
+
+print(scale_lightness('tab:orange'))
 
 
 def nth(i):
@@ -23,7 +43,7 @@ def nth(i):
     return f'{1 + i}d' if i < 3 else f'{1 + i}th'
 
 
-def exp_plot(t, v, p0):
+def exp_plot(t, p):
     """
     Plots an exponential, and its individual components.
     """
@@ -32,13 +52,14 @@ def exp_plot(t, v, p0):
     fig = plt.figure(figsize=(11, 7.5))
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95)
     ax = fig.add_subplot()
-    ax.plot(t, v)
+    ax.plot(t, expfit.exp(t, p), 'k', label='Combined')
 
-    d = (len(p0) - 1) // 2
+    d = (len(p) - 1) // 2
     for i in range(d):
-        #ax.plot
-        #TODO
-        pass
+        ax.plot(t, expfit.exp(t, (p[0], p[1 + 2 * i], p[2 + 2 * i])),
+                label=nth(i))
+    ax.legend()
+
 
 
 def initial_estimate_plot(x, y, estimate):
@@ -198,11 +219,15 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     """
     d = (len(p) - 1) // 2
 
+    # Can map known to found?
+    known_to_found = (pt is not None and len(pt) == len(p))
+
+    # Create figure and grids
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(11, 7.5))
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95, wspace=0.22, hspace=0.25)
     gr1 = fig.add_gridspec(2, 2, width_ratios=(4, 1), height_ratios=(3, 1))
-    gr2 = gr1[0, 1].subgridspec(2 if pt is None else 3, 1)
+    gr2 = gr1[0, 1].subgridspec(3 if known_to_found else 2, 1)
     gr3 = gr1[1, :].subgridspec(1, d)
 
     # Show data
@@ -310,7 +335,7 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     info_axes = [ax1, ax2]
 
     # Show error comparison with known
-    if pt is not None:
+    if known_to_found:
         ax3 = fig.add_subplot(gr2[2])
         info_axes.append(ax3)
 

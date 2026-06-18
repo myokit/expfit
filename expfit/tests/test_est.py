@@ -365,6 +365,8 @@ class TestEstimates(unittest.TestCase):
         x = np.linspace(0, 1, 111)
         y = expfit.expc(x, (8, 2, 7))
 
+        ij = expfit.
+
         tr = expfit.ZoomTransform(x, y)
         a, b, c = 1, 2, 3
         p, q, r = tr.transform(a, b, c)
@@ -401,7 +403,6 @@ class TestEstimates(unittest.TestCase):
         self.assertIs(v, y)
     '''
 
-    '''
     def test_estimate_noise_level(self):
         # Test noise level estimates
 
@@ -459,7 +460,6 @@ class TestEstimates(unittest.TestCase):
             expfit.estimate_noise_level, x, y)
         # No error:
         expfit.estimate_noise_level(x, y, vet=False)
-    '''
 
 
 if __name__ == '__main__':  # pragma: no cover
