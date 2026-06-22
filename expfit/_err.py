@@ -124,10 +124,29 @@ class SingleExponentialError():
 
         return mse, jac, hes
 
+    def mse_jac(self, p):
+        """ TEMP. """
+        a, b, c = p
+        e = np.exp(c * self._x)
+        be = b * e
+        f = a - self._y + be
+        ef = e * f
+        mse = self._m * np.sum(f * f)
+
+        jac = np.array([
+            2 * self._m * np.sum(f),
+            2 * self._m * np.sum(ef),
+            2 * self._m * np.sum(ef * self._x) * b
+        ])
+        return mse, jac
+
+
     def mse(self, p):
         """ Calculate the MSE without Jacobian or Hessian. """
         return self._m * np.sum(
             (p[0] - self._y + p[1] * np.exp(p[2] * self._x))**2)
+
+
 
 
 class MultiExponentialError():

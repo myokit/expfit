@@ -8,23 +8,32 @@
 static PyObject *
 mse(PyObject *self, PyObject *args)
 {
-    PyObject *ox, *oy;
-    char *cx, *cy;
-    double *x, *y;
-    double a, b, c;
-    double r;
-    double p;
+    PyObject *ox, *oy;  // Time series
+    double *x, *y;      // Access to time series
+
+    PyObject *op, *oj, *oh;     // Point, Jacobian and Hessian, as PyObjects
+    PyArrayObject *p, *j, *h;   // Point, Jacobian and Hessian
+
+    // Temporary variables
+    double mse;
+    double e;
+    double ja_inc, jb_inc, jc_inc; // TODO MULTI
+
+    // Error checking
     bool success;
 
-    PyArrayObject *ops[2];
-    npy_uint32 op_flags[2];
-    NpyIter *i;
-    NpyIter_IterNextFunc* inext;
-    char **idata;
-    npy_intp *istride, *iinnersize;
-    npy_intp icount;
+    // New style numpy iterator
+    NpyIter *i;                 // The iterator
+    PyArrayObject *ops[2];      // Arrays iterated over, used in constructor
+    npy_uint32 op_flags[2];     // Data access per array, used in constructor
+    NpyIter_IterNextFunc* inext;    // Iterator "next block" function
+    npy_intp *istride;    // Stride inside current block
+    npy_intp *iinnersize; // Number of items in current block
+    npy_intp icount;      // Number of items remaining in current block
+    char **idata;       // Char pointer array, from iterator
+    char *cx, *cy;      // Char pointers to x and y
 
-    if (!PyArg_ParseTuple(args, "OOddd", &ox, &oy, &a, &b, &c)) {
+    if (!PyArg_ParseTuple(args, "OOOO", &ox, &oy, &op, &oj)) {
         //PyErr_SetString(PyExc_Exception, "Incorrect input arguments.");
         return NULL;
     }
@@ -42,14 +51,66 @@ mse(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "y should be a numpy array");
         goto fail;
     }
+    if (!PyArray_Check(op)) {
+        PyErr_SetString(PyExc_TypeError, "p should be a numpy array");
+        goto fail;
+    }
+    if (!PyArray_Check(oj)) {
+        PyErr_SetString(PyExc_TypeError, "J should be a numpy array");
+        goto fail;
+    }
 
-    // Cast
+    // Cast arrays
     ops[0] = (PyArrayObject*)ox;
     ops[1] = (PyArrayObject*)oy;
-    op_flags[0] = NPY_ITER_READONLY;
-    op_flags[1] = NPY_ITER_READONLY;
+    p = (PyArrayObject*)op;
+    j = (PyArrayObject*)oj;
+
+    // Check array sizes
+    if (PyArray_NDIM(ops[0]) != 1) {
+        PyErr_SetString(PyExc_TypeError, "x should be 1-dimensional");
+        goto fail;
+    }
+    if (PyArray_NDIM(ops[1]) != 1) {
+        PyErr_SetString(PyExc_TypeError, "y should be 1-dimensional");
+        goto fail;
+    }
+    if (PyArray_SIZE(ops[0]) != PyArray_SIZE(ops[1])) {
+        PyErr_SetString(PyExc_TypeError, "x and y should be the same size");
+        goto fail;
+    }
+    if (PyArray_NDIM(p) != 1) {
+        PyErr_SetString(PyExc_TypeError, "p should be 1-dimensional");
+        goto fail;
+    }
+    if (PyArray_NDIM(j) != 1) {
+        PyErr_SetString(PyExc_TypeError, "J should be 1-dimensional");
+        goto fail;
+    }
+    if (PyArray_SIZE(p) != PyArray_SIZE(j)) {
+        PyErr_SetString(PyExc_TypeError, "p and J should be the same size");
+        goto fail;
+    }
+
+    // TODO: Check p is sensible size
+    double ninv = 1.0 / (double)(PyArray_SIZE(ops[0]));
+    double ninv2 = 2.0 / (double)(PyArray_SIZE(ops[0]));
+    int np = 3;
+    double *ar = (double*)PyArray_DATA(p);
+    double a = *ar;
+    ar++;
+    double b = *ar;
+    ar++;
+    double c = *ar;
+
+    double ja, jb, jc;
+
+
+
 
     // Create iterator
+    op_flags[0] = NPY_ITER_READONLY;
+    op_flags[1] = NPY_ITER_READONLY;
     i = NpyIter_MultiNew(2, ops,
         NPY_ITER_EXTERNAL_LOOP | NPY_ITER_ZEROSIZE_OK,
         NPY_KEEPORDER,
@@ -68,7 +129,8 @@ mse(PyObject *self, PyObject *args)
     iinnersize = NpyIter_GetInnerLoopSizePtr(i);
 
     // Calculate
-    r = 0.0;
+    mse = 0.0;
+    ja = 0.0; jb = 0.0; jc = 0.0;
     do {
         // Data pointers for current block
         cx = idata[0];
@@ -76,14 +138,19 @@ mse(PyObject *self, PyObject *args)
 
         // Inner loop over current block
         icount = *iinnersize;
-
         while (icount--) {
-            //*data_c = *data_a + *data_b;
             x = (double *)cx;
             y = (double *)cy;
 
-            p = a - *y + b * exp(c * *x);
-            r += p * p;
+            e = exp(c * *x);
+            ja_inc = a - *y + b * e;
+            jb_inc = ja_inc * e;
+            jc_inc = jb_inc * *x;
+
+            mse += ja_inc * ja_inc;
+            ja += ja_inc;
+            jb += jb_inc;
+            jc += jc_inc;
 
             // Update data pointers
             cx += istride[0];
@@ -91,7 +158,13 @@ mse(PyObject *self, PyObject *args)
         }
 
     } while (inext(i));
-    r /= (double)(PyArray_SIZE(ops[0]));
+
+    mse *= ninv;
+
+    ar = (double*)PyArray_DATA(j);
+    *ar = ja * ninv2; ar++;
+    *ar = jb * ninv2; ar++;
+    *ar = jc * ninv2 * b;
 
     /* Finished succesfully, free memory and return */
     success = 1;
@@ -101,7 +174,7 @@ fail:
 
     /* Return */
     if (success) {
-        return PyFloat_FromDouble(r);
+        return PyFloat_FromDouble(mse);
     } else {
         return 0;
     }
