@@ -79,7 +79,8 @@ class LMResult:
         ))
 
 
-def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False, plot=False):
+def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
+       plot=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -95,11 +96,8 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False, plot=Fal
 
     The step is accepted if ``p*`` has a lower error than ``p``. If a
     constraint is set, the new position should also satisfy this for the step
-    to be accepted. The scaling
-
-
-    factor is decreased with every successful step (converging to a Newton
-    iteration) and increased with every rejection.
+    to be accepted. The scaling factor is decreased with every successful step
+    (converging to a Newton iteration) and increased with every rejection.
 
     The method halts successfully when the norm of the Jacobian goes below
     ``gtol``.

@@ -234,29 +234,6 @@ def fitd11(t, v, plot=False, opt_plot=False):
     return p
 
 
-def order(r):
-    """
-    Orders an optimisation result by time constant.
-    """
-    #TODO Two directions
-    c = r.x[2::2]
-    if np.any(c[1:] < c[:-1]):
-        i = np.argsort(c)
-        print()
-        print('REORDERING', i)
-        print()
-        r.x[1::2] = r.x[1::2][i]
-        r.x[2::2] = r.x[2::2][i]
-        r.jac[1::2] = r.jac[1::2][i]
-        r.jac[2::2] = r.jac[2::2][i]
-        r.hes[1::2] = r.hes[1::2][i]
-        r.hes[2::2] = r.hes[2::2][i]
-        r.hes[:, 1::2] = r.hes[:, 1::2][:, i]
-        r.hes[:, 2::2] = r.hes[:, 2::2][:, i]
-    return r
-
-
-
 def auto(t, v, plot=False, opt_plot=False):
     """
     """
@@ -327,9 +304,9 @@ def auto(t, v, plot=False, opt_plot=False):
         p0[2:-2:2] = p0_next[2::2]
         p0[-2:] = p0_next[-2:]
 
-        print('-'*70)
+        print('-' * 70)
         print(f'Trying with {nd} terms')
-        print('-'*70)
+        print('-' * 70)
 
         max_iter = 10
         opt_fig = opt_plot
@@ -358,7 +335,6 @@ def auto(t, v, plot=False, opt_plot=False):
                 opt_fig = r.plot
             ok = r.success
             if ok:
-                r = order(r)
                 for k in range(nd - 1):
                     if np.exp(r.x[4 + 2 * k] - r.x[2 + 2 * k]) <= 1.1:
                         print('TOO CLOSE', r.x[4 + 2 * k], r.x[2 + 2 * k])
