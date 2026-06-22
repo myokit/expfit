@@ -434,3 +434,51 @@ class ErrorWithFixedParameter():
         h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
         return m, j, h
 
+
+class MultiExponentialConstraint():
+    """
+    Constraint for use with :class:`MultiExponentialError` that keeps the ``c``
+    constants ordered.
+
+
+
+    TODO
+
+    In each set (positive and negative ``b`` parameters), a constraint is
+    checked such that ``c[i] > c[i + 1]``.
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series.
+
+    """
+    def __call__(self, p):
+        c = p[2::2]
+        return np.all(c[1:] > c[:-1])
+
+
+class ConstraintWithFixedParameter():
+    """
+    Wraps around an error class and turns one parameter into a constant.
+
+    Arguments:
+
+    ``error``
+        The error to wrap.
+    ``p``
+        The best solution
+    ``ifix``
+        The index in the parameter vector of the parameter to hold fixed.
+
+    """
+    def __init__(self, constraint, p, ifix):
+        self._c = constraint
+        self._p = np.copy(p)
+        self._i = int(ifix)
+
+    def __call__(self, p):
+        self._p[:self._i] = p[:self._i]
+        self._p[self._i + 1:] = p[self._i:]
+        return self._c(self._p)
+

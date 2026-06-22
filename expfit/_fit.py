@@ -319,6 +319,7 @@ def auto(t, v, plot=False, opt_plot=False):
     for i in range(4):
         nd += 1
         e = expfit.MultiExponentialError(t, v, nd, no, dom_pos)
+        c = expfit.MultiExponentialConstraint()
 
         p0 = np.zeros(1 + 2 * nd)
         p0[0] = p0_next[0]
@@ -351,7 +352,7 @@ def auto(t, v, plot=False, opt_plot=False):
             # Fit with transformed parameters
             q0 = e.transform(p0)
             with np.errstate(all='ignore'):
-                r = expfit.lm(e, q0, plot=opt_fig)
+                r = expfit.lm(e, q0, constraint=c, plot=opt_fig)
                 if plot:  # pragma: no cover
                     print(r)
                 opt_fig = r.plot

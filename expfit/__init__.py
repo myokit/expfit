@@ -47,7 +47,9 @@ from ._est import (  # noqa
 )
 
 from ._err import (  # noqa
+    ConstraintWithFixedParameter,
     ErrorWithFixedParameter,
+    MultiExponentialConstraint,
     MultiExponentialError,
     SingleExponentialError,
     TauFormError,

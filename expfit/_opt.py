@@ -79,7 +79,7 @@ class LMResult:
         ))
 
 
-def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
+def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False, plot=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -93,7 +93,11 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
     is a scaling factor. Unlike typical LM, we use the analytical ``H`` instead
     of approximating it as ``JT J``.
 
-    The step is accepted if ``p*`` has a lower error than ``p``. The scaling
+    The step is accepted if ``p*`` has a lower error than ``p``. If a
+    constraint is set, the new position should also satisfy this for the step
+    to be accepted. The scaling
+
+
     factor is decreased with every successful step (converging to a Newton
     iteration) and increased with every rejection.
 
@@ -106,13 +110,17 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
         The function to optimise, must return a tuple
         ``(error, jacobian, hessian)``.
     ``p0``
-        A starting position.
+        A starting position. If a constraint is used, this position should
+        satisfy it.
     ``gtol``
         The "gradient tolerance" stopping criteria. The optimisation is deemed
         successful when ``np.linalg.norm(jac) < gtol``, where ``jac`` is the
         jacobian of the current position.
     ``max_iter``
         The maximum number of iterations to try.
+    ``constraint``
+        An optional constraint. New points for which ``constraint(p) != True``
+        are rejected.
     ``verbose``
         Set to ``True`` to print status information at every iteration.
     ``plot``
@@ -153,7 +161,11 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
             'Hessian must match shape of initial point.'
             f' Got {h.shape}, expecting ({n}, {n})')
 
-    # Store position etc for plot
+    # Check if constraint holds for initial position
+    if constraint is not None and not constraint(p[0]):
+        err = 'Initial position fails constraint'
+
+    # Create storage for plot
     if plot is not False:  # pragma: no cover
         # Position, mse, alpha
         log = [[p[0], m, alpha]]
@@ -194,6 +206,10 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
 
         # Accept and reduce gradient descent factor if improved
         ok = fs[0] < m
+        if ok and constraint is not None:
+            ok = constraint(ps[0])  # Cast back to shape (n, )
+            if verbose and not ok:  # pragma: no cover
+                print('Constraint failed')
         if ok:
             if verbose:  # pragma: no cover
                 print('Accepted')
@@ -227,7 +243,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, verbose=False, plot=False):
     res.accepted = accepted
     if err:
         res.message = err
-    elif iterations + 1 == max_iter:  # pragma: no cover
+    elif iterations + 1 == max_iter:
         res.message = 'Maximum iterations reached'
     else:
         res.success = True
