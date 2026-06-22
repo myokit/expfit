@@ -264,8 +264,6 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
         r1 = expfit.rmsec(x, y, (a1, b1, c))
         r2 = expfit.rmsec(x, y, (a2, b2, c))
         rm = expfit.rmsec(x, y, (am, bm, c))
-        print(r1, r2, rm)
-
         if rm < r1 and rm < r2:
             a, b = am, bm
             r = rm
@@ -401,7 +399,6 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
         ax.legend()
 
     return a0, b0, c0, b1, c1
-
 
 
 def estimate_noise_level(x, y, vet=True, plot=False):

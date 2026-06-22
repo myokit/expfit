@@ -65,7 +65,7 @@ class TestD11(unittest.TestCase):
         # Test d11 on same
         d = self.d11_on_d11
         self.r = np.random.default_rng(101)
-        plot = True
+        plot = False
 
         d(10, -20, .5, 20, .07, s=0.2, deltas=(.05, .05, .005, .2, .002),
             plot=plot)

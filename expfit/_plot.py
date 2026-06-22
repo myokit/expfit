@@ -61,7 +61,6 @@ def exp_plot(t, p):
     ax.legend()
 
 
-
 def initial_estimate_plot(x, y, estimate):
     """
     Creates a plot of the initial single estimate routine, showing the segment
