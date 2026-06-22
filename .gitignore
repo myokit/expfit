@@ -2,6 +2,10 @@
 __pycache__
 *.egg-info
 
+# Compiled code
+dist
+*.so
+
 # Coverage testing
 .coverage
 

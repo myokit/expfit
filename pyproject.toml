@@ -22,10 +22,6 @@ dependencies = [
     'numpy>=1.18',
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = 'expfit._expfit_version.__version__'}
-readme = { file = 'README.md', content-type = 'text/markdown'}
-
 [project.optional-dependencies]
 dev = [
     'coverage',             # For coverage testing
@@ -38,11 +34,20 @@ dev = [
 Homepage = 'https://github.com/myokit/expfit'
 Source = 'https://github.com/myokit/expfit'
 
-#[tools.setuptools.package-data]
-#include_package_data = true
+[tool.setuptools]
+ext-modules = [
+    {name = 'expfit._cerr', sources = ['src/cerr.c']}
+]
+
+[tool.setuptools.dynamic]
+version = {attr = 'expfit._expfit_version.__version__'}
+readme = { file = 'README.md', content-type = 'text/markdown'}
 
 [tool.setuptools.packages.find]
 include = ['expfit']
+
+#[tools.setuptools.package-data]
+#include_package_data = true
 
 [tool.mypy]
 modules = ['expfit']

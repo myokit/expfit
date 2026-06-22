@@ -14,8 +14,8 @@ def _vet_array(x):
     if np.isscalar(x):
         return np.array([x], dtype=float), 1
 
-    # Create array from sequence, or just return t if already an array
-    x = np.asarray(x)
+    # Create array from sequence, or just return it if already an array
+    x = np.asarray(x, dtype=float)
 
     # Ensure dimension of 1, all in first coordinate
     if x.ndim == 1:
@@ -31,7 +31,7 @@ def _vet_array(x):
     else:
         # 0-dimensional: cast to empty array
         # To test, these can be created with e.g. np.array(0)
-        return np.array([]), 0
+        return np.array([], dtype=float), 0
 
 
 def vet_series(t, v):
