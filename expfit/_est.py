@@ -11,7 +11,7 @@ import expfit
 
 class SingleExponentialEstimate:
     """
-    Estimated parameters of a single exponential ``a + b * exp(c * x)``.
+    Estimated parameters of a single exponential ``a + b * exp(-x / tau)``.
 
     Can be used as a (read-only) sequence, or may provide extra information if
     :meth:`estimate_initial_single` is called with ``full=True``. In this case
@@ -28,8 +28,8 @@ class SingleExponentialEstimate:
         on.
 
     """
-    def __init__(self, a, b, c):
-        self._p = np.array([a, b, c], dtype=float)
+    def __init__(self, a, b, tau):
+        self._p = np.array([a, b, tau], dtype=float)
         self.log1 = None
         self.log2 = None
         self.region = None
@@ -44,29 +44,26 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def estimate_initial_single(x, y, full=False, plot=False, vet=True):
+def estimate_initial_single(tv, full=False, plot=False):
     """
-    Estimate ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
+    Estimate ``a, b, tau`` in ``y = a + b * exp(-x / tau)`` using derivatives
     estimated from mean averages at the sides.
-
-    The method assumes ``x`` and ``y`` are already transformed to the unit
-    square.
 
     The method first selects two segments, one at the start of the signal and
     one near the end, and approximates them with a straight line to derive
     ``(x1, y1, dydx1)`` and ``(x2, y2, dydx2)``. It then estimates c from
 
-        y    = a + b * exp(c * x)
-        dydx = c * b * exp(c * x)
+        y    = a + b * exp(-x / tau)
+        dydx = c * b * exp(-x / tau)
 
-        y_1    - y_2    =     b * (exp(c * y_1) - exp(c * y_2))
-        dydx_1 - dydx_2 = c * b * (exp(c * y_1) - exp(c * y_2))
-        c = (dydx_1 - dydx_2) / (y_1 - y_2)
+        y_1    - y_2    = b * (exp(c * y_1) - exp(c * y_2))
+        dydx_1 - dydx_2 = b * (exp(c * y_1) - exp(c * y_2)) / -tau
+        tau = (y_2 - y_1) / (dydx_1 - dydx_2)
 
     Either segment can then be used to derive ``a`` and ``b``, from
 
-        a = y_i - dydx_i / c
-        b = (y_i - a) / exp(c * x_i)
+        a = y_i + dydx_i tau
+        b = (y_i - a) / exp(-x_i / tau)
 
     To pick a segment, the method starts by splitting the series down the
     middle, and performing a linear least squares fit on each half. If this
@@ -75,8 +72,8 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
     and accepted as a better segment if the slope in the steep part gets
     steeper, or if the slope in the shallow part gets shallower.
 
-    If the time series does not appear to contain an exponential, the
-    parameters ``(a, 0, 0)`` are returned, where ``a`` is the mean of ``y``.
+    If the time series does not appear to contain an exponential, a
+    :class:`NotExponentialError` is returned.
 
     Example::
 
@@ -84,14 +81,13 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
         v = 1 + 3 * np.exp(-0.5 * t)
         tr = expfit.UnitSquareTransform(t, v)
         q = expfit.estimate_initial_single(tr.x, tr.y)
-        a, b, c = tr.detransform(q)
-        print(a, b, c)
+        a, b, tau = tr.detransform(q)
+        print(a, b, tau)
 
     Arguments:
 
-    ``x``, ``y``
-        A time vector and the correspond values. Assumed to be transformed onto
-        the unit square.
+    ``tv``
+        A tuple ``(t, v)`` containing a time series.
     ``full=False``
         Set to ``True`` to store debugging and visualisation information in
         the returned :class:`SingleExponentialEstimate`.
@@ -99,30 +95,26 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
         Set to ``True`` to create a plot of the initial estimation process.
         Setting this to ``True`` will has the side effect of setting
         ``full=True``.
-    ``vet=True``
-        Set to ``False`` to disable checks on the dimensions of ``t`` and
-        ``v``. This should only be done if the input data is already vetted.
 
     Returns a :class:`SingleExponentialEstimate` with the estimated
-    ``(a, b, c)``.
+    ``(a, b, tau)``.
     """
-    if vet:
-        x_org, y_org = expfit.vet_series(x, y)
-    else:
-        x_org, y_org = x, y
-    if len(x_org) < 3:
+    if not isinstance(tv, expfit.TimeSeries):
+        tv = expfit.TimeSeries(*tv)
+    x_nozoom, y_nozoom = tv
+    if len(x_nozoom) < 3:
         raise ValueError('At least 3 points are required')
 
     # Full information is returned if plot=True
     full = full or plot
 
     # Select a subsection of the data, if the signal is too steep
-    zoom_region = find_action(x_org, y_org)
+    zoom_region = find_action(x_nozoom, y_nozoom)
     if zoom_region is None:
-        x, y = x_org, y_org
+        x, y = x_nozoom, y_nozoom
     else:
         i, j = zoom_region
-        x, y = x_org[i:j], y_org[i:j]
+        x, y = x_nozoom[i:j], y_nozoom[i:j]
 
     #
     # To approximate the two derivatives, the start and end of the signal are
@@ -226,44 +218,29 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
         seg2, l2 = shrink(
             seg2, l2, n_min, False, abs(l2.slope) > abs(l1.slope), log2)
 
-    #
-    # Use the derived segments to estimate the parameters
-    #
-
-    # Return a consistent result when things go wrong
-    def fail(seg1, seg2, l1, l2, msg):
-        r = SingleExponentialEstimate(np.mean(y_org), 0, 0)
-        if full:
-            log1.append((l1, msg))
-            log2.append((l2, msg))
-            r.log1 = log1
-            r.log2 = log2
-            r.region = zoom_region
-        return r
-
-    # Unpack
     x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
     x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
 
-    # Edge cases for c estimate
+    # Edge cases
     if s1 == s2:
-        return fail(seg1, seg2, l1, l2, 'Equal slopes (c=0)')
-    if y1 == y2 or np.abs(y1 - y2) < 1e-16:
-        return fail(seg1, seg2, l1, l2, 'Equal means (c=inf)')
+        raise expfit.NotExponentialError('Equal slopes')
+    elif y1 == y2:
+        raise expfit.NotExponentialError('Equal means')
 
-    # Estimate c, as, and bs
-    c = (s1 - s2) / (y1 - y2)
-    a1 = y1 - (s1 / c if s1 != 0 else 0)
-    a2 = y2 - (s2 / c if s2 != 0 else 0)
-    b1 = (y1 - a1) * np.exp(-c * x1)
-    b2 = (y2 - a2) * np.exp(-c * x2)
+    # Estimate tau and both (a, b) sets
+    tau = (y2 - y1) / (s1 - s2)
+    a1 = y1 + s1 * tau
+    a2 = y2 + s2 * tau
+    b1 = (y1 - a1) * np.exp(x1 / tau)
+    b2 = (y2 - a2) * np.exp(x2 / tau)
     am, bm = np.mean((a1, a2)), np.mean((b1, b2))
 
     # Use start, end, or averaged parameters, depending on RMSE
     with np.errstate(over='ignore', divide='ignore'):
-        r1 = expfit.rmsec(x, y, (a1, b1, c))
-        r2 = expfit.rmsec(x, y, (a2, b2, c))
-        rm = expfit.rmsec(x, y, (am, bm, c))
+        r1 = expfit.rmse(x, y, (a1, b1, tau))
+        r2 = expfit.rmse(x, y, (a2, b2, tau))
+        rm = expfit.rmse(x, y, (am, bm, tau))
+        rs = expfit.rmse(x, y, (l0.mu_y, 0, 1))
         if rm < r1 and rm < r2:
             a, b = am, bm
             r = rm
@@ -275,12 +252,11 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
             r = r2
 
         # Compare with flat line
-        rr = r / expfit.rmsec(x, y, (l0.mu_y, 0, 0))
-    if rr > 2:
-        return fail(seg1, seg2, l1, l2, 'Flat line is better fit')
+        if (r / rs) > 1:
+            raise expfit.NotExponentialError('Flat line is better fit')
 
     # Create results object
-    r = SingleExponentialEstimate(a, b, c)
+    r = SingleExponentialEstimate(a, b, tau)
     if full:
         r.log1 = log1
         r.log2 = log2
@@ -289,7 +265,7 @@ def estimate_initial_single(x, y, full=False, plot=False, vet=True):
     # Show initial estimate
     if plot:  # pragma: no cover
         from ._plot import initial_estimate_plot
-        initial_estimate_plot(x_org, y_org, r)
+        initial_estimate_plot(x_nozoom, y_nozoom, r)
 
     return r
 
@@ -426,26 +402,11 @@ def estimate_noise_level(x, y, vet=True, plot=False):
     xx, yy = x[-m:], y[-m:]
     p0 = expfit.fit1(xx, yy)
     r = yy - expfit.exp(xx, p0)
+    sigma = np.std(r)
 
     if plot:  # pragma: no cover
+        from ._plot import sigma_plot
+        sigma_plot(x, y, xx, yy, r, sigma)
 
-        # TODO MOVE
-
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(14, 9))
-        grid = fig.add_gridspec(3, 2)
-        ax = fig.add_subplot(grid[0, 0])
-        ax.plot(x, y)
-        ax.plot(xx, yy)
-        ax = fig.add_subplot(grid[1:, 0])
-        ax.plot(xx, r)
-        ax = fig.add_subplot(grid[1:, 1])
-        ax.hist(r, bins='auto', density=True)
-        var = np.std(r)**2
-        hx = np.linspace(np.min(r), np.max(r), 99)
-        hy = 1 / np.sqrt(2 * np.pi * var) * np.exp(-hx**2 / (2 * var))
-        ax.plot(hx, hy)
-        plt.show()
-
-    return np.std(r)
+    return sigma
 

@@ -26,21 +26,22 @@ class TestAuto(unittest.TestCase):
         self.r = np.random.default_rng(1)
         plot = True
 
-        return
 
-        # p0 = 5, 5, 5, 5, 1, 5, .1
+        p0 = 5, 5, 5, 5, 1, 5, .1
         # p0 = 5, 10, 2, 5, .5, 5, .1
-        p0 = 5, 10, 5, 5, 1, 5, .3
+        #p0 = 5, 10, 5, 5, 1, 5, .3
         # p0 = 5, 10, 5, 5, 1, 5, .3, 10, .05
 
         t = np.linspace(0, 5, 300, endpoint=False)
 
-        from expfit._plot import exp_plot
-        exp_plot(t, p0)
 
-        if False:
+        if True:
             v = expfit.exp(t, p0) + self.r.normal(0, 0.1, size=t.shape)
             expfit.auto(t, v, plot=p0, opt_plot=True)
+        elif plot:
+            from expfit._plot import exp_plot
+            exp_plot(t, p0)
+
 
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt

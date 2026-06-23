@@ -31,12 +31,9 @@ from ._ex import (  # noqa
     NotOpposingError,
 )
 
-from ._vetting import (  # noqa
-    vet_series,
-)
-
-from ._trans import (  # noqa
-    UnitSquareTransform,
+from ._series import (  # noqa
+    TimeSeries,
+    UnitSquareTransformedTimeSeries,
 )
 
 from ._est import (  # noqa
@@ -53,10 +50,10 @@ from ._err import (  # noqa
     MultiExponentialError,
     SingleExponentialError,
     TauFormError,
+    area,
     exp,
     expc,
     rmse,
-    rmsec,
 )
 
 from ._opt import (  # noqa

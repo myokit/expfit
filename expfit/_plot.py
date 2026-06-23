@@ -11,13 +11,11 @@ import expfit
 
 colors = [
     ('tab:red', '#961b1c'),
-    ('tab:purple', '#683e8f'),  # '#5b3383'
+    ('tab:purple', '#683e8f'),
     ('tab:orange', '#bc5800'),
-    ('tab:purple', '#5b3383'),
-    ('tab:purple', '#5b3383'),
-    ('tab:purple', '#5b3383'),
+    ('tab:pink', '##c92998'),
+    ('tab:brown', '##623c34'),
 ]
-# '#1f701f'
 
 
 def scale_lightness(color, scale=0.7):
@@ -31,9 +29,6 @@ def scale_lightness(color, scale=0.7):
     h, l, s = colorsys.rgb_to_hls(r, g, b)
     l = min(1, l * scale)
     return matplotlib.colors.to_hex(colorsys.hls_to_rgb(h, l, s))
-
-
-print(scale_lightness('tab:orange'))
 
 
 def nth(i):
@@ -54,10 +49,15 @@ def exp_plot(t, p):
     ax = fig.add_subplot()
     ax.plot(t, expfit.exp(t, p), 'k', label='Combined')
 
+    # Calculate contribution to area of each
     d = (len(p) - 1) // 2
+    A = np.array(
+        [np.abs(expfit.area(t, p[1 + 2 * i:3 + 2 * i:])) for i in range(d)])
+    Ar = 100 * A / np.sum(A)
+
     for i in range(d):
         ax.plot(t, expfit.exp(t, (p[0], p[1 + 2 * i], p[2 + 2 * i])),
-                label=nth(i))
+                label=f'{nth(i)}, A={A[i]:.3} ({Ar[i]:.3}%)')
     ax.legend()
 
 
@@ -88,7 +88,8 @@ def initial_estimate_plot(x, y, estimate):
 
     # Show data and estimate
     ax.plot(x, y, 's-' if len(x) < 50 else '-', label=f'Data (n={len(x)})')
-    ax.plot(x, expfit.expc(x, estimate), label='Initial estimate')
+    ax.plot(x, expfit.exp(x, estimate), '--',
+            label=f'Initial estimate ({estimate})')
 
     # Show shrinking segments
     for log, color in ((estimate.log1, 'k'), (estimate.log2, 'r')):
@@ -459,3 +460,45 @@ def opt_plot(log, previous=None):
     # Pass items back to allow repeated optimisations to be plotted in one fig
     return fig, axa, axb, axc, axm, axl, diagonals
 
+
+def sigma_plot(t, v, x, y, r, sigma):
+    """
+    Plot of the noise level estimate
+
+    Arguments:
+
+    ``t``, ``v``
+        The time series
+    ``x``, ``y``
+        A segment of the time series to which an exponential was fitted
+    ``r``
+        The residuals of ``y``, after subtraction an exponential
+    ``sigma``
+        The estimated standard deviation
+
+    """
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=(14, 9))
+    grid = fig.add_gridspec(3, 2)
+
+    ax = fig.add_subplot(grid[0, :])
+    ax.set_xlabel('t')
+    ax.set_ylabel('v')
+    ax.plot(t, v, label='Data')
+    ax.plot(x, y, label='Used segment')
+    ax.legend()
+
+    ax = fig.add_subplot(grid[1:, 0])
+    ax.set_xlabel('t')
+    ax.plot(x, r, label=f'Residuals, sigma={sigma:.3}')
+    ax.legend()
+
+    ax = fig.add_subplot(grid[1:, 1])
+    ax.set_xlabel('Residuals')
+    ax.hist(r, bins='auto', density=True)
+    var = sigma**2
+    hx = np.linspace(np.min(r), np.max(r), 99)
+    hy = 1 / np.sqrt(2 * np.pi * var) * np.exp(-hx**2 / (2 * var))
+    ax.plot(hx, hy, label='Normal with same sigma')
+    ax.legend()
+    plt.show()

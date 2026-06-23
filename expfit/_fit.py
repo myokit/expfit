@@ -47,12 +47,25 @@ def fit1(t, v, plot=False):
     if q0[1] == 0 or q0[2] == 0:
         raise expfit.NotExponentialError()
 
-    # Fit (in unit transformed space)
-    e = expfit.SingleExponentialError(tr.x, tr.y)
+    # Switch to tau form
+    #q0 = np.array([q0[0], q0[1], -1 / q0[2])
+    raise NotImplementedError
+
+    # Create error in log form
+    e = expfit.MultiExponentialError(tr.x, tr.y)
+    q0 = e.transform(q0)
+
+    # Fit
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0)
         if plot:  # pragma: no cover
             print(r)
+        if not r.success:
+            raise RuntimeError('Oh no!')
+
+    # Create tau form error, on unit square
+    #q = tr.detransform(
+
     p = tr.detransform(r.x)
     p[2] = -1 / p[2]
 
@@ -243,9 +256,10 @@ def auto(t, v, plot=False, opt_plot=False):
     pt = plot
     plot = plot is not False
 
-    # Perform initial estimates in transformed space
+    # Transform to unit square
     tr = expfit.UnitSquareTransform(t, v)
-    #q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False, plot=False)
+
+    # TODO: Do everything in transformed space
     q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False, plot=True)
     p0 = tr.detransform(q0)
     del tr, q0
@@ -269,12 +283,12 @@ def auto(t, v, plot=False, opt_plot=False):
         r = expfit.lm(e, q0)
         if plot:  # pragma: no cover
             print(r)
-        if not r.success:
-            p0[2] *= 0.1
-            q0 = e.transform(p0)
-            r = expfit.lm(e, q0)
-            if plot:  # pragma: no cover
-                print(r)
+        #if not r.success:
+        #    p0[2] *= 0.1
+        #    q0 = e.transform(p0)
+        #    r = expfit.lm(e, q0)
+        #    if plot:  # pragma: no cover
+        #        print(r)
 
     a0, b0, c0 = e.detransform(r.x, tau=False)
 

@@ -254,7 +254,7 @@ class TestFit1(unittest.TestCase):
             self.assertLess(rf, rmse)
 
     def test_fit1_on_triple(self):
-        # Test single exponentials on single exponential data
+        # Test single fit on triple exponential data
         sot = self.single_on_triple
         self.r = np.random.default_rng(2)
         plot = False
@@ -264,6 +264,12 @@ class TestFit1(unittest.TestCase):
         sot(0, -6, -10, -3, -0.1, -2, -0.5, rdom=1.002, rmse=650, plot=plot)
         sot(0, 3, 1, 3, 0.15, 2, 0.5, rdom=2.2, rmse=0.2, plot=plot)
         sot(0, 4, -5, 2.8, -0.1, 1.1, -0.05, rdom=1.001, rmse=6e6, plot=plot)
+
+        # Hard one for initial estimate
+        sot(0, 4, -5, 2.8, -0.1, 1.1, -0.05, rdom=1.001, rmse=6e6, plot=plot)
+        sot(5, 5, 5, 5, 1, 5, .1, duration=5, plot=True)
+
+
 
     def test_fit1_with_peak_and_slope(self):
         # Remnant of "peak" at start of signal, plus slope at end

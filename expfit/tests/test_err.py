@@ -132,27 +132,6 @@ class TestError(unittest.TestCase):
         self.assertEqual(r, expfit.rmse(x, y1, p2))
         self.assertEqual(r, expfit.rmse(x, y2, p1))
 
-    def test_rmsec(self):
-        # RMSE in c form
-
-        x = np.linspace(1, 2, 50)
-        p1 = 3, 2, 3
-        p2 = 4, 7, 2
-        y1 = expfit.expc(x, p1)
-        y2 = expfit.expc(x, p2)
-        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
-        self.assertEqual(r, expfit.rmsec(x, y1, p2))
-        self.assertEqual(r, expfit.rmsec(x, y2, p1))
-
-        x = np.linspace(5, 15, 2000)
-        p1 = 4, 5, -2, 3, -1
-        p2 = 3, 3, -7, 5, -5
-        y1 = expfit.expc(x, p1)
-        y2 = expfit.expc(x, p2)
-        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
-        self.assertEqual(r, expfit.rmsec(x, y1, p2))
-        self.assertEqual(r, expfit.rmsec(x, y2, p1))
-
     def test_single_error(self):
         # Test the single exponential error
 

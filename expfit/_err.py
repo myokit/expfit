@@ -7,6 +7,18 @@
 import numpy as np
 
 
+def area(x, p):
+    """
+    Returns the area under and exponential ``p[0] * exp(-x / p[1])``
+    """
+    if len(p) != 2:
+        raise ValueError(
+            f'Wrong number of parameters ({len(p)}, expecting 2).')
+
+    # p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0]))
+    return p[0] * p[1] * (np.exp(-x[-1] / p[1]) - np.exp(-x[0] / p[1]))
+
+
 def exp(x, p):
     """
     Returns an exponential ``p[0] + p[1] * exp(-x / p[2]) + p[3] * ...``.
