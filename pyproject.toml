@@ -14,17 +14,13 @@ authors = [
 
 classifiers = [
     'Programming Language :: Python :: 3',
-    'License :: OSI Approved :: BSD License',
+    'License :: BSD-3-Clause',
     'Operating System :: OS Independent',
 ]
 
 dependencies = [
     'numpy>=1.18',
 ]
-
-[tool.setuptools.dynamic]
-version = {attr = 'expfit._expfit_version.__version__'}
-readme = { file = 'README.md', content-type = 'text/markdown'}
 
 [project.optional-dependencies]
 dev = [
@@ -38,11 +34,15 @@ dev = [
 Homepage = 'https://github.com/myokit/expfit'
 Source = 'https://github.com/myokit/expfit'
 
-#[tools.setuptools.package-data]
-#include_package_data = true
+[tool.setuptools.dynamic]
+version = {attr = 'expfit._expfit_version.__version__'}
+readme = { file = 'README.md', content-type = 'text/markdown'}
 
 [tool.setuptools.packages.find]
 include = ['expfit']
+
+#[tools.setuptools.package-data]
+#include_package_data = true
 
 [tool.mypy]
 modules = ['expfit']

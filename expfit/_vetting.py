@@ -14,24 +14,24 @@ def _vet_array(x):
     if np.isscalar(x):
         return np.array([x], dtype=float), 1
 
-    # Create array from sequence, or just return t if already an array
-    x = np.asarray(x)
+    # Create array from sequence, or just return it if already an array
+    x = np.asarray(x, dtype=float)
 
     # Ensure dimension of 1, all in first coordinate
     if x.ndim == 1:
         # Already OK
-        return x, x.shape[0]
-    if x.ndim > 1:
+        return x, x.size
+    elif x.ndim > 1:
         # Size in other directions must be 1
-        n = np.max(x.shape)
-        if np.prod(x.shape) != n:
+        n = x.size
+        if np.max(x.shape) != n:
             raise ValueError(
-                'Unable to convert to 1d vector of scalar values.')
+                'Unable to interpret as 1d vector of scalar values.')
         return x.reshape((n,)), n
     else:
         # 0-dimensional: cast to empty array
         # To test, these can be created with e.g. np.array(0)
-        return np.array([]), 0
+        return np.array([], dtype=float), 0
 
 
 def vet_series(t, v):
