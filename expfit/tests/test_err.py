@@ -95,22 +95,6 @@ class TestError(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'number of parameters', expfit.exp, x, (a, b))
 
-    def test_expc(self):
-        # Exponential function in c-form
-
-        x = np.linspace(0, 1, 123)
-        a, b, c = 1, 2, 3
-        y = a + b * np.exp(c * x)
-        np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c)))
-
-        x = np.linspace(5, 15, 2000)
-        a, b, c, d, e = 5, 6, -7, 8, -9
-        y = a + b * np.exp(c * x) + d * np.exp(e * x)
-        np.testing.assert_array_equal(y, expfit.expc(x, (a, b, c, d, e)))
-
-        self.assertRaisesRegex(
-            ValueError, 'number of parameters', expfit.expc, x, (a, b))
-
     def test_rmse(self):
         # RMSE in tau form
 
@@ -136,7 +120,7 @@ class TestError(unittest.TestCase):
         # Test the single exponential error
 
         x = np.linspace(0, 1, 123)
-        y = expfit.expc(x, (1, 2, 3))
+        y = expfit.exp(x, (1, 2, -1 / 3))
         e = expfit.SingleExponentialError(x, y)
         m, j, h = e((1, 2, 3))
         self.assertAlmostEqual(m, 0)
@@ -194,7 +178,7 @@ class TestError(unittest.TestCase):
 
         # Single error comparison: MSE only
         x = np.linspace(0, 1, 123)
-        y = expfit.expc(x, [1, 2, -3])
+        y = expfit.exp(x, [1, 2, 1 / 3])
         e1 = expfit.MultiExponentialError(x, y, 1, 0, True)
         e2 = expfit.SingleExponentialError(x, y)
         p0 = np.array([1, 2, -2])
@@ -306,7 +290,7 @@ class TestError(unittest.TestCase):
 
         # MSE test against multie error
         x = np.linspace(1, 2, 50)
-        y = expfit.expc(x, [2, 1, -2])
+        y = expfit.exp(x, [2, 1, 0.5])
         e1 = expfit.TauFormError(x, y)
         e2 = expfit.MultiExponentialError(x, y, 1, 1, True)
         m1, j1, h1 = e1([5, 2, 0.5, -1, 0.25])

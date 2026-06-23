@@ -350,7 +350,7 @@ class TestEstimates(unittest.TestCase):
     '''
     def test_find_action(self):
         x = np.linspace(0, 1, 111)
-        y = expfit.expc(x, (8, 2, 7))
+        y = expfit.exp(x, (8, 2, -1 / 7))
 
         ij = expfit.
 
@@ -373,7 +373,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(x[2], 0.92909091)
 
         x = np.linspace(0, 1, 50)
-        y = expfit.expc(x, (1, 1, 1))
+        y = expfit.exp(x, (1, 1, -1))
         tr = expfit.ZoomTransform(x, y)
         a, b, c = 1, 2, 3
         p, q, r = tr.transform(a, b, c)
@@ -395,41 +395,41 @@ class TestEstimates(unittest.TestCase):
         # Test noise level estimates
 
         rng = np.random.default_rng(18)
-        f = expfit.expc
+        f = expfit.exp # CHANGED
         plot = False
 
         # Very straight line
         s = 0.5
         x = np.linspace(1.5, 2.5, 2000)
-        y = f(x, (8, 2, 0.3)) + rng.normal(0, s, x.shape)
+        y = f(x, (8, 2, -3)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.05)
 
         # Quite a strong exponential, low loise
         s = 0.03
         x = np.linspace(0.3, 4, 200)
-        y = f(x, (-1000, 5, -2)) + rng.normal(0, s, x.shape)
+        y = f(x, (-1000, 5, 0.5)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.2)
 
         # Not enough data, not enough noise
         s = 0.05
         x = np.linspace(0, 0.5, 20)
-        y = f(x, (200, 21, -0.7)) + rng.normal(0, s, x.shape)
+        y = f(x, (200, 21, 1.4)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.6)
 
         # Lots of data, strong noise
         s = 0.1
         x = np.linspace(0, 6.7, 1003)
-        y = f(x, (73, 1, 0.18)) + rng.normal(0, s, x.shape)
+        y = f(x, (73, 1, -5.55)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.1)
 
         # Strong noise, but massive exponential
         s = 10
         x = np.linspace(1e-3, 7e-3, 900)
-        y = f(x, (-51, -7.2, 1000)) + rng.normal(0, s, x.shape)
+        y = f(x, (-51, -7.2, -1e-3)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.1)
 
@@ -467,7 +467,6 @@ class TestEstimates(unittest.TestCase):
         # No error:
         expfit.estimate_noise_level(x, y, vet=False)
     '''
-
 
 
 if __name__ == '__main__':  # pragma: no cover
