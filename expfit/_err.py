@@ -7,7 +7,7 @@
 import numpy as np
 
 
-def area(x, p):
+def expa(x, p):
     """
     Returns the area under and exponential ``p[0] * exp(-x / p[1])``
     """
@@ -34,21 +34,6 @@ def exp(x, p):
     return p[0] + np.sum(b * np.exp(-np.asarray(x) / c), axis=0)
 
 
-def expc(x, p):
-    """
-    Returns an exponential ``p[0] + p[1] * exp(p[2] * x) + p[3] * ...``.
-    """
-    p = np.asarray(p)
-    d = len(p)
-    if d < 3 or (d - 1) % 2 != 0:
-        raise ValueError(f'Invalid number of parameters ({d}).')
-
-    m = (d - 1) // 2
-    b = p[1::2].reshape((m, 1))
-    c = p[2::2].reshape((m, 1))
-    return p[0] + np.sum(b * np.exp(c * x), axis=0)
-
-
 def rmse(x, y, p):
     """
     Returns the RMSE between ``y`` and an exponential
@@ -65,44 +50,33 @@ def rmse(x, y, p):
     return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
 
 
-def rmsec(x, y, p):
-    """
-    Returns the RMSE between ``y`` and an exponential
-    ``p[0] + p[1] * exp(p[1] * x) + p[3] * exp(p[4] * x) + ...``.
-
-    **Note**: the returned RMSE is the root of the MSE returned by
-    :class:`SingleExponentialError` and :class:`MultiExponentialError`
-    """
-    p = np.copy(p)
-    a = p[0]
-    p[0] = 0
-    return np.sqrt(np.sum((y - a - expc(x, p))**2) / len(x))
-
-
 class SingleExponentialError():
     """
-    Calculates the MSE, Jacobian, and Hessian for a single exponential.
+    Calculates the MSE, Jacobian, and Hessian for a single exponential with a
+    tau that can be positive (decaying) or negative (growing).
 
     This error uses the form::
 
-        y = a + b * exp(c * x)
+        v = a + b * exp(-t / tau)
 
-    with parameters ``p = (a, b, c)``.
+    with parameters ``p = (a, b, tau)``.
 
     Example::
 
-        x = np.linspace(0, 1, 100)
-        y = 5 + 3 * np.exp(0.5 * x)
-        e = SingleExponentialError(x, y)
+        t = np.linspace(0, 1, 100)
+        v = 5 + 3 * np.exp(-t / 2)
+        e = SingleExponentialError(t, v)
         mse, jac, hes = e([1, 2, 3])
 
     Arguments:
 
-    ``x``, ``y``
-        The time series.
+    ``t``, ``v``
+        The time series as two equal-sized arrays. Alternatively, ``t`` can be
+        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
 
     """
-    def __init__(self, x, y):
+    def __init__(self, t, v=None):
+        #self._tv =
         self._x = x
         self._y = y
         self._m = 1 / len(x)
@@ -195,8 +169,9 @@ class MultiExponentialError():
 
     Arguments:
 
-    ``x``, ``y``
-        The time series.
+    ``t``, ``v``
+        The time series as two equal-sized arrays. Alternatively, ``t`` can be
+        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
     ``m_dominant``
         The number of exponential terms with the same sign as the dominant
         term.
@@ -208,7 +183,7 @@ class MultiExponentialError():
         exponential term.
 
     """
-    def __init__(self, x, y, m_dominant, m_opposite, dominant_positive):
+    def __init__(self, t, v, m_dominant, m_opposite, dominant_positive):
 
         m_dom, m_opp = int(m_dominant), int(m_opposite)
         if m_dom < 1:

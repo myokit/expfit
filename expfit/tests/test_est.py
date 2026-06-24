@@ -21,7 +21,32 @@ class TestEstimates(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def test_direct(self):
+    def test_least_squares(self):
+        # Test linear least squares
+
+        x = np.array([-5, -2, 0, 0.1, 3, 8, 13])
+        y = 4 + 13 * x
+        ls = expfit.LeastSquaresFit(x, y)
+        self.assertEqual(ls.offset, 4)
+        self.assertEqual(ls.slope, 13)
+        self.assertEqual(ls.mu_x, np.mean(x))
+        self.assertEqual(ls.mu_y, np.mean(y))
+
+        self.assertRaisesRegex(
+            ValueError, 'At least 2 points', expfit.LeastSquaresFit, [1], [2])
+
+        # Test vetting occurs but can be switched off
+        x, y = [3, 2], [1, 1]
+        self.assertRaisesRegex(
+            ValueError, 'strictly increasing', expfit.LeastSquaresFit, x, y)
+        self.assertRaises(
+            TypeError, expfit.LeastSquaresFit, x, y, vet=False)
+
+        # Test string
+        self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
+        self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
+
+    def test_estimate_initial_basics(self):
         # Test directly, check return type etc.
 
         p0 = 3, 5, 1

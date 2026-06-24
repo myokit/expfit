@@ -40,6 +40,7 @@ from ._est import (  # noqa
     estimate_initial_single,
     estimate_initial_opposing,
     estimate_noise_level,
+    LeastSquaresFit,
     SingleExponentialEstimate,
 )
 
@@ -50,14 +51,12 @@ from ._err import (  # noqa
     MultiExponentialError,
     SingleExponentialError,
     TauFormError,
-    area,
     exp,
-    expc,
+    expa,
     rmse,
 )
 
 from ._opt import (  # noqa
-    LeastSquaresFit,
     lm,
     LMResult,
 )

@@ -52,6 +52,19 @@ class TimeSeries:
         self._mean = None
         self._std = None
 
+    @classmethod
+    def _from_tv(cls, t, v=None):
+        """
+        Create from typical arguments t and v, or return if already a
+        :class:`TimeSeries`.
+        """
+        if isinstance(t, cls):
+            if v is not None:
+                raise ValueError(
+                    'TimeSeries given as `t` argument, but `v` is not None.')
+            return t
+        return cls(t, v)
+
     def __len__(self):
         return 2
 
@@ -110,6 +123,8 @@ class TimeSeries:
         if self._std is None:
             self._std = np.std(v, mean=self.mean())
         return self._std
+
+
 
 
 class UnitSquareTransformedTimeSeries(TimeSeries):

@@ -9,6 +9,46 @@ import numpy as np
 import expfit
 
 
+class LeastSquaresFit():
+    """
+    Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
+    by ``offset + slope * x``.
+
+    Properties:
+
+    ``offset``, ``slope``
+        The fit, using ``y = offset + slope * x``
+    ``mu_x``, ``mu_y``
+        The mean ``x`` and ``y`` on the segment fit to.
+    ``x``, ``y``
+        Arrays containing the minimum and maximum ``x`` fit too, and the
+        corresponding ``y`` values.
+
+    """
+    def __init__(self, x, y, vet=True):
+        if vet:
+            x, y = expfit.vet_series(x, y)
+        n = len(x)
+        if n < 2:
+            raise ValueError('At least 2 points are required')
+
+        self.mu_x = np.mean(x)
+        self.mu_y = np.mean(y)
+        xx = np.sum(x**2) - n * self.mu_x**2
+        xy = np.sum(x * y) - n * self.mu_x * self.mu_y
+        self.slope = xy / xx
+        self.offset = self.mu_y - self.slope * self.mu_x
+        self.x = np.array((x[0], x[-1]), dtype=float)
+        self.y = self.offset + self.slope * self.x
+
+    def __repr__(self):
+        return f'<expfit.LeastSquaresFit({self.offset:.3}+{self.slope:.3}x)>'
+
+    def __str__(self):
+        return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
+                f' {self.offset:.3} + {self.slope:.3} x')
+
+
 class SingleExponentialEstimate:
     """
     Estimated parameters of a single exponential ``a + b * exp(-x / tau)``.
@@ -17,10 +57,16 @@ class SingleExponentialEstimate:
     :meth:`estimate_initial_single` is called with ``full=True``. In this case
     the following extra properties will be set:
 
+    ``ls1``
+        A linear least squares fit to the selected segment at the start of the
+        signal.
+    ``ls2``
+        A linear least squares fit to the selected segment at the end of the
+        signal.
     ``log1``
         A list where each entry is ``(least_squares_fit, message)``
-        containing a least squares fit to a segment at the start of the signal,
-        and a message describing it.
+        containing a proposed least squares fit to a segment at the start of
+        the signal, and a message describing it.
     ``log2``
         Like ``log1``, but for the end of the signal.
     ``region``
@@ -30,6 +76,8 @@ class SingleExponentialEstimate:
     """
     def __init__(self, a, b, tau):
         self._p = np.array([a, b, tau], dtype=float)
+        self.ls1 = None
+        self.ls2 = None
         self.log1 = None
         self.log2 = None
         self.region = None
@@ -44,7 +92,7 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def estimate_initial_single(tv, full=False, plot=False):
+def estimate_initial_single(t, v=None, full=False, plot=False):
     """
     Estimate ``a, b, tau`` in ``y = a + b * exp(-x / tau)`` using derivatives
     estimated from mean averages at the sides.
@@ -86,8 +134,9 @@ def estimate_initial_single(tv, full=False, plot=False):
 
     Arguments:
 
-    ``tv``
-        A tuple ``(t, v)`` containing a time series.
+    ``t``, ``v``
+        The time series as two equal-sized arrays. Alternatively, ``t`` can be
+        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
     ``full=False``
         Set to ``True`` to store debugging and visualisation information in
         the returned :class:`SingleExponentialEstimate`.
@@ -99,14 +148,15 @@ def estimate_initial_single(tv, full=False, plot=False):
     Returns a :class:`SingleExponentialEstimate` with the estimated
     ``(a, b, tau)``.
     """
-    if not isinstance(tv, expfit.TimeSeries):
-        tv = expfit.TimeSeries(*tv)
-    x_nozoom, y_nozoom = tv
+    x_nozoom, y_nozoom = tv = expfit.TimeSeries._from_tv(t, v)
     if len(x_nozoom) < 3:
         raise ValueError('At least 3 points are required')
 
     # Full information is returned if plot=True
     full = full or plot
+    if full:
+        log1 = []
+        log2 = []
 
     # Select a subsection of the data, if the signal is too steep
     zoom_region = find_action(x_nozoom, y_nozoom)
@@ -194,9 +244,6 @@ def estimate_initial_single(tv, full=False, plot=False):
     l1 = expfit.LeastSquaresFit(*seg1, vet=False)
     l2 = expfit.LeastSquaresFit(*seg2, vet=False)
 
-    # Log shrinking process for plot?
-    log1, log2 = ([], []) if full else (None, None)
-
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is
     # not an exponential).
@@ -258,6 +305,8 @@ def estimate_initial_single(tv, full=False, plot=False):
     # Create results object
     r = SingleExponentialEstimate(a, b, tau)
     if full:
+        r.ls1 = l1
+        r.ls2 = l2
         r.log1 = log1
         r.log2 = log2
         r.region = zoom_region

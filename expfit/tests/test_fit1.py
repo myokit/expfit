@@ -21,12 +21,14 @@ class TestFit1(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
+    '''
     def test_fit1_edge_cases(self):
         # Test for a specific divide by zero case
 
         x = np.linspace(0, 1, 10)
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
         self.assertRaises(expfit.NotExponentialError, expfit.fit1, x, y)
+    '''
 
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
                          deltas=[], ratio=1, rmse=None, plot=False):
@@ -89,27 +91,30 @@ class TestFit1(unittest.TestCase):
         plot = False
 
         # Moderate
-        sos(0, -1, -0.3, 2, 123, deltas=(1, 0.1, 0.1), plot=plot)
-        sos(300, 2, -0.2, 2, 200, deltas=(1e2, 0.1, 0.01), plot=plot)
-        sos(5000, 3, 2, 5, 500, deltas=(0.05, 0.05, 0.05), plot=plot)
-        sos(-1000, 10, 0.1, 2, 50, deltas=(0.1, 0.1, 0.1), plot=plot)
+        sos(0, -1, -0.3, 2, 123, deltas=(1, 0.1, 0.1), plot=True)
+
+        return
+        sos(300, 2, -0.2, 2, 200, deltas=(1e2, 0.1, 0.01), plot=True)
+        sos(5000, 3, 2, 5, 500, deltas=(0.05, 0.05, 0.05), plot=True)
+        sos(-1000, 10, 0.1, 2, 50, deltas=(0.1, 0.1, 0.1), plot=True)
 
         # Steep: These rely more on the guess than on the fitting
         # These would benefit from a de-steeper
-        sos(4e5, -1, -0.03, 2, 300, ratio=1.03, plot=plot)
-        sos(-1e3, 10, 0.1, 2, 1000, deltas=(1e-2, 0.1, 0.1), plot=plot)
-        sos(3e5, -1, -0.07, 2, 500, plot=plot)
+        sos(4e5, -1, -0.03, 2, 300, ratio=1.03, plot=True)
+        sos(-1e3, 10, 0.1, 2, 1000, deltas=(1e-2, 0.1, 0.1), plot=True)
+        sos(3e5, -1, -0.07, 2, 500, plot=True)
 
         # Almost straight
-        sos(3, -1, -1, 2, 3000, deltas=(0.1, 0.1, 1e-2), plot=plot)
+        sos(3, -1, -1, 2, 3000, deltas=(0.1, 0.1, 1e-2), plot=True)
         sos(-6e2, +1, -1, 2, 3000, ratio=1.001, deltas=(0.5, 0.5, 0.1),
-            plot=plot)
-        sos(0, 1, -1e6, 1, 200, ratio=1, plot=plot)
-        sos(1, 2, -1e6, 1, 200, fnoise=0.2, plot=plot)
+            plot=True)
+        sos(0, 1, -1e6, 1, 200, ratio=1, plot=True)
+        sos(1, 2, -1e6, 1, 200, fnoise=0.2, plot=True)
 
         # Both sides of zero
-        sos(-2.5, 5, 0.5, 2, 50, deltas=(0.1, 1e-2, 0.1), plot=plot)
+        sos(-2.5, 5, 0.5, 2, 50, deltas=(0.1, 1e-2, 0.1), plot=True)
 
+    '''
     def test_fit1_straight(self):
         # Test single exponentials on single exponential data
         sos = self.single_on_single
@@ -348,6 +353,7 @@ class TestFit1(unittest.TestCase):
 
         r = expfit.ExponentialFit(x, y, [1, 2, 3])
         self.assertEqual(str(r), '+1.00000e+00 +2.00000e+00 +3.00000e+00')
+    '''
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -9,7 +9,7 @@ import numpy as np
 import expfit
 
 
-def fit1(t, v, plot=False):
+def fit1(t, v=None, plot=False):
     """
     Fits an exponential ``a + b * exp(-t / tau)`` to the time series
     ``(t, v)``, returning ``(a, b, tau)``
@@ -24,35 +24,28 @@ def fit1(t, v, plot=False):
     Arguments:
 
     ``t``, ``v``
-        The time series
+        The time series as two equal-sized arrays. Alternatively, ``t`` can be
+        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
     ``plot``
         Optional parameter to create a plot of the method's workings. Can be
         set to ``True`` or to an array with the true ``(a, b, tau)``.
 
     Returns an :class:`ExponentialFit`.
     """
-    t, v = expfit.vet_series(t, v)
+    tv = expfit.TimeSeries._from_tv(t, v)
+    if not isinstance(tv, expfit.UnitSquareTransformedTimeSeries):
+        xy = expfit.UnitSquareTransformedTimeSeries(*tv)
 
     # Convert `plot` to boolean
     pt = plot
     plot = plot is not False
 
-    # Transform to unit square, to avoid overflows etc
-    tr = expfit.UnitSquareTransform(t, v)
-
-    # Get an initial estimate (in transformed space)
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, full=plot, vet=False)
-
-    # Stop if the signal is not exponential
-    if q0[1] == 0 or q0[2] == 0:
-        raise expfit.NotExponentialError()
-
-    # Switch to tau form
-    #q0 = np.array([q0[0], q0[1], -1 / q0[2])
-    raise NotImplementedError
+    # Get an initial estimate in transformed space
+    # May raise a NotExponentialError
+    q0 = expfit.estimate_initial_single(xy, full=plot)
 
     # Create error in log form
-    e = expfit.MultiExponentialError(tr.x, tr.y)
+    e = expfit.MultiExponentialError(xy)
     q0 = e.transform(q0)
 
     # Fit
