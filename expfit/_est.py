@@ -14,7 +14,12 @@ class LeastSquaresFit():
     Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
     by ``offset + slope * x``.
 
-    Properties:
+    Arguments:
+
+    ``x``, ``y``
+        Two equal-sized, 1d arrays.
+
+    Public properties:
 
     ``offset``, ``slope``
         The fit, using ``y = offset + slope * x``
@@ -25,10 +30,13 @@ class LeastSquaresFit():
         corresponding ``y`` values.
 
     """
-    def __init__(self, x, y, vet=True):
-        if vet:
-            x, y = expfit.vet_series(x, y)
+    def __init__(self, x, y):
+        x, y = np.asarray(x), np.asarray(y)
+        if x.ndim != 1 or y.ndim != 1:
+            raise ValueError('Both arrays must be 1-dimensional.')
         n = len(x)
+        if n != len(y):
+            raise ValueError('Both arrays must have same length.')
         if n < 2:
             raise ValueError('At least 2 points are required')
 
@@ -154,9 +162,6 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
 
     # Full information is returned if plot=True
     full = full or plot
-    if full:
-        log1 = []
-        log2 = []
 
     # Select a subsection of the data, if the signal is too steep
     zoom_region = find_action(x_nozoom, y_nozoom)
@@ -198,7 +203,7 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
             # Propose new segment
             n = (1 + n) // 2
             x_new, y_new = (x[:n], y[:n]) if start else (x[-n:], y[-n:])
-            l_new = expfit.LeastSquaresFit(x_new, y_new, vet=False)
+            l_new = expfit.LeastSquaresFit(x_new, y_new)
 
             # Stop if too small
             if n < n_min:
@@ -240,9 +245,12 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
     m = (1 + len(x)) // 2
     seg1 = x[:m], y[:m]
     seg2 = x[-m:], y[-m:]
-    l0 = expfit.LeastSquaresFit(x, y, vet=False)
-    l1 = expfit.LeastSquaresFit(*seg1, vet=False)
-    l2 = expfit.LeastSquaresFit(*seg2, vet=False)
+    l0 = expfit.LeastSquaresFit(x, y)
+    l1 = expfit.LeastSquaresFit(*seg1)
+    l2 = expfit.LeastSquaresFit(*seg2)
+
+    # Store info about tested elements
+    log1, log2 = ([], []) if full else (None, None)
 
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is

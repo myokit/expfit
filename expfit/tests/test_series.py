@@ -117,6 +117,19 @@ class TestTimeSeries(unittest.TestCase):
         self.assertEqual(v.shape, (0, ))
         self.assertEqual(v.ndim, 1)
 
+    def test_from_tv(self):
+        # Test creation with _from_tv
+
+        t, v = np.array([1, 2, 3]), np.array([4, 5, 6])
+        t1 = expfit.TimeSeries._from_tv(t, v)
+        self.assertIsInstance(t1, expfit.TimeSeries)
+        t2 = expfit.TimeSeries._from_tv(t1)
+        self.assertIs(t1, t2)
+        self.assertRaisesRegex(
+            ValueError, 'is not None', expfit.TimeSeries._from_tv, t1, v)
+        self.assertRaisesRegex(
+            ValueError, 'is None', expfit.TimeSeries._from_tv, t)
+
     def test_unit_transformed(self):
 
         # t0=1, v0=1, rt=4, rv=8

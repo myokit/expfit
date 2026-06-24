@@ -63,6 +63,9 @@ class TimeSeries:
                 raise ValueError(
                     'TimeSeries given as `t` argument, but `v` is not None.')
             return t
+        elif v is None:
+            raise ValueError(
+                'Expecting t, v to be arrays of equal length, but v is None.')
         return cls(t, v)
 
     def __len__(self):

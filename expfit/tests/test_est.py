@@ -32,19 +32,19 @@ class TestEstimates(unittest.TestCase):
         self.assertEqual(ls.mu_x, np.mean(x))
         self.assertEqual(ls.mu_y, np.mean(y))
 
-        self.assertRaisesRegex(
-            ValueError, 'At least 2 points', expfit.LeastSquaresFit, [1], [2])
-
-        # Test vetting occurs but can be switched off
-        x, y = [3, 2], [1, 1]
-        self.assertRaisesRegex(
-            ValueError, 'strictly increasing', expfit.LeastSquaresFit, x, y)
-        self.assertRaises(
-            TypeError, expfit.LeastSquaresFit, x, y, vet=False)
-
-        # Test string
+        # Test string representation
         self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
         self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
+
+        # Test array checks
+        x = np.array([[1, 2, 3]])
+        self.assertRaisesRegex(
+            ValueError, 'must be 1-dimensional', expfit.LeastSquaresFit, x, x)
+        x, y = [1, 2, 3], [4, 5]
+        self.assertRaisesRegex(
+            ValueError, 'must have same length', expfit.LeastSquaresFit, x, y)
+        self.assertRaisesRegex(
+            ValueError, 't least 2 points', expfit.LeastSquaresFit, [1], [2])
 
     def test_estimate_initial_basics(self):
         # Test directly, check return type etc.
@@ -91,10 +91,10 @@ class TestEstimates(unittest.TestCase):
         y = expfit.exp(x, (3, 5, 1))
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 100 and 99',
-            expfit.estimate_initial_single, (x, y[:-1]))
+            expfit.estimate_initial_single, x, y[:-1])
         self.assertRaisesRegex(
             ValueError, 'At least 3', expfit.estimate_initial_single,
-            ([1, 2], [3, 4]), 1)
+            [1, 2], [3, 4])
 
         # Extra info: No shrinking, data too small
         x = np.linspace(0, 1, 3)
@@ -120,7 +120,7 @@ class TestEstimates(unittest.TestCase):
         y = np.array([0, 2, -1, 3])
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal means',
-            expfit.estimate_initial_single, (x, y))
+            expfit.estimate_initial_single, x, y)
 
     def estimate_initial(self, x, y, transform=True, plot=False):
         """
@@ -129,9 +129,9 @@ class TestEstimates(unittest.TestCase):
         """
         if transform:
             tv = expfit.UnitSquareTransformedTimeSeries(x, y)
+            ret = expfit.estimate_initial_single(tv, plot=plot)
         else:
-            tv = x, y
-        ret = expfit.estimate_initial_single(tv, plot=plot)
+            ret = expfit.estimate_initial_single(x, y, plot=plot)
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
