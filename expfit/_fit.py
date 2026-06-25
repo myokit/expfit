@@ -67,12 +67,29 @@ def fit1(t, v=None, plot=False):
     p = expfit.ExponentialFit(t, v, p, e)
 
     if plot:  # pragma: no cover
+
+        #TODO THIS PLOT SHOULD BE IN TAU FORM, ON UNTRANSFORMED DATA
+
+        #TODO BUT THEN WE CANT SHOW INITIAL ESTIMATE BLACK AND RED LINES
+        #TODO SOLUTION IS TO HAVE SEPERATE PLOT FOR INITIAL ESTIMATE?
+        #TODO YES, STOP SHOWING BLACK/RED IN
+
+
         from ._plot import fit1_plot
         try:
             assert len(pt) == 3
         except (TypeError, AssertionError):
             pt = None
         fit1_plot(t, v, tr, r, p, q0, pt)
+
+        #
+        #
+        #
+        #
+        #
+        #
+        #
+        #
 
     return p
 

@@ -204,7 +204,8 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     ``t``, ``v``
         The time series.
     ``r``
-        An :class:`LMResult`.
+        An :class:`LMResult`. This may be in another space than the fit
+        results. Only the
     ``p``
         An :class:`ExponentialFit` for the obtained result.
     ``p0``
