@@ -256,3 +256,54 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
 
     return res
 
+
+class LeastSquaresFit():
+    """
+    Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
+    by ``offset + slope * x``.
+
+    Arguments:
+
+    ``x``, ``y``
+        Two equal-sized, 1d arrays.
+
+    Public properties:
+
+    ``offset``, ``slope``
+        The fit, using ``y = offset + slope * x``
+    ``mu_x``, ``mu_y``
+        The mean ``x`` and ``y`` on the segment fit to.
+    ``x``, ``y``
+        Arrays containing the minimum and maximum ``x`` fit too, and the
+        corresponding ``y`` values.
+    ``n``
+        The number of points in ``x`` and in ``y``.
+
+    """
+    def __init__(self, x, y):
+        x, y = np.asarray(x), np.asarray(y)
+        if x.ndim != 1 or y.ndim != 1:
+            raise ValueError('Both arrays must be 1-dimensional.')
+        n = len(x)
+        if n != len(y):
+            raise ValueError('Both arrays must have same length.')
+        if n < 2:
+            raise ValueError('At least 2 points are required')
+
+        self.mu_x = np.mean(x)
+        self.mu_y = np.mean(y)
+        xx = np.sum(x**2) - n * self.mu_x**2
+        xy = np.sum(x * y) - n * self.mu_x * self.mu_y
+        self.slope = xy / xx
+        self.offset = self.mu_y - self.slope * self.mu_x
+        self.x = np.array((x[0], x[-1]), dtype=float)
+        self.y = self.offset + self.slope * self.x
+        self.n = n
+
+    def __repr__(self):
+        return f'<expfit.LeastSquaresFit({self.offset:.3}+{self.slope:.3}x)>'
+
+    def __str__(self):
+        return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
+                f' {self.offset:.3} + {self.slope:.3} x')
+

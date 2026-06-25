@@ -72,7 +72,7 @@ def initial_estimate_plot(x, y, estimate):
         The time series.
     ``estimate``
         The :class:`expfit.SingleExponentialEstimate`. Must have been obtained
-        with the full extra properties.
+        with ``full=True``.
 
     Returns a tuple ``(fig, ax)``.
     """
@@ -86,19 +86,19 @@ def initial_estimate_plot(x, y, estimate):
         i, j = estimate.region
         ax.axvspan(x[i], x[j - 1], color='#eee')
 
-    # Show data and estimate
+    # Show data
     ax.plot(x, y, 's-' if len(x) < 50 else '-', label=f'Data (n={len(x)})')
-    ax.plot(x, expfit.exp(x, estimate), '--',
-            label=f'Initial estimate ({estimate})')
 
     # Show shrinking segments
     for log, color in ((estimate.log1, 'k'), (estimate.log2, 'r')):
-        for ls, msg in log[:-1]:
+        for ls in log:
+            msg = f'Slope {ls.slope:.3}, n={ls.n}'
             ax.plot(ls.x, ls.y, color=color, ls='-', label=msg)
             ax.plot(ls.mu_x, ls.mu_y, 's', color=color, fillstyle='full')
-        ls, msg = log[-1]
-        ax.plot(ls.x, ls.y, color=color, ls=':', label=msg)
-        ax.plot(ls.mu_x, ls.mu_y, 's', color=color, fillstyle='none')
+
+    # Show estimate
+    ax.plot(x, expfit.exp1(x, estimate), ls='--',
+        label=f'Initial estimate ({estimate})')
 
     ax.legend()
     return fig, ax
@@ -206,6 +206,10 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     ``r``
         An :class:`LMResult`. This may be in another space than the fit
         results. Only the
+
+
+
+
     ``p``
         An :class:`ExponentialFit` for the obtained result.
     ``p0``

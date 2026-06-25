@@ -6,21 +6,20 @@ import matplotlib.ticker
 import expfit
 
 n = 300
-p0 = np.array([2, 2, 2])
+p0 = np.array([2, 2, -0.5])
 ra = np.linspace(-4, 8, n)
 rb = np.linspace(-4, 8, n)
-rc = np.linspace(.1, 8, n)
+rc = np.geomspace(-10, -0.125, n)
 
 t = np.linspace(0, 1, 100)
-v0 = p0[0] + p0[1] * np.exp(p0[2] * t)
+v0 = p0[0] + p0[1] * np.exp(-t / p0[2])
 v = v0 + np.random.default_rng(1).normal(0, 0.15, v0.shape)
 
 p = np.array(expfit.fit1(t, v))
-p[2] = -1 / p[2]
 #p[1] *= -1
 
 def m(a, b, c):
-    return np.sum((a - v + b * np.exp(c * t))**2) / len(t)
+    return np.sum((a - v + b * np.exp(-t / c))**2) / len(t)
 
 r = [ra, rb, rc]
 
@@ -71,8 +70,8 @@ def fig(logb, logc, trunc):
 
     def do(ax, i):
         x, y = orders[i]
-        ax.set_xlabel('abc'[x])
-        ax.set_ylabel('abc'[y])
+        ax.set_xlabel('abc'[x].replace('c', 'tau'))
+        ax.set_ylabel('abc'[y].replace('c', 'tau'))
 
         surf = surfs[i]
         if trunc:
@@ -86,7 +85,6 @@ def fig(logb, logc, trunc):
         ax.axhline(p[y], color='k', lw=0.5)
         ax.axvline(p0[x], color='w', lw=0.5)
         ax.axhline(p0[y], color='w', lw=0.5)
-
 
         mn, mx = r[x][0], r[x][-1]
         d = 10**round(np.log10((mx - mn) / 10))
@@ -102,13 +100,13 @@ def fig(logb, logc, trunc):
     do(ax1, 1)
     do(ax2, 2)
 
-    ax3.plot(t, p[0] + p[1] * np.exp(p[2] * t), 'k')
+    ax3.plot(t, p[0] + p[1] * np.exp(-t / p[2]), 'k')
     ax3.plot(t, v)
     ax3.plot(t, v0)
 
     bname = 'log' if logb else 'lin'
     cname = 'log' if logc else 'lin'
-    fname = 'scant' if trunc else 'scan'
+    fname = 'tau-scant' if trunc else 'tau-scan'
     fig.savefig(f'/home/michael/{fname}-{bname}-{cname}.png')
     plt.close(fig)
 
@@ -126,8 +124,8 @@ if False:
     print('.', end='', flush=True)
     #fig(True, False, True)
     #print('.', end='', flush=True)
-    #fig(False, True, True)
-    #print('.', end='', flush=True)
+    fig(False, True, True)
+    print('.', end='', flush=True)
     #fig(True, True, True)
 print('.')
 

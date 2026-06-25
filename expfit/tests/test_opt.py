@@ -36,8 +36,8 @@ class Poly4():
                 [[12 * a * x**2 + 2 * b]])
 
 
-class TestOpt(unittest.TestCase):
-    """ Tests optimisers """
+class TestLM(unittest.TestCase):
+    """ Tests the LM optimiser """
 
     def test_lm(self):
 
@@ -102,6 +102,35 @@ class TestOpt(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'Hessian must match shape of initial point',
             expfit.lm, e, [1, 2])
+
+
+class TestLS(unittest.TestCase):
+    """ Tests linear least squares """
+
+    def test_least_squares(self):
+        # Test linear least squares
+
+        x = np.array([-5, -2, 0, 0.1, 3, 8, 13])
+        y = 4 + 13 * x
+        ls = expfit.LeastSquaresFit(x, y)
+        self.assertEqual(ls.offset, 4)
+        self.assertEqual(ls.slope, 13)
+        self.assertEqual(ls.mu_x, np.mean(x))
+        self.assertEqual(ls.mu_y, np.mean(y))
+
+        # Test string representation
+        self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
+        self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
+
+        # Test array checks
+        x = np.array([[1, 2, 3]])
+        self.assertRaisesRegex(
+            ValueError, 'must be 1-dimensional', expfit.LeastSquaresFit, x, x)
+        x, y = [1, 2, 3], [4, 5]
+        self.assertRaisesRegex(
+            ValueError, 'must have same length', expfit.LeastSquaresFit, x, y)
+        self.assertRaisesRegex(
+            ValueError, 't least 2 points', expfit.LeastSquaresFit, [1], [2])
 
 
 if __name__ == '__main__':  # pragma: no cover

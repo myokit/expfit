@@ -33,14 +33,13 @@ from ._ex import (  # noqa
 
 from ._series import (  # noqa
     TimeSeries,
-    UnitSquareTransformedTimeSeries,
+    UnitSquaredSeries,
 )
 
 from ._est import (  # noqa
     estimate_initial_single,
     estimate_initial_opposing,
     estimate_noise_level,
-    LeastSquaresFit,
     SingleExponentialEstimate,
 )
 
@@ -52,11 +51,12 @@ from ._err import (  # noqa
     SingleExponentialError,
     TauFormError,
     exp,
-    expa,
+    exp1,
     rmse,
 )
 
 from ._opt import (  # noqa
+    LeastSquaresFit,
     lm,
     LMResult,
 )

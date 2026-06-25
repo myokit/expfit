@@ -9,70 +9,70 @@ import numpy as np
 
 class TimeSeries:
     """
-    Stores a time series ``(t, v)``, ensuring it is valid and providing
+    Stores a time series ``(x, y)``, ensuring it is valid and providing
     cached access to common functions.
 
     Checks that
 
-    - ``t`` and ``v`` are (or can be converted to) 1d numpy arrays.
-    - ``t`` and ``v`` are the same size
-    - ``t`` and ``v`` are finite
-    - ``t`` is strictly increasing (or has length 0 or 1)
+    - ``x`` and ``y`` are (or can be converted to) 1d numpy arrays.
+    - ``x`` and ``y`` are the same size
+    - ``x`` and ``y`` are finite
+    - ``x`` is strictly increasing (or has length 0 or 1)
 
     Access to the underlying data can be gained by treating the
     :class:`TimeSeries` like a tuple::
 
-        t, v = time_series
+        x, y = time_series
+
+    or through the public properties ``x`` and ``y``.
 
     Notes:
 
     1. It is not necessary to create :class:`TimeSeries` manually. Usually
        these are made internally at the start of the fit, and discarded at the
        end of it.
-    2. It is also not recommended: For performance, ``t`` and ``v`` are not
+    2. It is also not recommended: For performance, ``x`` and ``y`` are not
        copied unless necessary (e.g. to convert to float). This means that if
        you _do_ create your own :class:`TimeSeries` and pass it in, you can
        break stuff by changing the underlying data between calls to its
        functions.
 
     """
-    def __init__(self, t, v):
-        t, m = self._vet(t)
-        v, n = self._vet(v)
+    def __init__(self, x, y):
+        x, m = self._vet(x)
+        y, n = self._vet(y)
         if m != n:
             raise ValueError('Both arrays in series must have same length,'
                              f' got {m} and {n}.')
 
-        if n > 1 and np.any(t[1:] <= t[:-1]):
+        if n > 1 and np.any(x[1:] <= x[:-1]):
             raise ValueError('The time array must be strictly increasing.')
 
-        self._tv = t, v
-        self._min = None
-        self._max = None
-        self._mean = None
-        self._std = None
+        self.x = x
+        self.y = y
+        self._xy = (x, y)
 
     @classmethod
-    def _from_tv(cls, t, v=None):
+    def _from_xy(cls, x, y=None):
         """
-        Create from typical arguments t and v, or return if already a
+        Create from typical arguments ``x`` and ``y``, or return if already a
         :class:`TimeSeries`.
         """
-        if isinstance(t, cls):
-            if v is not None:
+        if isinstance(x, cls):
+            if y is not None:
                 raise ValueError(
-                    'TimeSeries given as `t` argument, but `v` is not None.')
-            return t
-        elif v is None:
+                    'If x is a TimeSeries, y must be None.')
+            return x
+        elif y is None:
             raise ValueError(
-                'Expecting t, v to be arrays of equal length, but v is None.')
-        return cls(t, v)
+                'If x is an array, y cannot be None')
+        return cls(x, y)
 
     def __len__(self):
         return 2
 
     def __getitem__(self, subscript):
-        return self._tv.__getitem__(subscript)
+        return self._xy.__getitem__(subscript)
 
     def _vet(self, x):
         """ Returns ``x`` as a 1d numpy array, plus its length. """
@@ -103,80 +103,48 @@ class TimeSeries:
             # To test, these can be created with e.g. np.array(0)
             return np.array([], dtype=float), 0
 
-    def max(self):
-        """ The maximum value in ``v``. """
-        if self._max is None:
-            self._max = np.max(self.tv[1])
-        return self._max
 
-    def mean(self):
-        """ The mean of ``v``. """
-        if self._mean is None:
-            self._mean = np.mean(self.tv[1])
-        return self._mean
-
-    def min(self):
-        """ The minimum value in ``v``. """
-        if self._min is None:
-            self._min = np.min(self.tv[1])
-        return self._min
-
-    def std(self):
-        """ The uncorrected sample standard deviation of ``v``. """
-        if self._std is None:
-            self._std = np.std(v, mean=self.mean())
-        return self._std
-
-
-
-
-class UnitSquareTransformedTimeSeries(TimeSeries):
+class UnitSquaredSeries(TimeSeries):
     """
     Subclass of :class:`TimeSeries` that presents the data transformed to a
     unit cube.
     """
-    def __init__(self, t, v):
+    def __init__(self, x, y):
 
         # Get scaling factors
-        self._t0 = t[0]
-        self._rt = t[-1] - self._t0
-        self._v0 = np.min(v)
-        self._rv = np.max(v) - self._v0
-        if self._rv == 0:
-            self._rv = 1
+        self._x0 = x[0]
+        self._rx = x[-1] - self._x0
+        self._y0 = np.min(y)
+        self._ry = np.max(y) - self._x0
+        if self._ry == 0:
+            self._ry = 1
 
         # Initialise
         super().__init__(
-            (t - self._t0) / self._rt,
-            (v - self._v0) / self._rv)
+            (x - self._x0) / self._rx,
+            (y - self._y0) / self._ry)
 
         # Set known numbers
         self._min = 0
-        self._max = 0 if self._rv == 0 else 1
+        self._max = 0 if self._ry == 0 else 1
 
-    def transform(self, *p):
+    def transform(self, p):
         """
-        Transform parameters ``p = (a, b, tau)`` or more generally
-        ``p = (a, b_1, tau_1, b_2, tau_2, ...) to the unit square parameters.
+        Transform parameters ``p = (a, b, c)`` to the unit square parameters.
+        """
+        a, b, c = p
+        p = (a - self._y0) / self._ry
+        q = b / self._ry * np.exp(c * self._x0)
+        r = c * self._rx
+        return np.array((p, q, r))
 
-        Can be used as ``transform(a, b, tau)`` or ``transform(p)``.
+    def detransform(self, q):
         """
-        p = np.asarray(p[0] if len(p) == 1 else p, dtype=float)
-        q = np.copy(p)
-        q[0] = (p[0] - self._v0) / self._rv
-        q[1::2] = p[1::2] / self._rv * np.exp(-self._t0 / p[2::2])
-        q[2::2] = p[2::2] / self._rt
-        return q
+        Detransform unit square parameters to the original ``(a, b, c)`` space.
+        """
+        p, q, r = q
+        a = self._y0 + self._ry * p
+        b = q * self._ry * np.exp(-r * self._x0 / self._rx)
+        c = r / self._rx
+        return np.array((a, b, c))
 
-    def detransform(self, *q):
-        """
-        Detransform ``q`` to the original parameter space.
-
-        Can be used as ``detransform(a, b, tau)`` or ``detransform(q)``.
-        """
-        q = np.asarray(q[0] if len(q) == 1 else q, dtype=float)
-        p = np.copy(q)
-        p[0] = self._v0 + self._rv * q[0]
-        p[1::2] = q[1::2] * self._rv * np.exp(self._t0 / (self._rt * q[2::2]))
-        p[2::2] = q[2::2] * self._rt
-        return p

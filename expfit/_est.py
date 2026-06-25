@@ -9,57 +9,11 @@ import numpy as np
 import expfit
 
 
-class LeastSquaresFit():
-    """
-    Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
-    by ``offset + slope * x``.
-
-    Arguments:
-
-    ``x``, ``y``
-        Two equal-sized, 1d arrays.
-
-    Public properties:
-
-    ``offset``, ``slope``
-        The fit, using ``y = offset + slope * x``
-    ``mu_x``, ``mu_y``
-        The mean ``x`` and ``y`` on the segment fit to.
-    ``x``, ``y``
-        Arrays containing the minimum and maximum ``x`` fit too, and the
-        corresponding ``y`` values.
-
-    """
-    def __init__(self, x, y):
-        x, y = np.asarray(x), np.asarray(y)
-        if x.ndim != 1 or y.ndim != 1:
-            raise ValueError('Both arrays must be 1-dimensional.')
-        n = len(x)
-        if n != len(y):
-            raise ValueError('Both arrays must have same length.')
-        if n < 2:
-            raise ValueError('At least 2 points are required')
-
-        self.mu_x = np.mean(x)
-        self.mu_y = np.mean(y)
-        xx = np.sum(x**2) - n * self.mu_x**2
-        xy = np.sum(x * y) - n * self.mu_x * self.mu_y
-        self.slope = xy / xx
-        self.offset = self.mu_y - self.slope * self.mu_x
-        self.x = np.array((x[0], x[-1]), dtype=float)
-        self.y = self.offset + self.slope * self.x
-
-    def __repr__(self):
-        return f'<expfit.LeastSquaresFit({self.offset:.3}+{self.slope:.3}x)>'
-
-    def __str__(self):
-        return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
-                f' {self.offset:.3} + {self.slope:.3} x')
 
 
 class SingleExponentialEstimate:
     """
-    Estimated parameters of a single exponential ``a + b * exp(-x / tau)``.
+    Estimated parameters of a single exponential ``a + b * exp(c * x)``.
 
     Can be used as a (read-only) sequence, or may provide extra information if
     :meth:`estimate_initial_single` is called with ``full=True``. In this case
@@ -82,8 +36,8 @@ class SingleExponentialEstimate:
         on.
 
     """
-    def __init__(self, a, b, tau):
-        self._p = np.array([a, b, tau], dtype=float)
+    def __init__(self, a, b, c):
+        self._p = np.array([a, b, c], dtype=float)
         self.ls1 = None
         self.ls2 = None
         self.log1 = None
@@ -100,51 +54,57 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def estimate_initial_single(t, v=None, full=False, plot=False):
+def estimate_initial_single(x, y=None, full=False, plot=False):
     """
-    Estimate ``a, b, tau`` in ``y = a + b * exp(-x / tau)`` using derivatives
+    Estimates ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
 
     The method first selects two segments, one at the start of the signal and
     one near the end, and approximates them with a straight line to derive
     ``(x1, y1, dydx1)`` and ``(x2, y2, dydx2)``. It then estimates c from
 
-        y    = a + b * exp(-x / tau)
-        dydx = c * b * exp(-x / tau)
+        y    = a + b * exp(c * x)
+        dydx = c * b * exp(c * x)
 
         y_1    - y_2    = b * (exp(c * y_1) - exp(c * y_2))
-        dydx_1 - dydx_2 = b * (exp(c * y_1) - exp(c * y_2)) / -tau
-        tau = (y_2 - y_1) / (dydx_1 - dydx_2)
-
-    Either segment can then be used to derive ``a`` and ``b``, from
-
-        a = y_i + dydx_i tau
-        b = (y_i - a) / exp(-x_i / tau)
+        dydx_1 - dydx_2 = b * (exp(c * y_1) - exp(c * y_2)) * c
+        c = (dydx_1 - dydx_2) / (y_1 - y_2)
+        b = (y1 - y2) / (exp(c * x1) - exp(c * x2)
+        a = y_1 + dydx_1 / c
 
     To pick a segment, the method starts by splitting the series down the
     middle, and performing a linear least squares fit on each half. If this
     contains an exponential, both slopes should have the same sign, but a
-    different magnitude. The segments are then refined by successive halving,
-    and accepted as a better segment if the slope in the steep part gets
-    steeper, or if the slope in the shallow part gets shallower.
+    different magnitude.
+
+    If this condition is met, the slopes are then refined by successive
+    halving, with each halving accepted if:
+      - The new segment contains at least 2 points
+      - The slope of a linear fit to the new segment has the same sign as the
+        slope of the previous segment
+      - The area under the estimated exponential is more similar to the area
+        under the data than the previous segment
+
+    #   - the new slope is increased, on the fast side, or decreased, on the
+    #     slow side
 
     If the time series does not appear to contain an exponential, a
-    :class:`NotExponentialError` is returned.
+    :class:`NotExponentialError` is raised.
 
     Example::
 
-        t = np.linspace(0, 1, 50)
-        v = 1 + 3 * np.exp(-0.5 * t)
-        tr = expfit.UnitSquareTransform(t, v)
-        q = expfit.estimate_initial_single(tr.x, tr.y)
-        a, b, tau = tr.detransform(q)
-        print(a, b, tau)
+        x = np.linspace(0, 1, 50)
+        y = 1 + 3 * np.exp(2 * x)
+        t = expfit.UnitSquaredSeries(x, y)
+        q = expfit.estimate_initial_single(t)
+        a, b, c = tr.detransform(q)
+        print(a, b, c)
 
     Arguments:
 
-    ``t``, ``v``
-        The time series as two equal-sized arrays. Alternatively, ``t`` can be
-        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
     ``full=False``
         Set to ``True`` to store debugging and visualisation information in
         the returned :class:`SingleExponentialEstimate`.
@@ -154,9 +114,9 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
         ``full=True``.
 
     Returns a :class:`SingleExponentialEstimate` with the estimated
-    ``(a, b, tau)``.
+    ``(a, b, c)``.
     """
-    x_nozoom, y_nozoom = tv = expfit.TimeSeries._from_tv(t, v)
+    x_nozoom, y_nozoom = expfit.TimeSeries._from_xy(x, y)
     if len(x_nozoom) < 3:
         raise ValueError('At least 3 points are required')
 
@@ -171,76 +131,6 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
         i, j = zoom_region
         x, y = x_nozoom[i:j], y_nozoom[i:j]
 
-    #
-    # To approximate the two derivatives, the start and end of the signal are
-    # approximated linearly.
-    # To find the approximations, we start with two lines covering half the
-    # data each (with one point overlap in case of an odd number of points).
-    # Three slopes are determined using linear least squares: s0 from the full
-    # data, s1 from the signal start, s2 from the signal end.
-    # - If the sign of s1 or s2 differs from s0, it is set to 0
-    # - If the sign matches, an iterative shrinking procedure is started.
-    #   Each iteration halves the segment, as long as
-    #   - the new slope has the same sign
-    #   - the new slope is increased, on the fast side, or decreased, on the
-    #     slow side
-    #   - The ratio of increase/decrease is between 0.8 and 1.25
-    #
-    def shrink(seg, ls, n_min, start=True, increasing=True, log=None):
-        increasing = bool(increasing)
-        x, y = seg
-
-        n = len(x)
-        if n < n_min:
-            if log is not None:
-                log.append((ls, 'Initial segment at minimum size'))
-            return seg, ls
-
-        r = None
-        msg = None
-        l_new = ls
-        for i in range(n):  # Avoid endless loop
-            # Propose new segment
-            n = (1 + n) // 2
-            x_new, y_new = (x[:n], y[:n]) if start else (x[-n:], y[-n:])
-            l_new = expfit.LeastSquaresFit(x_new, y_new)
-
-            # Stop if too small
-            if n < n_min:
-                msg = f'Minimum size reached ({n} < {n_min})'
-                break
-
-            # Test slope sign and magnitude
-            if l_new.slope * ls.slope < 0:
-                msg = 'Slope sign changed'
-                break
-            if (abs(l_new.slope) >= abs(ls.slope)) != increasing:
-                msg = 'Slope decreased' if increasing else 'Slope increased'
-                break
-
-            # Test near-constant rate of change
-            r_new = l_new.slope / ls.slope
-            if r is not None:
-                rr = r / r_new
-                if rr < 0.8 or rr > 1.25:
-                    msg = f'Unexpected slope change ratio {rr:.3}'
-                    break
-
-            # Accept
-            r = r_new
-            x, y, ls = x_new, y_new, l_new
-            if log is not None:
-                log.append((ls, f'Slope {ls.slope:.3}, n={len(x)}'))
-
-        # Sanity check: endless loop
-        assert i - 1 < len(seg[0]), 'Maximum iterations unexpectedly reached'
-
-        # Log last proposed segment
-        if log is not None:
-            log.append((l_new, msg))
-
-        return (x, y), ls
-
     # Get starting segments, and least squares fits
     m = (1 + len(x)) // 2
     seg1 = x[:m], y[:m]
@@ -249,69 +139,82 @@ def estimate_initial_single(t, v=None, full=False, plot=False):
     l1 = expfit.LeastSquaresFit(*seg1)
     l2 = expfit.LeastSquaresFit(*seg2)
 
-    # Store info about tested elements
-    log1, log2 = ([], []) if full else (None, None)
-
     # Slopes must match full signal slope (otherwise this is either slow drift
     # or correlated noise at the flat end of the exponential, or the signal is
     # not an exponential).
     # Slopes ok? Then start shrinking
-    n_min = 5
+    shrink1 = shrink2 = True
     if l0.slope * l1.slope < 0:
         l1.slope, l1.offset = 0.0, l1.mu_y
-        if log1 is not None:
-            log1.append((l1, 'Slope set to zero'))
-    else:
-        seg1, l1 = shrink(
-            seg1, l1, n_min, True, abs(l1.slope) > abs(l2.slope), log1)
-
+        shrink1 = False
     if l0.slope * l2.slope < 0:
         l2.slope, l2.offset = 0.0, l2.mu_y
-        if log2 is not None:
-            log2.append((l2, 'Slope set to zero'))
-    else:
-        seg2, l2 = shrink(
-            seg2, l2, n_min, False, abs(l2.slope) > abs(l1.slope), log2)
+        shrink2 = False
+    if not (shrink1 or shrink2):
+        raise expfit.NotExponentialError('Not a (single) exponential')
 
-    x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
-    x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
+    # Store initial segments
+    log1 = log2 = None
+    if full:
+        log1 = [l1]
+        log2 = [l2]
+
+    # Calculate area under the data
+    A0 = expfit._trapezoid(y, x)
+
+    # Calculate a, b, c, and area
+    def abca(l1, l2):
+        x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
+        x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
+        if s1 == s2:
+            return 0, 0, 0, 0
+
+        c = (s1 - s2) / (y1 - y2)
+        b = (y1 - y2) / (np.exp(c * x1) - np.exp(c * x2))
+        a = y1 - s1 / c
+        A = b / c * (np.exp(c * x[-1]) - np.exp(c * x[0])) + a * (x[-1] - x[0])
+        return a, b, c, A
+
+    # Shrink segments
+    n_min = 2
+    a, b, c, A = abca(l1, l2)
+
+    shrunk1 = shrunk2 = True
+    while shrunk1 or shrunk2:
+        shrunk1 = False
+        if shrink1 and l1.n > n_min:
+            n = max(n_min, (1 + l1.n) // 2)
+            sn = (seg1[0][:n], seg1[1][:n])
+            ln = expfit.LeastSquaresFit(*sn)
+            if ln.slope * l1.slope > 0:
+                an, bn, cn, An = abca(ln, l2)
+                if abs(An - A0) < abs(A - A0):
+                    seg1, l1, a, b, c, A = sn, ln, an, bn, cn, An
+                    shrunk1 = True
+                    if log1 is not None:
+                        log1.append(l1)
+
+        shrunk2 = False
+        if shrink2 and l2.n > n_min:
+            n = max(n_min, (1 + l2.n) // 2)
+            sn = (seg2[0][-n:], seg2[1][-n:])
+            ln = expfit.LeastSquaresFit(*sn)
+            if ln.slope * l2.slope > 0:
+                an, bn, cn, An = abca(l1, ln)
+                if abs(An - A0) < abs(A - A0):
+                    seg2, l2, a, b, c, A = sn, ln, an, bn, cn, An
+                    shrunk2 = True
+                    if log2 is not None:
+                        log2.append(l2)
 
     # Edge cases
-    if s1 == s2:
+    if l1.slope == l2.slope:
         raise expfit.NotExponentialError('Equal slopes')
-    elif y1 == y2:
+    elif l1.mu_y == l2.mu_y:
         raise expfit.NotExponentialError('Equal means')
 
-    # Estimate tau and both (a, b) sets
-    tau = (y2 - y1) / (s1 - s2)
-    a1 = y1 + s1 * tau
-    a2 = y2 + s2 * tau
-    b1 = (y1 - a1) * np.exp(x1 / tau)
-    b2 = (y2 - a2) * np.exp(x2 / tau)
-    am, bm = np.mean((a1, a2)), np.mean((b1, b2))
-
-    # Use start, end, or averaged parameters, depending on RMSE
-    with np.errstate(over='ignore', divide='ignore'):
-        r1 = expfit.rmse(x, y, (a1, b1, tau))
-        r2 = expfit.rmse(x, y, (a2, b2, tau))
-        rm = expfit.rmse(x, y, (am, bm, tau))
-        rs = expfit.rmse(x, y, (l0.mu_y, 0, 1))
-        if rm < r1 and rm < r2:
-            a, b = am, bm
-            r = rm
-        elif r1 < r2:
-            a, b = a1, b1
-            r = r1
-        else:
-            a, b = a2, b2
-            r = r2
-
-        # Compare with flat line
-        if (r / rs) > 1:
-            raise expfit.NotExponentialError('Flat line is better fit')
-
     # Create results object
-    r = SingleExponentialEstimate(a, b, tau)
+    r = SingleExponentialEstimate(a, b, c)
     if full:
         r.ls1 = l1
         r.ls2 = l2

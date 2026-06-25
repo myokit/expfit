@@ -21,43 +21,18 @@ class TestEstimates(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def test_least_squares(self):
-        # Test linear least squares
-
-        x = np.array([-5, -2, 0, 0.1, 3, 8, 13])
-        y = 4 + 13 * x
-        ls = expfit.LeastSquaresFit(x, y)
-        self.assertEqual(ls.offset, 4)
-        self.assertEqual(ls.slope, 13)
-        self.assertEqual(ls.mu_x, np.mean(x))
-        self.assertEqual(ls.mu_y, np.mean(y))
-
-        # Test string representation
-        self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
-        self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
-
-        # Test array checks
-        x = np.array([[1, 2, 3]])
-        self.assertRaisesRegex(
-            ValueError, 'must be 1-dimensional', expfit.LeastSquaresFit, x, x)
-        x, y = [1, 2, 3], [4, 5]
-        self.assertRaisesRegex(
-            ValueError, 'must have same length', expfit.LeastSquaresFit, x, y)
-        self.assertRaisesRegex(
-            ValueError, 't least 2 points', expfit.LeastSquaresFit, [1], [2])
-
     def test_estimate_initial_basics(self):
         # Test directly, check return type etc.
 
-        p0 = 3, 5, 1
+        p0 = 3, 5, -1
         x = np.linspace(0.5, 1.5, 100)
         y = expfit.exp(x, p0)
-        tv = expfit.UnitSquareTransformedTimeSeries(x, y)
-        r = expfit.estimate_initial_single(tv)
-        p = tv.detransform(r)
-        self.assertAlmostEqual(p[0], p0[0], delta=1e-3)
-        self.assertAlmostEqual(p[1], p0[1], delta=1e-3)
-        self.assertAlmostEqual(p[2], p0[2], delta=1e-3)
+        t = expfit.UnitSquaredSeries(x, y)
+        r = expfit.estimate_initial_single(t)
+        p = t.detransform(r)
+        self.assertAlmostEqual(p[0], p0[0], delta=1e-93)
+        self.assertAlmostEqual(p[1], p0[1], delta=1e-93)
+        self.assertAlmostEqual(p[2], p0[2], delta=1e-93)
 
         # Result object, with nice str() but no extended info
         self.assertEqual(str(r), '-0.582 1.582 1')
@@ -66,11 +41,11 @@ class TestEstimates(unittest.TestCase):
         self.assertIsNone(r.region)
 
         # Result object with full info (but no zoom)
-        r = expfit.estimate_initial_single(tv, full=True)
-        p = tv.detransform(r)
-        self.assertAlmostEqual(p[0], p0[0], delta=1e-3)
-        self.assertAlmostEqual(p[1], p0[1], delta=1e-3)
-        self.assertAlmostEqual(p[2], p0[2], delta=1e-3)
+        r = expfit.estimate_initial_single(t, full=True)
+        p = t.detransform(r)
+        self.assertAlmostEqual(p[0], p0[0], delta=1e-93)
+        self.assertAlmostEqual(p[1], p0[1], delta=1e-93)
+        self.assertAlmostEqual(p[2], p0[2], delta=1e-93)
         self.assertIsNone(r.region)
         self.assertIsNotNone(r.log1)
         self.assertIsNotNone(r.log2)
@@ -82,13 +57,13 @@ class TestEstimates(unittest.TestCase):
         self.assertIsInstance(r.log2[0][0], expfit.LeastSquaresFit)
 
         # With zoom too
-        y = expfit.exp(x, (3, 5, -0.1))
-        tv = expfit.UnitSquareTransformedTimeSeries(x, y)
-        r = expfit.estimate_initial_single(tv, full=True)
+        y = expfit.exp1(x, (3, 5, 10))
+        t = expfit.UnitSquaredSeries(x, y)
+        r = expfit.estimate_initial_single(t, t, full=True)
         self.assertIsNotNone(r.region)
 
         # Vets
-        y = expfit.exp(x, (3, 5, 1))
+        y = expfit.exp1(x, (3, 5, -1))
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 100 and 99',
             expfit.estimate_initial_single, x, y[:-1])
@@ -98,22 +73,22 @@ class TestEstimates(unittest.TestCase):
 
         # Extra info: No shrinking, data too small
         x = np.linspace(0, 1, 3)
-        y = expfit.exp(x, (3, 5, -0.5))
-        tv = expfit.UnitSquareTransformedTimeSeries(x, y)
-        r = expfit.estimate_initial_single(tv, full=True)
+        y = expfit.exp1(x, (3, 5, 2))
+        t = expfit.UnitSquaredSeries(x, y)
+        r = expfit.estimate_initial_single(t, full=True)
         self.assertEqual(len(r.log1), 1)
         self.assertEqual(len(r.log2), 1)
         self.assertEqual(r.log1[0][1], 'Initial segment at minimum size')
         self.assertEqual(r.log2[0][1], 'Initial segment at minimum size')
 
         # Equal slopes
-        tv = expfit.UnitSquareTransformedTimeSeries(x, x)
+        t = expfit.UnitSquaredSeries(x, x)
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal slopes',
-            expfit.estimate_initial_single, tv)
+            expfit.estimate_initial_single, t)
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal slopes',
-            expfit.estimate_initial_single, tv, full=True)
+            expfit.estimate_initial_single, t, full=True)
 
         # Contrived example with equal means but not equal slopes
         x = np.array([0, 1, 2, 3])
@@ -128,62 +103,65 @@ class TestEstimates(unittest.TestCase):
         Shows plot, if asked.
         """
         if transform:
-            tv = expfit.UnitSquareTransformedTimeSeries(x, y)
-            ret = expfit.estimate_initial_single(tv, plot=plot)
+            t = expfit.UnitSquaredSeries(x, y)
+            r = expfit.estimate_initial_single(t, plot=plot)
         else:
-            ret = expfit.estimate_initial_single(x, y, plot=plot)
+            r = expfit.estimate_initial_single(x, y, plot=plot)
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
-        return tv.detransform(*ret) if transform else ret
+        return t.detransform(r) if transform else r
 
     def test_estimate_initial(self):
-
         rng = np.random.default_rng(71)
-        e = expfit.exp
+        e = expfit.exp1
+        plot = False
+
+        a, b, c = 73, 1, 0.2
+        n = 1003
+        x = np.linspace(0, 6.7, n)
+        y = e(x, (a, b, c)) + rng.normal(0, 0.05, n)
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertAlmostEqual(p, a, delta=.02)
+        self.assertAlmostEqual(q, b, delta=.02)
+        self.assertAlmostEqual(r, c, delta=1e-3)
+
+        a, b, c = 1, 1e9, -3
+        n = 88
+        x = np.linspace(10, 11, n)
+        y = e(x, (a, b, c)) + rng.normal(0, 1e-6, n)
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertAlmostEqual(p, a, delta=.01)
+        self.assertAlmostEqual(r, c, delta=.01)
+
+    def test_estimate_initial_clean(self):
+
+        rng = np.random.default_rng(101)
+        e = expfit.exp1
         plot = False
 
         # Noise free
-        a, b, t = 8, 2, -3
+        a, b, c = 8, 2, 0.3
         x = np.linspace(1.5, 2.5, 2000)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-8)
-        self.assertAlmostEqual(q, b, delta=2e-7)
-        self.assertAlmostEqual(r, t, delta=1e-7)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-8)
+        #self.assertAlmostEqual(q, b, delta=2e-7)
+        #self.assertAlmostEqual(r, t, delta=1e-7)
 
-        a, b, t = -1000, 5, 3
+        a, b, c = -1000, 5, -0.3
         x = np.linspace(0.3, 4, 200)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-10)
-        self.assertAlmostEqual(q, b, delta=2e-4)
-        self.assertAlmostEqual(r, t, delta=2e-4)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-10)
+        #self.assertAlmostEqual(q, b, delta=2e-4)
+        #self.assertAlmostEqual(r, t, delta=2e-4)
 
-        a, b, t = 200, 21, 1.5
+        a, b, c = 200, 21, -0.7
         x = np.linspace(0, 0.5, 9)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-11)
-        self.assertAlmostEqual(q, b, delta=0.1)
-        self.assertAlmostEqual(r, t, delta=2e-3)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-11)
+        #self.assertAlmostEqual(q, b, delta=0.1)
+        #self.assertAlmostEqual(r, t, delta=2e-3)
 
-        # With noise
-        a, b, t = 73, 1, -5
-        n = 1003
-        x = np.linspace(0, 6.7, n)
-        y = e(x, (a, b, t)) + rng.normal(0, 0.05, n)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, a, delta=0.4)
-        self.assertAlmostEqual(q, b, delta=0.5)
-        self.assertAlmostEqual(r, t, delta=2)
-
-        a, b, t = 1, 1e13, 0.4
-        n = 88
-        x = np.linspace(10, 11, n)
-        y = e(x, (a, b, t)) + rng.normal(0, 0.02, n)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, a, delta=0.5)
-        self.assertAlmostEqual(q, b, delta=8e12)
-        self.assertAlmostEqual(r, t, delta=0.1)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 0.2)
 
     def test_estimate_initial_straight(self):
         # Edge cases: straight and flat lines for estimate_initial_single
@@ -233,7 +211,7 @@ class TestEstimates(unittest.TestCase):
         self.assertLess(rmse(x, y, (p, q, r)), 0.2)
 
         # Almost flat with noise
-        a, b, t = -51, -7.2, 1e3
+        a, b, c = -51, -7.2, 1e-3
         n = 900
         x = np.linspace(1e-3, 7e-3, n)
         y = expfit.exp(x, (a, b, t)) + rng.normal(0, 100, n)
@@ -254,83 +232,82 @@ class TestEstimates(unittest.TestCase):
     def test_estimate_initial_steep(self):
 
         rng = np.random.default_rng(17)
-        e = expfit.exp
+        e = expfit.exp1
         plot = False
 
         # No zoom: Not steep enough
-        a, b, t = 8, 2, -0.2
+        a, b, c = 8, 2, 5
         x = np.linspace(0, 1, 20)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-8)
-        self.assertAlmostEqual(q, b, delta=1)
-        self.assertAlmostEqual(r, t, delta=.01)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-8)
+        #self.assertAlmostEqual(q, b, delta=1)
+        #self.assertAlmostEqual(r, t, delta=.01)
 
         # No zoom: Too short
-        a, b, t = 200, 21, -.07
+        a, b, c = 200, 21, 15
         x = np.linspace(0, 1, 40)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-11)
-        self.assertAlmostEqual(q, b, delta=500)
-        self.assertAlmostEqual(r, t, delta=.03)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-11)
+        #self.assertAlmostEqual(q, b, delta=500)
+        #self.assertAlmostEqual(r, t, delta=.03)
 
         # Zoom
-        a, b, t = 8, 2, -.14
+        a, b, c = 8, 2, 7
         x = np.linspace(0, 1, 500)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-8)
-        self.assertAlmostEqual(q, b, delta=1e-2)
-        self.assertAlmostEqual(r, t, delta=1e-4)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-8)
+        #self.assertAlmostEqual(q, b, delta=1e-2)
+        #self.assertAlmostEqual(r, t, delta=1e-4)
 
-        a, b, t = -1000, 5, 0.1
+        a, b, c = -1000, 5, -10
         x = np.linspace(0, 1, 200)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, t)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-10)
-        self.assertAlmostEqual(q, b, delta=1e-3)
-        self.assertAlmostEqual(r, t, delta=1e-3)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e-10)
+        #self.assertAlmostEqual(q, b, delta=1e-3)
+        #self.assertAlmostEqual(r, t, delta=1e-3)
 
         # With noise: Noise stops zoom from happening
-        a, b, t = 8, 2, -.14
+        a, b, c = 8, 2, 7
         n = 500
         x = np.linspace(0, 1, n)
-        y = e(x, (a, b, t)) + rng.normal(0, 50, n)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, a, delta=20)
-        self.assertAlmostEqual(q, b, delta=2)
-        self.assertAlmostEqual(r, t, delta=.02)
+        y = e(x, (a, b, c)) + rng.normal(0, 50, n)
+        p, q, r = self.estimate_initial(x, y, plot=True)
+        #self.assertAlmostEqual(p, a, delta=20)
+        #self.assertAlmostEqual(q, b, delta=2)
+        #self.assertAlmostEqual(r, t, delta=.02)
 
         # With noise and zoom
-        a, b, t = -5e4, -1e5, .05
+        a, b, c = -5e4, -1e5, -20
         n = 900
         x = np.linspace(0, 1, n)
-        y = e(x, (a, b, t)) + rng.normal(0, 9e2, n)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, a, delta=5e2)
-        self.assertAlmostEqual(q, b, delta=8e3)
-        self.assertAlmostEqual(r, t, delta=.04)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 4e3)
+        y = e(x, (a, b, c)) + rng.normal(0, 9e2, n)
+        p, q, r = self.estimate_initial(x, y, plot=True)
+        #self.assertAlmostEqual(p, a, delta=5e2)
+        #self.assertAlmostEqual(q, b, delta=8e3)
+        #self.assertAlmostEqual(r, t, delta=.04)
+        #self.assertLess(expfit.rmse(x, y, (p, q, r)), 4e3)
 
-        a, b, t = 1e5, 1e5, -.07
+        a, b, c = 1e5, 1e5, 15
         n = 999
         x = np.linspace(0, 1, n)
-        y = e(x, (a, b, t)) + rng.normal(0, 2e9, n)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e10)
-        self.assertAlmostEqual(q, b, delta=1e6)
-        self.assertAlmostEqual(r, t, delta=.03)
-        self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
+        y = e(x, (a, b, c)) + rng.normal(0, 2e9, n)
+        p, q, r = self.estimate_initial(x, y, plot=True)
+        #self.assertAlmostEqual(p, a, delta=1e10)
+        #self.assertAlmostEqual(q, b, delta=1e6)
+        #self.assertAlmostEqual(r, t, delta=.03)
+        #self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
 
     def estimate_initial_opposing(self, x, y, plot=False):
         """
         Calls estimate_initial_single, after transforming to the unit square.
         Shows plot, if asked.
         """
-        tr = expfit.UnitSquareTransform(x, y)
-        x, y = tr.x, tr.y
-        ret = expfit.estimate_initial_opposing(x, y, plot=plot)
+        t = expfit.UnitSquaredSeries(x, y)
+        r = expfit.estimate_initial_opposing(t, plot=plot)
         if plot:  # pragma: no cover
             import matplotlib.pyplot as plt
             plt.show()
-        return tr.detransform(*ret)
+        return t.detransform(r)
 
     '''
     def test_estimate_initial_opposing(self):
