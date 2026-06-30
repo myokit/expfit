@@ -116,20 +116,19 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     Returns a :class:`SingleExponentialEstimate` with the estimated
     ``(a, b, c)``.
     """
-    x_nozoom, y_nozoom = expfit.TimeSeries._from_xy(x, y)
-    if len(x_nozoom) < 3:
+    xy_no_zoom = expfit.TimeSeries._from_xy(x, y)
+    if len(xy_no_zoom[0]) < 3:
         raise ValueError('At least 3 points are required')
 
     # Full information is returned if plot=True
     full = full or plot
 
     # Select a subsection of the data, if the signal is too steep
-    zoom_region = find_action(x_nozoom, y_nozoom)
-    if zoom_region is None:
-        x, y = x_nozoom, y_nozoom
-    else:
+    zoom_region = find_action(xy_no_zoom)
+    x, y = xy_no_zoom
+    if zoom_region is not None:
         i, j = zoom_region
-        x, y = x_nozoom[i:j], y_nozoom[i:j]
+        x, y = x[i:j], y[i:j]
 
     # Get starting segments, and least squares fits
     m = (1 + len(x)) // 2
@@ -166,7 +165,7 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     def abca(l1, l2):
         x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
         x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
-        if s1 == s2:
+        if y1 == y2 or s1 == s2:
             return 0, 0, 0, 0
 
         c = (s1 - s2) / (y1 - y2)
@@ -213,6 +212,13 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     elif l1.mu_y == l2.mu_y:
         raise expfit.NotExponentialError('Equal means')
 
+    # Straight line? Often gives huge a and b, almost equal but opposite sign
+    if abs(1 + a / b) < 1e-9:
+        m1 = np.sum((y - a - b * np.exp(c * x))**2) / len(x)
+        m2 = np.sum((y - l0.offset - l0.slope * x)**2) / len(x)
+        if m2 < m1:
+            raise expfit.NotExponentialError('Straight line')
+
     # Create results object
     r = SingleExponentialEstimate(a, b, c)
     if full:
@@ -230,7 +236,7 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     return r
 
 
-def find_action(x, y, r_factor=20, n_min=10):
+def find_action(x, y=None, r_factor=20, n_min=10):
     """
     For very steep exponentials, isolates a region of the series ``(x, y)`` for
     use in initial estimates.
@@ -249,6 +255,7 @@ def find_action(x, y, r_factor=20, n_min=10):
             x, y = x[i:j], y[i:j]
 
     """
+    x, y = expfit.TimeSeries._from_xy(x, y)
     n = len(y)
     m = n // 2
     s1, s2 = y[:m], y[m:]

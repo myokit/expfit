@@ -9,7 +9,7 @@ import numpy as np
 
 def exp1(x, p):
     """
-    Returns an exponential ``p[0] + p[1] * exp(p[2] * x)``.
+    Returns a single exponential ``p[0] + p[1] * exp(p[2] * x)``.
     """
     a, b, c = p
     return a + b * np.exp(c * np.asarray(x))
@@ -28,6 +28,17 @@ def exp(x, p):
     b = p[1::2].reshape((m, 1))
     c = p[2::2].reshape((m, 1))
     return p[0] + np.sum(b * np.exp(-np.asarray(x) / c), axis=0)
+
+
+'''
+def mse1(x, p):
+    """
+    Returns the mean squared error between ``x, y`` and a single exponential
+    ``y = p[0] + p[1] * exp(p[2] * x)``.
+    """
+    a, b, c = p
+    return np.sum((a - y + b * exp(c * x))**2) / len(x)
+'''
 
 
 def rmse(x, y, p):
