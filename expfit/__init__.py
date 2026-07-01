@@ -26,6 +26,7 @@ from ._expfit_version import (  # noqa
 from ._ex import (  # noqa
     CILimitNotFound,
     CIUnavailableError,
+    FitFailedError,
     NotDecayingError,
     NotExponentialError,
     NotOpposingError,
@@ -53,7 +54,7 @@ from ._err import (  # noqa
     TauFormError,
     exp,
     exp1,
-    rmse,
+    rmse1,
 )
 
 from ._opt import (  # noqa

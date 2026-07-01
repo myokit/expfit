@@ -117,54 +117,56 @@ class TestTimeSeries(unittest.TestCase):
         self.assertEqual(v.shape, (0, ))
         self.assertEqual(v.ndim, 1)
 
-    def test_from_tv(self):
-        # Test creation with _from_tv
+    def test_from_xy(self):
+        # Test creation with _from_xy
 
-        t, v = np.array([1, 2, 3]), np.array([4, 5, 6])
-        t1 = expfit.TimeSeries._from_tv(t, v)
+        x, y = np.array([1, 2, 3]), np.array([4, 5, 6])
+        t1 = expfit.TimeSeries._from_xy(x, y)
         self.assertIsInstance(t1, expfit.TimeSeries)
-        t2 = expfit.TimeSeries._from_tv(t1)
+        t2 = expfit.TimeSeries._from_xy(t1)
         self.assertIs(t1, t2)
         self.assertRaisesRegex(
-            ValueError, 'is not None', expfit.TimeSeries._from_tv, t1, v)
+            ValueError, 'must be None', expfit.TimeSeries._from_xy, t1, y)
         self.assertRaisesRegex(
-            ValueError, 'is None', expfit.TimeSeries._from_tv, t)
+            ValueError, 'cannot be None', expfit.TimeSeries._from_xy, x)
 
     def test_unit_transformed(self):
 
         # t0=1, v0=1, rt=4, rv=8
-        x = np.array([1, 2, 3, 4, 5])
+        x = np.array([3, 4, 5, 6, 7])  # Note x[0] != y[0], ranges not equal
         y = np.array([2, 9, 1, 8, 7])
-        tr = expfit.UnitSquareTransformedTimeSeries(x, y)
-        a, b, t = 1, 2, 3
-        p, q, r = tr.transform(a, b, t)
-        self.assertEqual(p, (a - 1) / 8)
-        self.assertEqual(q, b / 8 * np.exp(-1 / t))
-        self.assertEqual(r, t / 4)
-        u, v, w = tr.detransform(p, q, r)
-        self.assertEqual(u, a)
-        self.assertEqual(v, b)
-        self.assertEqual(w, t)
-        x, y = tr
+        x, y = tr = expfit.UnitSquaredSeries(x, y)
         self.assertEqual(list(x), [0, 0.25, 0.5, 0.75, 1])
         self.assertEqual(list(y), [0.125, 1, 0, .875, 0.75])
+        a, b, c = 1, 2, 3
+        p, q, r = tr.transform((a, b, c))
+        self.assertEqual(p, (a - 1) / 8)
+        self.assertEqual(q, b / 8 * np.exp(c * 3))
+        self.assertEqual(r, c * 4)
+        u, v, w = tr.detransform((p, q, r))
+        self.assertEqual(u, a)
+        self.assertAlmostEqual(v, b)
+        self.assertEqual(w, c)
 
         # t0=0, v0=-1, rt=1, rv=10
         x = np.array([0, 0.5, 1])
         y = np.array([1, -1, 9])
-        tr = expfit.UnitSquareTransformedTimeSeries(x, y)
-        a, b, t = 4, 2, -0.5
-        p, q, r = tr.transform(a, b, t)
-        self.assertEqual(p, (a + 1) / 10)
-        self.assertEqual(q, b / 10)
-        self.assertEqual(r, t)
-        u, v, w = tr.detransform(p, q, r)
-        self.assertEqual(u, a)
-        self.assertEqual(v, b)
-        self.assertEqual(w, t)
-        x, y = tr
+        x, y = tr = expfit.UnitSquaredSeries(x, y)
         self.assertEqual(list(x), [0, 0.5, 1])
         self.assertEqual(list(y), [0.2, 0, 1])
+        self.assertEqual(tr[0][0], 0)
+        self.assertEqual(tr[0][-1], 1)
+        self.assertEqual(np.min(tr[1]), 0)
+        self.assertEqual(np.max(tr[1]), 1)
+        a, b, c = 4, 2, -0.5
+        p, q, r = tr.transform((a, b, c))
+        self.assertEqual(p, (a + 1) / 10)
+        self.assertEqual(q, b / 10)
+        self.assertEqual(r, c)
+        u, v, w = tr.detransform((p, q, r))
+        self.assertEqual(u, a)
+        self.assertEqual(v, b)
+        self.assertEqual(w, c)
 
 
 if __name__ == '__main__':  # pragma: no cover

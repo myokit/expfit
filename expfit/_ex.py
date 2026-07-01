@@ -35,6 +35,27 @@ class NotOpposingError(RuntimeError):
         super().__init__('No opposing exponentials found in the signal.')
 
 
+class FitFailedError(RuntimeError):
+    """
+    Raised if a fit fails.
+
+    Public properties:
+
+    ``message``
+        The message with which the fit failed.
+    ``r``
+        An :class:`expfit.OptimiserResult`, may be in a transformed space.
+    ``p``
+        The best guess before failing.
+
+    """
+    def __init__(self, msg, r, p):
+        super().__init__(msg)
+        self.message = msg
+        self.r = r
+        self.p = tuple(p)
+
+
 class CIUnavailableError(RuntimeError):
     """
     Raised if confidence intervals are requested but the fit result does not

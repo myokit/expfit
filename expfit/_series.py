@@ -115,7 +115,7 @@ class UnitSquaredSeries(TimeSeries):
         self._x0 = x[0]
         self._rx = x[-1] - self._x0
         self._y0 = np.min(y)
-        self._ry = np.max(y) - self._x0
+        self._ry = np.max(y) - self._y0
         if self._ry == 0:
             self._ry = 1
 

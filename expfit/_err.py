@@ -6,13 +6,7 @@
 #
 import numpy as np
 
-
-def exp1(x, p):
-    """
-    Returns a single exponential ``p[0] + p[1] * exp(p[2] * x)``.
-    """
-    a, b, c = p
-    return a + b * np.exp(c * np.asarray(x))
+import expfit
 
 
 def exp(x, p):
@@ -30,14 +24,25 @@ def exp(x, p):
     return p[0] + np.sum(b * np.exp(-np.asarray(x) / c), axis=0)
 
 
-'''
-def mse1(x, p):
+def exp1(x, p):
     """
-    Returns the mean squared error between ``x, y`` and a single exponential
-    ``y = p[0] + p[1] * exp(p[2] * x)``.
+    Returns a single exponential ``p[0] + p[1] * exp(p[2] * x)``.
     """
     a, b, c = p
-    return np.sum((a - y + b * exp(c * x))**2) / len(x)
+    return a + b * np.exp(c * np.asarray(x))
+
+
+def rmse1(x, y, p):
+    """
+    Returns the RMSE between ``y`` and an exponential
+    ``p[0] + p[1] * exp(p[1] * x``.
+
+    **Note**: the returned RMSE is the root of the MSE returned by
+    :class:`SingleExponentialError` and :class:`MultiExponentialError`
+    """
+    a, b, c = p
+    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
+
 '''
 
 
@@ -55,38 +60,33 @@ def rmse(x, y, p):
     a = p[0]
     p[0] = 0
     return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
+'''
 
 
 class SingleExponentialError():
     """
-    Calculates the MSE, Jacobian, and Hessian for a single exponential with a
-    tau that can be positive (decaying) or negative (growing).
-
-    This error uses the form::
-
-        v = a + b * exp(-t / tau)
-
-    with parameters ``p = (a, b, tau)``.
+    Calculates the MSE, Jacobian, and Hessian for a single exponential
+    ``y = a + b * exp(c * x)`` that can be growing or decaying.
 
     Example::
 
-        t = np.linspace(0, 1, 100)
-        v = 5 + 3 * np.exp(-t / 2)
-        e = SingleExponentialError(t, v)
+        x = np.linspace(0, 1, 100)
+        y = 5 + 3 * np.exp(0.5 * x)
+        e = SingleExponentialError(x, y)
         mse, jac, hes = e([1, 2, 3])
 
     Arguments:
 
-    ``t``, ``v``
-        The time series as two equal-sized arrays. Alternatively, ``t`` can be
-        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
 
     """
-    def __init__(self, t, v=None):
-        #self._tv =
-        self._x = x
-        self._y = y
-        self._m = 1 / len(x)
+    def __init__(self, x, y=None):
+        self._x, self._y = expfit.TimeSeries._from_xy(x, y)
+        if len(self._x) < 3:
+            raise ValueError('At least 3 points are required')
+        self._m = 1 / len(self._x)
 
     def __call__(self, p):
         a, b, c = p

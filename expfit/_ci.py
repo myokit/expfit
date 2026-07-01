@@ -16,12 +16,12 @@ class ExponentialFit:
 
     This can be used as a sequence of parameters, for example::
 
-        a, b, c = expfit.fit1(t, v)
+        a, b, c = expfit.fit1(x, y)
 
     For succesful fits, additional methods are available to calculate
     confidence intervals.
 
-        p = expfit.fit1(t, v)
+        p = expfit.fit1(x, y)
         lower, upper = p.ci_fisher(2)
 
     If CI is unavailable, these methods will raise an
@@ -33,17 +33,16 @@ class ExponentialFit:
     ``x``, ``y``
         The time series.
     ``p``
-        The (assumed) optimal parameters.
+        The obtained parameters.
     ``error``
         An optional error object, used in CI methods.
 
-
     """
-    def __init__(self, t, v, p, error=None):
-        self._tv = t, v
+    def __init__(self, x, y, p, error=None):
+        self._xy = x, y
         self._p = tuple(p)
         self._np = len(self._p)
-        self._nt = len(t)
+        self._nx = len(x)
 
         self._err = error
         self._mjh = None

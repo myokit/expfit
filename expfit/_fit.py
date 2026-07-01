@@ -9,32 +9,34 @@ import numpy as np
 import expfit
 
 
-def fit1(t, v=None, plot=False):
+def fit1(x, y=None, plot=False, opt_plot=False):
     """
-    Fits an exponential ``a + b * exp(-t / tau)`` to the time series
-    ``(t, v)``, returning ``(a, b, tau)``
+    Fits an exponential ``a + b * exp(c * x)`` to the time series ``(x, y)``,
+    returning ``(a, b, c)``
 
     Example::
 
-        t = np.linspace(0, 1, 100)
-        v = 3 + 2 * np.exp(-t / 0.2) + np.random.normal(0, 1, size=len(t))
-        a, b, tau = expfit.fit_single(t, v)
-        print(a, b, tau)
+        x = np.linspace(0, 1, 100)
+        y = 3 + 2 * np.exp(-5 * x) + np.random.normal(0, 1, size=len(t))
+        a, b, c = expfit.fit_single(x, y)
+        print(a, b, c)
 
     Arguments:
 
-    ``t``, ``v``
-        The time series as two equal-sized arrays. Alternatively, ``t`` can be
-        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
     ``plot``
         Optional parameter to create a plot of the method's workings. Can be
-        set to ``True`` or to an array with the true ``(a, b, tau)``.
+        set to ``True`` or to an array with the true ``(a, b, c)``.
+    ``opt_plot``
+        Optional parameter to create a plot of the optimisation routine.
 
-    Returns an :class:`ExponentialFit`.
+    Returns a tuple ``(a, b, c)``.
     """
-    tv = expfit.TimeSeries._from_tv(t, v)
-    if not isinstance(tv, expfit.UnitSquareTransformedTimeSeries):
-        xy = expfit.UnitSquareTransformedTimeSeries(*tv)
+    xy = expfit.TimeSeries._from_xy(x, y)
+    if not isinstance(xy, expfit.UnitSquaredSeries):
+        xy = expfit.UnitSquaredSeries(*xy)
 
     # Convert `plot` to boolean
     pt = plot
@@ -44,52 +46,27 @@ def fit1(t, v=None, plot=False):
     # May raise a NotExponentialError
     q0 = expfit.estimate_initial_single(xy, full=plot)
 
-    # Create error in log form
-    e = expfit.MultiExponentialError(xy)
-    q0 = e.transform(q0)
-
     # Fit
+    e = expfit.SingleExponentialError(xy.x, xy.y)
     with np.errstate(all='ignore'):
-        r = expfit.lm(e, q0)
+        r = expfit.lm(e, q0, plot=opt_plot)
         if plot:  # pragma: no cover
             print(r)
-        if not r.success:
-            raise RuntimeError('Oh no!')
 
-    # Create tau form error, on unit square
-    #q = tr.detransform(
-
-    p = tr.detransform(r.x)
-    p[2] = -1 / p[2]
-
-    # Detransform obtained parameters, switch to tau form, create result object
-    e = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, p, e)
+    # Transform back to original parameters
+    p = xy.detransform(r.x)
 
     if plot:  # pragma: no cover
-
-        #TODO THIS PLOT SHOULD BE IN TAU FORM, ON UNTRANSFORMED DATA
-
-        #TODO BUT THEN WE CANT SHOW INITIAL ESTIMATE BLACK AND RED LINES
-        #TODO SOLUTION IS TO HAVE SEPERATE PLOT FOR INITIAL ESTIMATE?
-        #TODO YES, STOP SHOWING BLACK/RED IN
-
-
         from ._plot import fit1_plot
         try:
             assert len(pt) == 3
         except (TypeError, AssertionError):
             pt = None
-        fit1_plot(t, v, tr, r, p, q0, pt)
+        fit1_plot(x, y, xy, r, p, q0, pt)
 
-        #
-        #
-        #
-        #
-        #
-        #
-        #
-        #
+    if not r.success:
+        raise expfit.FitFailedError(
+            f'Fit failed with optimiser message: {r.message}', r, p)
 
     return p
 

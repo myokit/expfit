@@ -68,7 +68,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p[2], p0[2], delta=2e-3)
 
         # Result object, with nice str() but no extended info
-        self.assertEqual(str(r), '-0.1321 0.1321 2')
+        self.assertEqual(str(r), '-0.1565 0.1565 2')
         self.assertIsNone(r.log1)
         self.assertIsNone(r.log2)
         self.assertIsNone(r.region)

@@ -98,33 +98,32 @@ def initial_estimate_plot(x, y, estimate):
 
     # Show estimate
     ax.plot(x, expfit.exp1(x, estimate), ls='--',
-        label=f'Initial estimate ({estimate})')
+            label=f'Initial estimate ({estimate})')
 
     ax.legend()
     return fig, ax
 
 
-def fit1_plot(t, v, tr, r, p, q0, pt=None):
+def fit1_plot(x, y, tr, r, p, q0, pt=None):
     """
     Creates a plot of a single-exponential fit, highlighting the initial
     estimate.
 
     Arguments:
 
-    ``t``, ``v``
+    ``x``, ``y``
         The untransformed time series.
     ``tr``
-        A :class:`UnitSquareTransform` on ``(t, v)``.
+        A :class:`UnitSquaredSeries` on ``(x, y)``.
     ``r``
-        An :class:`LMResult`.
+        An :class:`LMResult`, in transformed space.
     ``p``
-        An :class:`ExponentialFit` result, in tau-form.
+        An :class:`ExponentialFit` result.
     ``q0``
-        A :class:`SingleExponentialEstimate`, in unit transformed space and
-        c-form.
+        A :class:`SingleExponentialEstimate`, in transformed space.
     ``pt``
         An optional parameter vector with the known solution, in untransformed
-        space and tau-form.
+        space.
 
     Returns a tuple ``(fig, (ax0, ax1, ax2))``.
     """
@@ -134,62 +133,68 @@ def fit1_plot(t, v, tr, r, p, q0, pt=None):
 
     # Show transformed data, intial estimate, and fit
     ax0 = fig.add_subplot(2, 1, 1)
-    ax0.set_xlabel('x')
-    ax0.set_ylabel('y')
+    ax0.set_xlabel('x (transformed)')
+    ax0.set_ylabel('y (transformed)')
 
+    # Transformed data
     ls, color = ('-', '#92cc92') if len(tr.x) > 10 else ('x-', 'tab:green')
     ax0.plot(tr.x, tr.y, ls, color=color, label='Transformed data')
 
+    # Initial estimate and selected segments
     f1 = lambda p: ', '.join(f'{i:.3}' for i in p)
-    ax0.plot(tr.x, expfit.expc(tr.x, q0), '-', label=f'Initial ({f1(q0)})')
+    rmse_q0 = expfit.rmse1(tr.x, tr.y, q0)
+    ax0.plot(tr.x, expfit.exp1(tr.x, q0), '-',
+        label=f'Initial ({f1(q0)}), RMSE {rmse_q0:.4}')
     if q0.log1 is not None and len(q0.log1) > 0:
-        lsfit = q0.log1[-1][0]
+        lsfit = q0.log1[-1]
         ax0.plot(lsfit.x, lsfit.y, 'k')
         ax0.plot(lsfit.mu_x, lsfit.mu_y, 'ks')
     if q0.log2 is not None and len(q0.log2) > 0:
-        lsfit = q0.log2[-1][0]
+        lsfit = q0.log2[-1]
         ax0.plot(lsfit.x, lsfit.y, 'r')
         ax0.plot(lsfit.mu_x, lsfit.mu_y, 'rs')
 
+    # Fit
     label = f'RMSE {np.sqrt(r.error):.4}'
     label = (f'Fit ({f1(r.x)}), {r.iterations} iter, {label}' if r.success else
              f'Fit ({f1(r.x)}), {r.message}, {label}')
-    ax0.plot(tr.x, expfit.expc(tr.x, r.x), '--', label=label)
+    ax0.plot(tr.x, expfit.exp1(tr.x, r.x), '--', label=label)
     ax0.legend()
 
     # Show numerical results
     f2 = lambda p: ' '.join(f'{i:+.5e}' for i in p)
     p0 = tr.detransform(q0)
-    p0[2] = -1 / p0[2]
     lines = [f'Transformed Init: {f2(q0)}', f'             Fit:  {f2(r.x)}',
              f'Real-world  Init: {f2(p0)}', f'             Fit:  {f2(p)}']
     ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
              ha='right', font='monospace')
 
-    # Show the residuals for initial estimate and fit
+    # Show the residuals for initial estimate, fit, and true
     ax1 = fig.add_subplot(2, 2, 3)
-    ax1.set_xlabel('t')
+    ax1.set_xlabel('x')
     ax1.set_ylabel('Residuals')
-    ax1.plot(t, v - expfit.exp(t, p0), label='Initial')
-    rmse = expfit.rmse(t, v, p)
-    ax1.plot(t, v - expfit.exp(t, p), label=f'Fit, RMSE {rmse:.5}')
+    rmse_p0 = expfit.rmse1(x, y, p0)
+    ax1.plot(x, y - expfit.exp1(x, p0), label=f'Initial, RMSE {rmse_p0:.5}')
+    rmse_p = expfit.rmse1(x, y, p)
+    ax1.plot(x, y - expfit.exp1(x, p), label=f'Fit, RMSE {rmse_p:.5}')
     if pt is not None:
-        rmse = expfit.rmse(t, v, pt)
-        ax1.plot(t, v - expfit.exp(t, pt), ':', label=f'True, RMSE {rmse:.5}')
+        rmse_pt = expfit.rmse1(x, y, pt)
+        ax1.plot(
+            x, y - expfit.exp1(x, pt), ':', label=f'True, RMSE {rmse_pt:.5}')
     ax1.legend()
 
-    # Show detransformed initial and fit
+    # Show detransformed initial, fit, and true
     ax2 = fig.add_subplot(2, 2, 4)
-    ax2.set_xlabel('t')
-    ax2.set_ylabel('v')
+    ax2.set_xlabel('x')
+    ax2.set_ylabel('y')
     label = 'Original data'
-    with np.errstate(divide='ignore'):
-        if pt is not None:
-            label = f'{label}, tau={pt[2]:+.3f}'
-        ax2.plot(t, v, ls, color=color, label=label)
-        ax2.plot(t, expfit.exp(t, p0), '-', label=f'Initial, tau={p0[2]:+.3f}')
-        ax2.plot(t, expfit.exp(t, p), '--', label=f'Fit, tau={p[2]:+.3f}')
+    if pt is not None:
+        label = f'{label}, c={pt[2]:.3f}'
+    ax2.plot(x, y, ls, color=color, label=label)
+    ax2.plot(x, expfit.exp1(x, p0), '-', label=f'Initial, c={p0[2]:.3f}')
+    ax2.plot(x, expfit.exp1(x, p), '--', label=f'Fit, c={p[2]:.3f}')
     ax2.legend()
+
 
     return fig, (ax0, ax1, ax2)
 
@@ -393,7 +398,10 @@ def opt_plot(log, previous=None):
         fig = plt.figure(figsize=(11, 7.5))
         fig.subplots_adjust(
             0.075, 0.06, 0.99, 0.95, wspace=0.22, hspace=0.4)
-        grid = fig.add_gridspec(3, d - 1, height_ratios=(1, 3, 3))
+        if d == 1:
+            grid = fig.add_gridspec(3, 1, height_ratios=(1, 3, 3))
+        else:
+            grid = fig.add_gridspec(3, d - 1, height_ratios=(1, 3, 3))
 
         grd2 = grid[0, :].subgridspec(1, 3)
         axa = fig.add_subplot(grd2[0])
@@ -411,23 +419,30 @@ def opt_plot(log, previous=None):
         axl.set_yscale('log')
 
         axb, axc = [], []
-        for i in range(d - 1):
-            ax = fig.add_subplot(grid[1, i])
+        if d == 1:
+            ax = fig.add_subplot(grid[1:, 0])
             axb.append(ax)
-            ax.set_xlabel(f'b{1 + i}')
-            ax.set_ylabel(f'b{2 + i}')
+            ax.set_xlabel('b1')
+            ax.set_ylabel('c1')
+        else:
+            for i in range(d - 1):
+                ax = fig.add_subplot(grid[1, i])
+                axb.append(ax)
+                ax.set_xlabel(f'b{1 + i}')
+                ax.set_ylabel(f'b{2 + i}')
 
-            ax = fig.add_subplot(grid[2, i])
-            axc.append(ax)
-            ax.set_xlabel(f'c{1 + i}')
-            ax.set_ylabel(f'c{2 + i}')
+                ax = fig.add_subplot(grid[2, i])
+                axc.append(ax)
+                ax.set_xlabel(f'c{1 + i}')
+                ax.set_ylabel(f'c{2 + i}')
     else:
         # Re-use an existing figure and axes
         fig, axa, axb, axc, axm, axl, diagonals = previous
 
         # Remove the diagonals, which were based on x-limits likely to change
-        for line in diagonals:
-            line.remove()
+        if d > 1:
+            for line in diagonals:
+                line.remove()
 
     # Isolate parts of log
     a = [row[0][0] for row in log]
@@ -450,17 +465,22 @@ def opt_plot(log, previous=None):
         axm.plot(j, m[j], 's', color=cols[j])
         axl.plot(j, l[j], 's', color=cols[j])
 
-    for i in range(d - 1):
-        axb[i].plot(b[i], b[i + 1], '-')
-        axc[i].plot(c[i], c[i + 1], '-')
-        for j in range(len(a)):
-            axb[i].plot(b[i][j], b[i + 1][j], 's', color=cols[j])
-            axc[i].plot(c[i][j], c[i + 1][j], 's', color=cols[j])
-
     diagonals = []
-    for i in range(d - 1):
-        x = axc[i].get_xlim()
-        diagonals.append(axc[i].plot(x, x, '#ccc', ls='--', lw=1)[0])
+    if d == 1:
+        axb[0].plot(b[0], c[0], '-')
+        for j in range(len(a)):
+            axb[0].plot(b[0][j], c[0][j], 's', color=cols[j])
+    else:
+        for i in range(d - 1):
+            axb[i].plot(b[i], b[i + 1], '-')
+            axc[i].plot(c[i], c[i + 1], '-')
+            for j in range(len(a)):
+                axb[i].plot(b[i][j], b[i + 1][j], 's', color=cols[j])
+                axc[i].plot(c[i][j], c[i + 1][j], 's', color=cols[j])
+
+        for i in range(d - 1):
+            x = axc[i].get_xlim()
+            diagonals.append(axc[i].plot(x, x, '#ccc', ls='--', lw=1)[0])
 
     # Pass items back to allow repeated optimisations to be plotted in one fig
     return fig, axa, axb, axc, axm, axl, diagonals
