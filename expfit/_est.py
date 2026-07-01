@@ -9,6 +9,55 @@ import numpy as np
 import expfit
 
 
+class LeastSquaresFit():
+    """
+    Creates a least squares fit ``(offset, slope)`` where ``y`` is approximated
+    by ``offset + slope * x``.
+
+    Arguments:
+
+    ``x``, ``y``
+        Two equal-sized, 1d arrays.
+
+    Public properties:
+
+    ``offset``, ``slope``
+        The fit, using ``y = offset + slope * x``
+    ``mu_x``, ``mu_y``
+        The mean ``x`` and ``y`` on the segment fit to.
+    ``x``, ``y``
+        Arrays containing the minimum and maximum ``x`` fit too, and the
+        corresponding ``y`` values. Useful for plotting the straight line fit.
+    ``n``
+        The number of points in the original ``x`` (and in ``y``).
+
+    """
+    def __init__(self, x, y):
+        x, y = np.asarray(x), np.asarray(y)
+        if x.ndim != 1 or y.ndim != 1:
+            raise ValueError('Both arrays must be 1-dimensional.')
+        n = len(x)
+        if n != len(y):
+            raise ValueError('Both arrays must have same length.')
+        if n < 2:
+            raise ValueError('At least 2 points are required')
+
+        self.mu_x = np.mean(x)
+        self.mu_y = np.mean(y)
+        xx = np.sum(x**2) - n * self.mu_x**2
+        xy = np.sum(x * y) - n * self.mu_x * self.mu_y
+        self.slope = xy / xx
+        self.offset = self.mu_y - self.slope * self.mu_x
+        self.x = np.array((x[0], x[-1]), dtype=float)
+        self.y = self.offset + self.slope * self.x
+        self.n = n
+
+    def __repr__(self):
+        return f'<expfit.LeastSquaresFit({self.offset:.3}+{self.slope:.3}x)>'
+
+    def __str__(self):
+        return (f'mu ({self.mu_x:.3}, {self.mu_y:.3}),'
+                f' {self.offset:.3} + {self.slope:.3} x')
 
 
 class SingleExponentialEstimate:
@@ -84,9 +133,6 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
         slope of the previous segment
       - The area under the estimated exponential is more similar to the area
         under the data than the previous segment
-
-    #   - the new slope is increased, on the fast side, or decreased, on the
-    #     slow side
 
     If the time series does not appear to contain an exponential, a
     :class:`NotExponentialError` is raised.
@@ -169,8 +215,9 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
             return 0, 0, 0, 0
 
         c = (s1 - s2) / (y1 - y2)
-        b = (y1 - y2) / (np.exp(c * x1) - np.exp(c * x2))
-        a = y1 - s1 / c
+        e1, e2 = np.exp(c * x1), np.exp(c * x2)
+        b = (y1 - y2) / (e1 - e2)
+        a = y1 - b * e1
         A = b / c * (np.exp(c * x[-1]) - np.exp(c * x[0])) + a * (x[-1] - x[0])
         return a, b, c, A
 
@@ -206,19 +253,6 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
                     if log2 is not None:
                         log2.append(l2)
 
-    # Edge cases
-    if l1.slope == l2.slope:
-        raise expfit.NotExponentialError('Equal slopes')
-    elif l1.mu_y == l2.mu_y:
-        raise expfit.NotExponentialError('Equal means')
-
-    # Straight line? Often gives huge a and b, almost equal but opposite sign
-    if abs(1 + a / b) < 1e-9:
-        m1 = np.sum((y - a - b * np.exp(c * x))**2) / len(x)
-        m2 = np.sum((y - l0.offset - l0.slope * x)**2) / len(x)
-        if m2 < m1:
-            raise expfit.NotExponentialError('Straight line')
-
     # Create results object
     r = SingleExponentialEstimate(a, b, c)
     if full:
@@ -231,7 +265,25 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     # Show initial estimate
     if plot:  # pragma: no cover
         from ._plot import initial_estimate_plot
-        initial_estimate_plot(x_nozoom, y_nozoom, r)
+        initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
+
+    # Catch silent failures in abca()
+    if l1.slope == l2.slope:
+        raise expfit.NotExponentialError('Equal slopes')
+    elif l1.mu_y == l2.mu_y:
+        raise expfit.NotExponentialError('Equal means')
+
+    # Catch less obvious straight lines
+    n = len(x)
+    m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
+    m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
+    # Akaike cut-off
+    line = (m2 <= m1 * (2 + n) / n)
+    if not line and m1 == 0:
+        # Ad-hoc comparison for m1 == 0, m2 almost 0
+        line = m2  / abs(A0) < 1e-9
+    if line:
+        raise expfit.NotExponentialError('Straight line')
 
     return r
 
@@ -284,6 +336,7 @@ def find_action(x, y=None, r_factor=20, n_min=10):
 
 def estimate_initial_opposing(x, y, plot=False, vet=True):
     """
+
 
 
     TODO

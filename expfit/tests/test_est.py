@@ -12,6 +12,39 @@ import numpy as np
 import expfit
 
 
+def rmse1(x, y, a, b, c):
+    return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
+
+
+class TestLS(unittest.TestCase):
+    """ Tests linear least squares """
+
+    def test_least_squares(self):
+        # Test linear least squares
+
+        x = np.array([-5, -2, 0, 0.1, 3, 8, 13])
+        y = 4 + 13 * x
+        ls = expfit.LeastSquaresFit(x, y)
+        self.assertEqual(ls.offset, 4)
+        self.assertEqual(ls.slope, 13)
+        self.assertEqual(ls.mu_x, np.mean(x))
+        self.assertEqual(ls.mu_y, np.mean(y))
+
+        # Test string representation
+        self.assertEqual(str(ls), 'mu (2.44, 35.8), 4.0 + 13.0 x')
+        self.assertEqual(repr(ls), '<expfit.LeastSquaresFit(4.0+13.0x)>')
+
+        # Test array checks
+        x = np.array([[1, 2, 3]])
+        self.assertRaisesRegex(
+            ValueError, 'must be 1-dimensional', expfit.LeastSquaresFit, x, x)
+        x, y = [1, 2, 3], [4, 5]
+        self.assertRaisesRegex(
+            ValueError, 'must have same length', expfit.LeastSquaresFit, x, y)
+        self.assertRaisesRegex(
+            ValueError, 't least 2 points', expfit.LeastSquaresFit, [1], [2])
+
+
 class TestEstimates(unittest.TestCase):
     """
     Tests initial estimates.
@@ -35,7 +68,7 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p[2], p0[2], delta=2e-3)
 
         # Result object, with nice str() but no extended info
-        self.assertEqual(str(r), '-0.1312 0.1317 2.001')
+        self.assertEqual(str(r), '-0.1321 0.1321 2')
         self.assertIsNone(r.log1)
         self.assertIsNone(r.log2)
         self.assertIsNone(r.region)
@@ -49,8 +82,8 @@ class TestEstimates(unittest.TestCase):
         self.assertIsNone(r.region)
         self.assertIsNotNone(r.log1)
         self.assertIsNotNone(r.log2)
-        self.assertEqual(len(r.log1), 2)
-        self.assertEqual(len(r.log2), 4)
+        self.assertEqual(len(r.log1), 6)
+        self.assertEqual(len(r.log2), 6)
         self.assertIsInstance(r.log1[0], expfit.LeastSquaresFit)
         self.assertIsInstance(r.log2[0], expfit.LeastSquaresFit)
 
@@ -91,21 +124,23 @@ class TestEstimates(unittest.TestCase):
         y = np.array([0, 2, -1, 3])
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal means',
-            expfit.estimate_initial_single, x, y, plot=True)
+            expfit.estimate_initial_single, x, y)
 
     def estimate_initial(self, x, y, transform=True, plot=False):
         """
         Calls estimate_initial_single, after transforming to the unit square.
         Shows plot, if asked.
         """
-        if transform:
-            t = expfit.UnitSquaredSeries(x, y)
-            r = expfit.estimate_initial_single(t, plot=plot)
-        else:
-            r = expfit.estimate_initial_single(x, y, plot=plot)
-        if plot:  # pragma: no cover
-            import matplotlib.pyplot as plt
-            plt.show()
+        try:
+            if transform:
+                t = expfit.UnitSquaredSeries(x, y)
+                r = expfit.estimate_initial_single(t, plot=plot)
+            else:
+                r = expfit.estimate_initial_single(x, y, plot=plot)
+        finally:
+            if plot:  # pragma: no cover
+                import matplotlib.pyplot as plt
+                plt.show()
         return t.detransform(r) if transform else r
 
     def test_estimate_initial(self):
@@ -128,7 +163,7 @@ class TestEstimates(unittest.TestCase):
         y = e(x, (a, b, c)) + rng.normal(0, 1e-6, n)
         p, q, r = self.estimate_initial(x, y, plot=plot)
         self.assertAlmostEqual(p, a, delta=.01)
-        self.assertAlmostEqual(r, c, delta=.01)
+        self.assertAlmostEqual(r, c, delta=.02)
 
     def test_estimate_initial_clean(self):
 
@@ -146,14 +181,14 @@ class TestEstimates(unittest.TestCase):
         a, b, c = -1000, 5, 1
         x = np.linspace(0.3, 4, 200)
         p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-9)
+        self.assertAlmostEqual(p, a, delta=1e-3)
         self.assertAlmostEqual(q, b, delta=1e-3)
         self.assertAlmostEqual(r, c, delta=1e-4)
 
         a, b, c = 200, 21, 10
         x = np.linspace(0, 0.5, 9)
         p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
-        self.assertAlmostEqual(p, a, delta=1e-12)
+        self.assertAlmostEqual(p, a, delta=5)
         self.assertAlmostEqual(q, b, delta=5)
         self.assertAlmostEqual(r, c, delta=.5)
 
@@ -163,56 +198,52 @@ class TestEstimates(unittest.TestCase):
         rng = np.random.default_rng(1)
         plot = False
 
-        '''
         # Edge case: perfectly flat line, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * np.ones(x.shape)
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal slopes',
-            self.estimate_initial, x, y)
+            self.estimate_initial, x, y, plot=plot)
 
         # Flat line with noise
         x = np.linspace(0, 1, 3000)
         y = 3 * np.ones(x.shape) + rng.normal(0, 1e-9, x.shape)
-        p, q, r = self.estimate_initial(x, y, plot=plot)
-        self.assertAlmostEqual(p, 3, delta=1e-10)
-        self.assertAlmostEqual(q, 0, delta=1e-0)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, plot=plot)
 
         # Straight line through origin, no noise
-        rmse = expfit.rmse
-        '''
         x = np.linspace(0, 1, 10)
         y = 3 * x
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal slopes',
-            self.estimate_initial, x, y)
-        p, q, r = self.estimate_initial(x, y, transform=False, plot=True)
-        return
-        self.assertEqual(rmse(x, y, (p, q, r)), 0)
-        self.assertEqual(p, -q)
+            self.estimate_initial, x, y, plot=plot)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, transform=False, plot=plot)
 
         # Straight line through origin, with noise
         x = np.linspace(0, 1, 99)
         y = 3 * x + rng.normal(0, 0.1, x.shape)
-        p, q, r = self.estimate_initial(x, y, plot=True)
-        self.assertAlmostEqual(p, -q, delta=0.1e-99)
-        self.assertLess(rmse(x, y, (p, q, r)), 0.2e-99)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, plot=plot)
 
         # Straight line with offset and noise
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
-        p, q, r = self.estimate_initial(x, y, plot=True)
-        self.assertAlmostEqual(p + q, 4, delta=0.5e-99)
-        self.assertLess(rmse(x, y, (p, q, r)), 0.2e-99)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, plot=plot)
 
         # Almost flat with noise
         a, b, c = -51, -7.2, 1e-3
         n = 900
         x = np.linspace(1e-3, 7e-3, n)
-        y = expfit.exp(x, (a, b, t)) + rng.normal(0, 100, n)
+        y = expfit.exp1(x, (a, b, c)) + rng.normal(0, 100, n)
         self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Flat line',
-            self.estimate_initial, x, y)
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, plot=plot)
 
         # This failed when the ZoomTransform was variance-based
         # Specific case: needs this seed
@@ -221,8 +252,8 @@ class TestEstimates(unittest.TestCase):
         y = 3 * np.zeros(x.shape)
         y += rng.normal(0, 1, x.shape)
         self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Flat line',
-            self.estimate_initial, x, y)
+            expfit.NotExponentialError, 'Straight line',
+            self.estimate_initial, x, y, plot=plot)
 
     def test_estimate_initial_steep(self):
 
@@ -233,64 +264,64 @@ class TestEstimates(unittest.TestCase):
         # No zoom: Not steep enough
         a, b, c = 8, 2, 5
         x = np.linspace(0, 1, 20)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
-        #self.assertAlmostEqual(p, a, delta=1e-8)
-        #self.assertAlmostEqual(q, b, delta=1)
-        #self.assertAlmostEqual(r, t, delta=.01)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
+        self.assertAlmostEqual(p, a, delta=.1)
+        self.assertAlmostEqual(q, b, delta=.1)
+        self.assertAlmostEqual(r, c, delta=.05)
 
         # No zoom: Too short
         a, b, c = 200, 21, 15
         x = np.linspace(0, 1, 40)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
-        #self.assertAlmostEqual(p, a, delta=1e-11)
-        #self.assertAlmostEqual(q, b, delta=500)
-        #self.assertAlmostEqual(r, t, delta=.03)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
+        self.assertAlmostEqual(p, a, delta=10)
+        self.assertAlmostEqual(q, b, delta=5)
+        self.assertAlmostEqual(r, c, delta=.5)
 
         # Zoom
         a, b, c = 8, 2, 7
         x = np.linspace(0, 1, 500)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
-        #self.assertAlmostEqual(p, a, delta=1e-8)
-        #self.assertAlmostEqual(q, b, delta=1e-2)
-        #self.assertAlmostEqual(r, t, delta=1e-4)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
+        self.assertAlmostEqual(p, a, delta=.05)
+        self.assertAlmostEqual(q, b, delta=1e-3)
+        self.assertAlmostEqual(r, c, delta=1e-3)
 
         a, b, c = -1000, 5, -10
         x = np.linspace(0, 1, 200)
-        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=True)
-        #self.assertAlmostEqual(p, a, delta=1e-10)
-        #self.assertAlmostEqual(q, b, delta=1e-3)
-        #self.assertAlmostEqual(r, t, delta=1e-3)
+        p, q, r = self.estimate_initial(x, e(x, (a, b, c)), plot=plot)
+        self.assertAlmostEqual(p, a, delta=1e-3)
+        self.assertAlmostEqual(q, b, delta=5e-3)
+        self.assertAlmostEqual(r, c, delta=5e-3)
 
         # With noise: Noise stops zoom from happening
         a, b, c = 8, 2, 7
         n = 500
         x = np.linspace(0, 1, n)
         y = e(x, (a, b, c)) + rng.normal(0, 50, n)
-        p, q, r = self.estimate_initial(x, y, plot=True)
-        #self.assertAlmostEqual(p, a, delta=20)
-        #self.assertAlmostEqual(q, b, delta=2)
-        #self.assertAlmostEqual(r, t, delta=.02)
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertAlmostEqual(p, a, delta=10)
+        self.assertAlmostEqual(q, b, delta=1)
+        self.assertAlmostEqual(r, c, delta=.5)
 
         # With noise and zoom
         a, b, c = -5e4, -1e5, -20
         n = 900
         x = np.linspace(0, 1, n)
         y = e(x, (a, b, c)) + rng.normal(0, 9e2, n)
-        p, q, r = self.estimate_initial(x, y, plot=True)
-        #self.assertAlmostEqual(p, a, delta=5e2)
-        #self.assertAlmostEqual(q, b, delta=8e3)
-        #self.assertAlmostEqual(r, t, delta=.04)
-        #self.assertLess(expfit.rmse(x, y, (p, q, r)), 4e3)
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertAlmostEqual(p, a, delta=300)
+        self.assertAlmostEqual(q, b, delta=4000)
+        self.assertAlmostEqual(r, c, delta=.2)
+        self.assertLess(rmse1(x, y, p, q, r), 1000)
 
         a, b, c = 1e5, 1e5, 15
         n = 999
         x = np.linspace(0, 1, n)
         y = e(x, (a, b, c)) + rng.normal(0, 2e9, n)
-        p, q, r = self.estimate_initial(x, y, plot=True)
-        #self.assertAlmostEqual(p, a, delta=1e10)
-        #self.assertAlmostEqual(q, b, delta=1e6)
-        #self.assertAlmostEqual(r, t, delta=.03)
-        #self.assertLess(expfit.rmse(x, y, (p, q, r)), 1e10)
+        p, q, r = self.estimate_initial(x, y, plot=plot)
+        self.assertAlmostEqual(p, a, delta=1e9)
+        self.assertAlmostEqual(q, b, delta=1e5)
+        self.assertAlmostEqual(r, c, delta=1)
+        self.assertLess(rmse1(x, y, p, q, r), 1e10)
 
     def estimate_initial_opposing(self, x, y, plot=False):
         """

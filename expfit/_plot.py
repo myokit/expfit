@@ -144,12 +144,12 @@ def fit1_plot(t, v, tr, r, p, q0, pt=None):
     ax0.plot(tr.x, expfit.expc(tr.x, q0), '-', label=f'Initial ({f1(q0)})')
     if q0.log1 is not None and len(q0.log1) > 0:
         lsfit = q0.log1[-1][0]
-        ax0.plot(lsfit.x, lsfit.y, 'k', zorder=4)
-        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'ks', zorder=4)
+        ax0.plot(lsfit.x, lsfit.y, 'k')
+        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'ks')
     if q0.log2 is not None and len(q0.log2) > 0:
         lsfit = q0.log2[-1][0]
-        ax0.plot(lsfit.x, lsfit.y, 'r', zorder=4)
-        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'rs', zorder=4)
+        ax0.plot(lsfit.x, lsfit.y, 'r')
+        ax0.plot(lsfit.mu_x, lsfit.mu_y, 'rs')
 
     label = f'RMSE {np.sqrt(r.error):.4}'
     label = (f'Fit ({f1(r.x)}), {r.iterations} iter, {label}' if r.success else
