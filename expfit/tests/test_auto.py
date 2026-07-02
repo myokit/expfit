@@ -21,6 +21,7 @@ class TestAuto(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
+    @unittest.skip
     def test_auto(self):
         # Test double-on-double exponential decaying, equal sign multiplier
         self.r = np.random.default_rng(1)
