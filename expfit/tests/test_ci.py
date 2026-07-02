@@ -62,6 +62,32 @@ class TestCI(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
+    def test_basics(self):
+        # Test access to the error function and any other small items
+        x = np.array([0, 1, 2, 3])
+        y = np.array([2, 3, 4, 5])
+        p = np.array([-1, 2])
+        f = Linear1d(x, y)
+        e = expfit.ExponentialFit(p, f)
+        self.assertIs(e.error(), f)
+
+    def test_no_error(self):
+        # Exponential fit without error
+        e = expfit.ExponentialFit([5])
+        self.assertFalse(e.ci_available())
+        self.assertRaises(expfit.CIUnavailableError, e.ci_fisher, 0)
+        self.assertRaises(expfit.CIUnavailableError, e.cov)
+        self.assertRaises(expfit.CIUnavailableError, e.ci_profile, 0)
+        self.assertRaises(expfit.CIUnavailableError, e.error)
+        self.assertRaises(expfit.CIUnavailableError, e.profile, 0, -1, 1)
+        self.assertRaises(expfit.CIUnavailableError, e.mse_cutoff, 0)
+
+        # Test with error returning function
+        f = Linear1d(np.array([1, 2]), np.array([3, 4]))
+        e = expfit.ExponentialFit([5], f)
+        self.assertTrue(e.ci_available())
+        self.assertIs(e.error(), f)
+
     def t(self, a0, b0, s0, n=51, delta=1e-2, ca=None, cb=None, plot=False):
 
         x = np.linspace(0, 10, n)
@@ -203,43 +229,6 @@ class TestCI(unittest.TestCase):
         t(5, 3, 5, ca=(3.3591, 7.3179), cb=(2.5621, 3.2444), plot=plot)
         t(-70, -80, 50, plot=plot)
 
-    def test_profile(self):
-        """ Test .profile() """
-        self.r = np.random.default_rng(1)
-        plot = False
-
-        a0, b0, s0 = -5, 10, 20
-        x = np.linspace(0, 10, 111)
-        y = a0 + b0 * x + self.r.normal(0, s0, size=x.shape)
-        a, b = p = fit(x, y)
-
-        alo, ahi = p.ci_fisher(0)
-        xx, yy = p.profile(0, alo, ahi, evals=5)
-
-        if plot:  # pragma: no cover
-            import matplotlib.pyplot as plt
-            fig = plt.figure()
-            ax = fig.add_subplot(2, 1, 1)
-            ax.plot(x, y, 'o')
-            ax.plot(x, a + b * x)
-            ax = fig.add_subplot(2, 1, 2)
-            ax.plot(xx, yy)
-            plt.show()
-
-        self.assertEqual(len(xx), 5)
-        self.assertEqual(xx[0], alo)
-        self.assertEqual(xx[4], ahi)
-        self.assertAlmostEqual(xx[1], -8.163763431014484, delta=1e-15)
-        self.assertAlmostEqual(xx[2], -5.489527400523189, delta=1e-15)
-        self.assertAlmostEqual(xx[3], -2.815291370031893, delta=1e-15)
-
-        self.assertEqual(len(yy), 5)
-        self.assertAlmostEqual(yy[0], 304.636783317032, delta=1e-12)
-        self.assertAlmostEqual(yy[1], 299.200319779168, delta=1e-12)
-        self.assertAlmostEqual(yy[2], 297.388165267725, delta=1e-12)
-        self.assertAlmostEqual(yy[3], 299.200319782703, delta=1e-12)
-        self.assertAlmostEqual(yy[4], 304.636783324102, delta=1e-12)
-
     def test_double(self):
         # Test on double
         plot = False
@@ -280,22 +269,56 @@ class TestCI(unittest.TestCase):
         self.assertLess(c2[0][4], p0[4])
         self.assertGreater(c2[1][4], p0[4])
 
-    def test_no_error(self):
-        # Exponential fit without error
-        e = expfit.ExponentialFit([5])
-        self.assertFalse(e.ci_available())
-        self.assertRaises(expfit.CIUnavailableError, e.ci_fisher, 0)
-        self.assertRaises(expfit.CIUnavailableError, e.cov)
-        self.assertRaises(expfit.CIUnavailableError, e.ci_profile, 0)
-        self.assertRaises(expfit.CIUnavailableError, e.error)
-        self.assertRaises(expfit.CIUnavailableError, e.profile, 0, -1, 1)
-        self.assertRaises(expfit.CIUnavailableError, e.mse_cutoff, 0)
+    def test_profile(self):
+        """ Test .profile() """
+        self.r = np.random.default_rng(1)
+        plot = False
 
-        # Test with error returning function
-        f = Linear1d(np.array([1, 2]), np.array([3, 4]))
-        e = expfit.ExponentialFit([5], f)
-        self.assertTrue(e.ci_available())
-        self.assertIs(e.error(), f)
+        a0, b0, s0 = -5, 10, 20
+        x = np.linspace(0, 10, 111)
+        y = a0 + b0 * x + self.r.normal(0, s0, size=x.shape)
+        a, b = p = fit(x, y)
+
+        alo, ahi = p.ci_fisher(0)
+        xx, yy = p.profile(0, alo, ahi, evals=5)
+
+        if plot:  # pragma: no cover
+            import matplotlib.pyplot as plt
+            fig = plt.figure()
+            ax = fig.add_subplot(2, 1, 1)
+            ax.plot(x, y, 'o')
+            ax.plot(x, a + b * x)
+            ax = fig.add_subplot(2, 1, 2)
+            ax.plot(xx, yy)
+            plt.show()
+
+        self.assertEqual(len(xx), 5)
+        self.assertEqual(xx[0], alo)
+        self.assertEqual(xx[4], ahi)
+        self.assertAlmostEqual(xx[1], -8.163763431014484, delta=1e-15)
+        self.assertAlmostEqual(xx[2], -5.489527400523189, delta=1e-15)
+        self.assertAlmostEqual(xx[3], -2.815291370031893, delta=1e-15)
+
+        self.assertEqual(len(yy), 5)
+        self.assertAlmostEqual(yy[0], 304.636783317032, delta=1e-12)
+        self.assertAlmostEqual(yy[1], 299.200319779168, delta=1e-12)
+        self.assertAlmostEqual(yy[2], 297.388165267725, delta=1e-12)
+        self.assertAlmostEqual(yy[3], 299.200319782703, delta=1e-12)
+        self.assertAlmostEqual(yy[4], 304.636783324102, delta=1e-12)
+
+    def test_clevel(self):
+        cl = expfit.CLevel(90)
+        self.assertEqual(cl.norm(), 1.6448536269514722)
+        self.assertEqual(cl.chi2(), 2.705543454095404)
+        self.assertRaisesRegex(
+            ValueError, 'Confidence level not supported: 3', expfit.CLevel, 3)
+
+        try:
+            expfit.CLevel.add(3, 1, 2)
+            self.assertEqual(expfit.CLevel(3).norm(), 1)
+            self.assertEqual(expfit.CLevel(3).chi2(), 2)
+        finally:
+            del expfit.CLevel._stats[3]
 
     def test_mse_cutoff(self):
         # MSE cut-off for profile CI, with 90% chi squared stat
@@ -325,20 +348,6 @@ class TestCI(unittest.TestCase):
         self.assertEqual(h2.shape, (2, 2))
         self.assertEqual(list(h2[0]), list(hes[0]))
         self.assertEqual(list(h2[1]), list(hes[1]))
-
-    def test_clevel(self):
-        cl = expfit.CLevel(90)
-        self.assertEqual(cl.norm(), 1.6448536269514722)
-        self.assertEqual(cl.chi2(), 2.705543454095404)
-        self.assertRaisesRegex(
-            ValueError, 'Confidence level not supported: 3', expfit.CLevel, 3)
-
-        try:
-            expfit.CLevel.add(3, 1, 2)
-            self.assertEqual(expfit.CLevel(3).norm(), 1)
-            self.assertEqual(expfit.CLevel(3).chi2(), 2)
-        finally:
-            del expfit.CLevel._stats[3]
 
 
 if __name__ == '__main__':  # pragma: no cover

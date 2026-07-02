@@ -77,7 +77,7 @@ class TestFit1(unittest.TestCase):
             af, bf, cf = expfit.fit1(
                 x, y, plot=(a, b, c) if plot else False, opt_plot=plot)
         except expfit.FitFailedError as e:
-            if not fails:
+            if not fails:  # pragma: no cover
                 raise
             af, bf, cf = e.p
         finally:

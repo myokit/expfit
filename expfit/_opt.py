@@ -252,7 +252,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     res.accepted = accepted
     if err:
         res.message = err
-    elif iterations + 1 == max_iter:
+    elif iterations + 1 == max_iter:  # pragma: no cover
         res.message = 'Maximum iterations reached'
     else:
         res.success = True

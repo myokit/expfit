@@ -38,7 +38,7 @@ def nth(i):
     return f'{1 + i}d' if i < 3 else f'{1 + i}th'
 
 
-def expd_plot(t, p):
+def expd_plot(x, p):
     """
     Plots a decaying exponential, and its individual components.
     """
@@ -47,18 +47,26 @@ def expd_plot(t, p):
     fig = plt.figure(figsize=(11, 7.5))
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95)
     ax = fig.add_subplot()
-    ax.plot(t, expfit.expd(t, p), 'k', label='Combined')
 
-    # Calculate contribution to area of each
+    # Calculate contribution to area of each, and best offset to show
     d = (len(p) - 1) // 2
-    #A = np.array(
-    #    [np.abs(expfit.area(t, p[1 + 2 * i:3 + 2 * i:])) for i in range(d)])
-    #Ar = 100 * A / np.sum(A)
-
+    A = np.zeros(d)
+    offset = p[0]
     for i in range(d):
-        ax.plot(t, expfit.expd(t, (p[0], p[1 + 2 * i], p[2 + 2 * i])),
-                #label=f'{nth(i)}, A={A[i]:.3} ({Ar[i]:.3}%)')
-                )
+        b, c = p[1 + 2 * i], p[2 + 2 * i]
+        A[i] = b / c * (np.exp(c * x[-1]) - np.exp(c * x[0]))
+        offset += b * np.exp(c * x[0])
+    Ar = 100 * A / np.sum(A)
+
+    # Show components
+    for i in range(d):
+        b, c = p[1 + 2 * i], p[2 + 2 * i]
+        a = offset - b * np.exp(c * x[0])
+        ax.plot(x, expfit.expd(x, (a, b, c)),
+                label=f'{nth(i)}, A={A[i]:.3} ({Ar[i]:.3}%)')
+
+    # Add combination
+    ax.plot(x, expfit.expd(x, p), 'k', label='Combined')
     ax.legend()
 
 

@@ -396,6 +396,9 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1[:-1] - j2) == 0))
         self.assertTrue(np.all(np.abs(h1[:-1, :-1] - h2) == 0))
 
+        # Test n() method
+        self.assertEqual(e2.n(), e1.n())
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

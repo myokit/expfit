@@ -43,7 +43,7 @@ class TestFitd2(unittest.TestCase):
             af, bf, cf, df, ef = expfit.fitd2(
                 x, y, plot=plot_params, opt_plot=plot)
         finally:
-            if plot:
+            if plot:  # pragma: no cover
                 import matplotlib.pyplot as plt
                 plt.show()
 

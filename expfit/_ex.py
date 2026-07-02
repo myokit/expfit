@@ -32,7 +32,8 @@ class NotOpposingError(RuntimeError):
     found in the signal.
     """
     def __init__(self, msg=None):
-        super().__init__('No opposing exponentials found in the signal.')
+        end = f': {msg}' if msg is not None else '.'
+        super().__init__(f'No opposing exponentials found in the signal{end}')
 
 
 class FitFailedError(RuntimeError):

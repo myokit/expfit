@@ -201,8 +201,7 @@ def estimate_initial_single(x, y=None, reject_linear=True,
     if l0.slope * l2.slope < 0:
         l2.slope, l2.offset = 0.0, l2.mu_y
         shrink2 = False
-    if not (shrink1 or shrink2):
-        raise expfit.NotExponentialError('Not a (single) exponential')
+    assert (shrink1 or shrink2)
 
     # Store initial segments
     log1 = log2 = None
@@ -387,13 +386,13 @@ def estimate_initial_opposing(x, y=None, plot=False):
             x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0),
             reject_linear=False)
     except expfit.NotExponentialError as e:
-        raise expfit.NotOpposingError(str(e))
+        raise expfit.NotOpposingError() from e
 
     # Check results
-    if b0 * b1 >= 0:
-        raise expfit.NotOpposingError()
     if c0 > 0 or c1 > 0:
         raise expfit.NotDecayingError()
+    if b0 * b1 >= 0:  # pragma: no cover
+        raise expfit.NotOpposingError()
 
     # Compare areas (without a)
     A0 = b0 / c0 * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))

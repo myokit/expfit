@@ -311,10 +311,6 @@ class ExponentialFit:
                 errors[j] = r.error
         return values, errors
 
-    def time_series(self):
-        """ Returns the time series this result was obtained for. """
-        return self._xy
-
 
 class CLevel():
     """

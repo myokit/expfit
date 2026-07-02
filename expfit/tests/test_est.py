@@ -336,12 +336,11 @@ class TestEstimates(unittest.TestCase):
         return t.detransform(r)
 
     def test_estimate_initial_opposing(self):
-        e = expfit.expd
         plot = False
 
         p = 8, -1, 0.2, 3, 0.15
         x = np.linspace(0.5, 1.5, 200)
-        y = e(x, p)
+        y = expfit.expd(x, p)
         q = self.estimate_initial_opposing(x, y, plot=plot)
         q[2::2] = -1 / q[2::2]
         self.assertAlmostEqual(q[0], p[0], delta=0.01)
@@ -353,7 +352,7 @@ class TestEstimates(unittest.TestCase):
 
         p = -3, 10, 0.17, -200, 0.1
         x = np.linspace(0.5, 1.5, 200)
-        y = e(x, p)
+        y = expfit.expd(x, p)
         q = self.estimate_initial_opposing(x, y, plot=plot)
         q[2::2] = -1 / q[2::2]
         self.assertAlmostEqual(q[0], p[0], delta=0.02)
@@ -364,10 +363,22 @@ class TestEstimates(unittest.TestCase):
         self.assertLess(expfit.rmsed(x, y, q), 0.02)
 
         # Test size check
+        e = expfit.estimate_initial_opposing
         x = np.linspace(0, 1, 5)
         self.assertRaisesRegex(
             ValueError, 'At least 10 points',
-            expfit.estimate_initial_opposing, x, e(x, p))
+            e, x, expfit.expd(x, p))
+
+        # Edge cases
+        x = np.linspace(0, 1, 50)
+        y = expfit.exp1(x, (1, 0, -1))
+        self.assertRaises(expfit.NotOpposingError, e, x, y)
+        y = expfit.exp1(x, (1, 1, -1))
+        self.assertRaises(expfit.NotOpposingError, e, x, y)
+        y = expfit.exp1(x, (1, 1, 1))
+        self.assertRaises(expfit.NotDecayingError, e, x, y)
+        y = expfit.expd(x, (1, 1, 1, 1, -1))  # Looks like one exponential
+        self.assertRaises(expfit.NotDecayingError, e, x, y)
 
     def test_find_action(self):
         x = np.linspace(0, 1, 111)

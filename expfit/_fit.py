@@ -114,11 +114,7 @@ def fitd2(x, y, plot=False, opt_plot=False):
     a0, b0, c0 = tr.detransform(q0)
     del tr, q0
 
-    # Stop if the signal is not exponential
-    if b0 == 0 or c0 == 0:
-        raise expfit.NotExponentialError()
-
-    # Catch non-decaying
+    # Stop if not decaying
     if c0 > 0:
         raise expfit.NotDecayingError()
 
@@ -211,10 +207,7 @@ def fitd11(x, y=None, plot=False, opt_plot=False):
     tr = xy
     if not isinstance(tr, expfit.UnitSquaredSeries):
         tr = expfit.UnitSquaredSeries(*xy)
-    try:
-        q0 = expfit.estimate_initial_opposing(tr)
-    except expfit.NotExponentialError as e:
-        raise expfit.NotOpposingError(str(e))
+    q0 = expfit.estimate_initial_opposing(tr)
     p0 = tr.detransform(q0)
     del tr, q0
 

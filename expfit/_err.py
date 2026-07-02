@@ -79,9 +79,6 @@ class SingleExponentialError():
     """
     def __init__(self, xy):
         self._x, self._y = xy
-        if len(self._x) < 3:
-            raise ValueError('At least 3 points are required')
-
         self._n = len(self._x)
         self._ni = 1 / self._n
 
@@ -193,8 +190,6 @@ class MultiExponentialError():
     def __init__(self, xy, m_dominant, m_opposite, dominant_positive):
         # Time series
         self._x, self._y = xy
-        if len(self._x) < 3:
-            raise ValueError('At least 3 points are required')
         self._n = len(self._x)
         self._ni = 1 / self._n
         self._n2 = 2 * self._ni
@@ -332,8 +327,6 @@ class TauFormError():
     """
     def __init__(self, xy):
         self._x, self._y = xy
-        if len(self._x) < 3:
-            raise ValueError('At least 3 points are required')
         self._n = len(self._x)
         self._ni = 1 / self._n
         self._n2 = 2 * self._ni

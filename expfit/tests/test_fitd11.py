@@ -41,7 +41,7 @@ class TestD11(unittest.TestCase):
         try:
             p = expfit.fitd11(x, y, plot=plot_params, opt_plot=plot)
         finally:
-            if plot:
+            if plot:  # pragma: no cover
                 import matplotlib.pyplot as plt
                 plt.show()
 
@@ -113,19 +113,6 @@ class TestD11(unittest.TestCase):
 
         d((1, -4, 4, -4, 0.1, 10, .05), s=0.01, plot=plot, ratio=6.5)
         d((1, -4, 4, -4, 0.1, 10, .05), s=0.1, plot=plot, ratio=1.2)
-
-    def test_fitd11_edge_cases(self):
-        # Test on bad signals
-
-        self.r = np.random.default_rng(1111)
-
-        x = np.linspace(0, 1)
-        y = expfit.expd(x, (1, 0, 1))
-        self.assertRaises(expfit.NotOpposingError, expfit.fitd11, x, y)
-        y = expfit.expd(x, (1, 1, 1))
-        self.assertRaises(expfit.NotOpposingError, expfit.fitd11, x, y)
-        y = expfit.expd(x, (1, 1, -1, -1, 1))
-        self.assertRaises(expfit.NotDecayingError, expfit.fitd11, x, y)
 
 
 if __name__ == '__main__':  # pragma: no cover
