@@ -218,7 +218,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
 
             #jhj = j.T.dot(np.linalg.inv(h).dot(j))
             #jhj = j.T.dot(np.linalg.inv(h + float(alpha) * eye * h).dot(j))
-            #print(np.linalg.norm(j), np.max(np.abs(2 * (ps - p) / (ps + p))), jhj)
+            #print(np.linalg.norm(j), np.max(np.abs(2 * (ps - p) / (ps + p))), jhj)  # noqa
 
             alpha *= 0.5
             p = ps

@@ -108,7 +108,7 @@ class ExponentialFit:
         if not isinstance(level, CLevel):
             level = CLevel(level)
         e_hat = self._err.mse(self._p)
-        cutoff = (1 + level.chi2() / self._nt) * e_hat
+        cutoff = (1 + level.chi2() / self._err.n()) * e_hat
         if verbose:  # pragma: no cover
             print(f'Cut off: {cutoff}')
 
@@ -226,7 +226,7 @@ class ExponentialFit:
             if self._mjh is None:
                 self._mjh = self._err(self._p)
             mse, jac, hes = self._mjh
-            self._cov = np.linalg.inv(hes) * (2 * mse / self._nt)
+            self._cov = np.linalg.inv(hes) * (2 * mse / self._err.n())
 
         return self._cov
 
@@ -273,7 +273,7 @@ class ExponentialFit:
         if not isinstance(level, CLevel):
             level = CLevel(level)
 
-        return (1 + level.chi2() / self._nt) * self._err.mse(self._p)
+        return (1 + level.chi2() / self._err.n()) * self._err.mse(self._p)
 
     def profile(self, i, lo, hi, evals=25, gtol=1e-7):
         """

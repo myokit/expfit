@@ -7,9 +7,10 @@
 import numpy as np
 
 
-def exp(x, p):
+def expd(x, p):
     """
-    Returns an exponential ``p[0] + p[1] * exp(-x / p[2]) + p[3] * ...``.
+    Returns a decaying multi-exponential
+    ``p[0] + p[1] * exp(-x / p[2]) + p[3] * ...``.
     """
     p = np.asarray(p)
     d = len(p)
@@ -42,11 +43,9 @@ def rmse1(x, y, p):
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
 
 
-'''
-
-def rmse(x, y, p):
+def rmsed(x, y, p):
     """
-    Returns the RMSE between ``y`` and an exponential
+    Returns the RMSE between ``y`` and a decaying exponential
     ``p[0] + p[1] * exp(-x / p[1]) + p[3] * exp(-x / p[4]) + ...``.
 
     **Note**: the returned RMSE is the root of the MSE returned by
@@ -57,8 +56,7 @@ def rmse(x, y, p):
     p = np.copy(p)
     a = p[0]
     p[0] = 0
-    return np.sqrt(np.sum((y - a - exp(x, p))**2) / len(x))
-'''
+    return np.sqrt(np.sum((y - a - expd(x, p))**2) / len(x))
 
 
 class SingleExponentialError():
@@ -83,7 +81,9 @@ class SingleExponentialError():
         self._x, self._y = xy
         if len(self._x) < 3:
             raise ValueError('At least 3 points are required')
-        self._m = 1 / len(self._x)
+
+        self._n = len(self._x)
+        self._ni = 1 / self._n
 
     def __call__(self, p):
         a, b, c = p
@@ -91,22 +91,22 @@ class SingleExponentialError():
         be = b * e
         f = a - self._y + be
         ef = e * f
-        mse = self._m * np.sum(f * f)
+        mse = self._ni * np.sum(f * f)
 
         # Jacobian
         jac = np.array([
-            2 * self._m * np.sum(f),
-            2 * self._m * np.sum(ef),
-            2 * self._m * np.sum(ef * self._x) * b
+            2 * self._ni * np.sum(f),
+            2 * self._ni * np.sum(ef),
+            2 * self._ni * np.sum(ef * self._x) * b
         ])
 
         # Hessian
         ex = e * self._x
         aex = (f + be) * ex
         hes = np.array([
-            [2, 2 * self._m * np.sum(e), 2 * b * self._m * np.sum(ex)],
-            [0, 2 * self._m * np.sum(e * e), 2 * self._m * np.sum(aex)],
-            [0, 0, 2 * self._m * b * np.sum(self._x * aex)],
+            [2, 2 * self._ni * np.sum(e), 2 * b * self._ni * np.sum(ex)],
+            [0, 2 * self._ni * np.sum(e * e), 2 * self._ni * np.sum(aex)],
+            [0, 0, 2 * self._ni * b * np.sum(self._x * aex)],
         ])
         hes[1, 0] = hes[0, 1]
         hes[2, 0] = hes[0, 2]
@@ -116,8 +116,12 @@ class SingleExponentialError():
 
     def mse(self, p):
         """ Calculate the MSE without Jacobian or Hessian. """
-        return self._m * np.sum(
+        return self._ni * np.sum(
             (p[0] - self._y + p[1] * np.exp(p[2] * self._x))**2)
+
+    def n(self):
+        """ Returns the number of data points in the used time series. """
+        return self._n
 
 
 class MultiExponentialError():
@@ -191,7 +195,8 @@ class MultiExponentialError():
         self._x, self._y = xy
         if len(self._x) < 3:
             raise ValueError('At least 3 points are required')
-        self._ni = 1 / len(self._x)
+        self._n = len(self._x)
+        self._ni = 1 / self._n
         self._n2 = 2 * self._ni
 
         # Terms
@@ -281,6 +286,10 @@ class MultiExponentialError():
         return self._ni * np.sum(
             (p[0] - self._y + np.sum(b * np.exp(c * self._x), axis=0))**2)
 
+    def n(self):
+        """ Returns the number of data points in the used time series. """
+        return self._n
+
     def transform(self, p, tau=False):
         """ Converts ``p`` from c or tau form to log-transformed. """
         if len(p) != self._np:
@@ -317,14 +326,16 @@ class TauFormError():
 
     Arguments:
 
-    ``x``, ``y``
-        The time series
+    ``xy``
+        A :class:`TimeSeries`.
 
     """
-    def __init__(self, x, y):
-        self._x = x
-        self._y = y
-        self._ni = 1 / len(x)
+    def __init__(self, xy):
+        self._x, self._y = xy
+        if len(self._x) < 3:
+            raise ValueError('At least 3 points are required')
+        self._n = len(self._x)
+        self._ni = 1 / self._n
         self._n2 = 2 * self._ni
 
     def __call__(self, p):
@@ -396,6 +407,10 @@ class TauFormError():
             p[1::2].reshape((m, 1)) * np.exp(
                 -1 / p[2::2].reshape((m, 1)) * self._x), axis=0))**2)
 
+    def n(self):
+        """ Returns the number of data points in the used time series. """
+        return self._n
+
 
 class ErrorWithFixedParameter():
     """
@@ -425,6 +440,10 @@ class ErrorWithFixedParameter():
         j = np.delete(j, self._i, 0)
         h = np.delete(np.delete(h, self._i, axis=0), self._i, axis=1)
         return m, j, h
+
+    def n(self):
+        """ Returns the number of data points in the used time series. """
+        return self._e.n()
 
 
 class MultiExponentialConstraint():

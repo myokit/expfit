@@ -103,7 +103,8 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def estimate_initial_single(x, y=None, full=False, plot=False):
+def estimate_initial_single(x, y=None, reject_linear=True,
+                            full=False, plot=False):
     """
     Estimates ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
@@ -151,6 +152,10 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``reject_linear=True``
+        By default, the result is compared to a linear least squares fit and
+        rejected if the straight line fit is comparable. This parameter can be
+        used to disable this check.
     ``full=False``
         Set to ``True`` to store debugging and visualisation information in
         the returned :class:`SingleExponentialEstimate`.
@@ -275,16 +280,17 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
         raise expfit.NotExponentialError('Equal means')
 
     # Catch less obvious straight lines
-    n = len(x)
-    m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
-    m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
-    # Akaike cut-off
-    line = (m2 <= m1 * (2 + n) / n)
-    if not line and m1 == 0:
-        # Ad-hoc comparison for m1 == 0, m2 almost 0
-        line = m2 / abs(A0) < 1e-9
-    if line:
-        raise expfit.NotExponentialError('Straight line')
+    if reject_linear:
+        n = len(x)
+        m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
+        m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
+        # Akaike cut-off
+        line = (m2 <= m1 * (2 + n) / n)
+        if not line and m1 == 0:
+            # Ad-hoc comparison for m1 == 0, m2 almost 0
+            line = m2 / abs(A0) < 1e-9
+        if line:
+            raise expfit.NotExponentialError('Straight line')
 
     return r
 
@@ -307,6 +313,18 @@ def find_action(x, y=None, r_factor=20, n_min=10):
             i, j = zoom_region
             x, y = x[i:j], y[i:j]
 
+    Arguments:
+
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``r_factor``
+        Ratio between ranges that triggers zooming in.
+    ``n_min``
+        Minimum size of zoomed-in on segment.
+
+    Returns the lower and upper indices of the segment where the action
+    happens, or ``None`` if no stand-out segment is found.
     """
     x, y = expfit.TimeSeries._from_xy(x, y)
     n = len(y)
@@ -335,33 +353,22 @@ def find_action(x, y=None, r_factor=20, n_min=10):
     return None
 
 
-def estimate_initial_opposing(x, y, plot=False, vet=True):
+def estimate_initial_opposing(x, y=None, plot=False):
     """
-
-
-
-    TODO
-
-
-
-    Split the time series ``(x, y)`` into two segments, trending in different
-    directions.
+    Estimates parameters for two decaying exponentials with opposite signs.
 
     Arguments:
 
     ``x``, ``y``
-        A time vector and the correspond values. Assumed to be transformed onto
-        the unit square.
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
     ``plot=False``
         Set to ``True`` to create a debugging plot.
-    ``vet=True``
-        Set to ``False`` to disable checks on the dimensions of ``t`` and
-        ``v``. This should only be done if the input data is already vetted.
 
-    Returns .....
+    Returns a parameter set ``(a, b0, c0, b1, c1)`` where ``b0`` and ``c0`` are
+    for the slower exponential in the second part of the signal.
     """
-    if vet:
-        x, y = expfit.vet_series(x, y)
+    x, y = expfit.TimeSeries._from_xy(x, y)
     if len(x) < 10:
         raise ValueError('At least 10 points are required')
 
@@ -373,27 +380,31 @@ def estimate_initial_opposing(x, y, plot=False, vet=True):
     isplit = imn if mn > mx else imx
 
     # Fit exponentials to both segments
-    p0 = a0, b0, c0 = expfit.estimate_initial_single(
-        x[isplit:], y[isplit:], vet=False)
-    a1, b1, c1 = expfit.estimate_initial_single(
-        x[:isplit], y[:isplit] - expfit.expc(x[:isplit], p0), vet=False)
+    try:
+        a0, b0, c0 = p0 = expfit.estimate_initial_single(
+            x[isplit:], y[isplit:])
+        a1, b1, c1 = p1 = expfit.estimate_initial_single(
+            x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0),
+            reject_linear=False)
+    except expfit.NotExponentialError as e:
+        raise expfit.NotOpposingError(str(e))
+
+    # Check results
+    if b0 * b1 >= 0:
+        raise expfit.NotOpposingError()
+    if c0 > 0 or c1 > 0:
+        raise expfit.NotDecayingError()
+
+    # Compare areas (without a)
+    A0 = b0 / c0 * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))
+    A1 = b1 / c1 * (np.exp(c1 * x[-1]) - np.exp(c1 * x[0]))
+    if abs(A1 / A0) < 1e-2:
+        raise expfit.NotOpposingError()
 
     # Create plot
     if plot:  # pragma: no cover
-
-        # TODO MOVE
-
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(14, 9))
-        ax = fig.add_subplot()
-        ax.plot(x, y, 's-' if len(x) < 50 else '-', label='Data')
-        ax.axvline(x[isplit], color='k', ls='--', lw=1, label='Split')
-        ax.plot(x, expfit.expc(x, p0), 'r', label='Dominant')
-        ax.plot(x[:isplit], a1 + y[:isplit] - expfit.expc(x[:isplit], p0),
-                label='Data with dominant subtracted')
-        ax.plot(x, expfit.expc(x, (a0, b1, c1)), 'k', label='Second')
-        ax.plot(x, expfit.expc(x, (a0, b0, c0, b1, c1)), label='Combined')
-        ax.legend()
+        from ._plot import initial_opposing_plot
+        initial_opposing_plot(x, y, isplit, p0, p1)
 
     return a0, b0, c0, b1, c1
 

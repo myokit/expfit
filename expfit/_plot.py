@@ -38,26 +38,27 @@ def nth(i):
     return f'{1 + i}d' if i < 3 else f'{1 + i}th'
 
 
-def exp_plot(t, p):
+def expd_plot(t, p):
     """
-    Plots an exponential, and its individual components.
+    Plots a decaying exponential, and its individual components.
     """
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(11, 7.5))
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95)
     ax = fig.add_subplot()
-    ax.plot(t, expfit.exp(t, p), 'k', label='Combined')
+    ax.plot(t, expfit.expd(t, p), 'k', label='Combined')
 
     # Calculate contribution to area of each
     d = (len(p) - 1) // 2
-    A = np.array(
-        [np.abs(expfit.area(t, p[1 + 2 * i:3 + 2 * i:])) for i in range(d)])
-    Ar = 100 * A / np.sum(A)
+    #A = np.array(
+    #    [np.abs(expfit.area(t, p[1 + 2 * i:3 + 2 * i:])) for i in range(d)])
+    #Ar = 100 * A / np.sum(A)
 
     for i in range(d):
-        ax.plot(t, expfit.exp(t, (p[0], p[1 + 2 * i], p[2 + 2 * i])),
-                label=f'{nth(i)}, A={A[i]:.3} ({Ar[i]:.3}%)')
+        ax.plot(t, expfit.expd(t, (p[0], p[1 + 2 * i], p[2 + 2 * i])),
+                #label=f'{nth(i)}, A={A[i]:.3} ({Ar[i]:.3}%)')
+                )
     ax.legend()
 
 
@@ -100,6 +101,56 @@ def initial_estimate_plot(x, y, estimate):
     ax.plot(x, expfit.exp1(x, estimate), ls='--',
             label=f'Initial estimate ({estimate})')
 
+    ax.legend()
+    return fig, ax
+
+
+def initial_opposing_plot(x, y, isplit, p0, p1):
+    """
+    Creates a plot of an initial estimate for opposing decaying exponentials.
+
+    Arguments:
+
+    ``x``, ``y``
+        The time series.
+    ``isplit``
+        The index in the time series where the split is made.
+    ``p0``
+        The fit to the dominant (slowest) exponential.
+    ``p1``
+        The fit to the faster (initial) exponential.
+
+    """
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=(14, 9))
+
+    fig.subplots_adjust(0.07, 0.07, 0.99, 0.99)
+
+    # Data and split
+    ax = fig.add_subplot()
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+
+    ax.plot(x, y, 's-' if len(x) < 50 else '-', label='Data')
+    ax.axvspan(x[0], x[isplit], color='#ccc')
+    ax.axvline(x[isplit], color='#888', lw=1, label='Split')
+    ax.set_xlim(x[0], x[-1])
+
+    # Dominant
+    ax.plot(x, expfit.exp1(x, p0), '--', label='Dominant')
+
+    # Secondary
+    a0, b0, c0 = p0
+    a1, b1, c1 = p1
+    ax.plot(x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], (0, b0, c0)),
+            color='navy',
+            label='Data with dominant subtracted (offset adjusted)')
+    ax.plot(x, expfit.exp1(x, (a0, b1, c1)), '--',
+            label='Second (offset adjusted)')
+
+    # Final result
+    ax.plot(x, expfit.expd(x, (a0, b0, -1 / c0, b1, -1 / c1)),
+            label='Combined')
     ax.legend()
     return fig, ax
 
@@ -203,34 +254,28 @@ def fit1_plot(xy, q0, r, xy_org, p, pt=None):
     return fig, (ax0, ax1, ax2)
 
 
-def tau_plot(t, v, r, p, p0, pe=None, pt=None):
+def tau_plot(xy, p0, r, p, pt=None):
     """
     Creates a plot of a multi-exponential (decaying) fit, highlighting the time
     constants.
 
     Arguments:
 
-    ``t``, ``v``
-        The time series.
+    ``xy``
+        A :class:`expfit.TimeSeries`.
+    ``p0``
+        An array containing the initial guess.
     ``r``
-        An :class:`LMResult`. This may be in another space than the fit
-        results. Only the
-
-
-
-
+        An :class:`LMResult`. This may be on a transformed parameter space:
+        only the optimiser details are used.
     ``p``
         An :class:`ExponentialFit` for the obtained result.
-    ``p0``
-        An :class:`ExponentialFit` for the initial guess.
-    ``pe``
-        An optional :class:`ExponentialFit` for the initial single exponential
-        estimate.'
     ``pt``
-        An optional :class:`ExponentialFit` for the true parameters.
+        An optional array with the true parameters.
 
     Returns a tuple ``(fig, (main_axes, right_axes, tau_axes))``
     """
+    x, y = xy
     d = (len(p) - 1) // 2
 
     # Can map known to found?
@@ -245,18 +290,18 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
     gr3 = gr1[1, :].subgridspec(1, d)
 
     # Show data
-    code = '-' if len(t) > 10 else 'x-'
+    code = '-' if len(x) > 10 else 'x-'
     ax0 = fig.add_subplot(gr1[0, 0])
-    ax0.set_xlabel('t')
-    ax0.set_ylabel('v')
-    ax0.plot(t, v, code, color='tab:blue', label=f'Data (n={len(t)})')
+    ax0.set_xlabel('x')
+    ax0.set_ylabel('y')
+    ax0.plot(x, y, code, color='tab:blue', label=f'Data (n={len(x)})')
 
     # Try showing known solution
-    e = expfit.exp
+    e = expfit.expd
     if pt is not None:
         for i in range(d):
             pc = (pt[0], pt[1 + 2 * i], pt[2 + 2 * i])
-            ax0.plot(t, e(t, pc), color=colors[i][0],
+            ax0.plot(x, e(x, pc), color=colors[i][0],
                      label=f'Known {nth(i)} ($\\tau$={pt[2 + 2 * i]:.3g})',)
 
     # Show fit
@@ -264,10 +309,10 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
         label = f'Fit ({r.iterations} iter, rmse {np.sqrt(r.error):.4})'
     else:
         label = f'Fit ({r.message}, rmse {np.sqrt(r.error):.4})'
-    ax0.plot(t, e(t, p), lw=1, color='k', label=label)
+    ax0.plot(x, e(x, p), lw=1, color='k', label=label)
 
     # Show parameters
-    p0 = expfit.ExponentialFit(t, v, p0)
+    p0 = expfit.ExponentialFit(p0)   # TODO
     ax0.text(0.5, 1.015, f'Init: {p0}\n Fit: {p}',
              transform=ax0.transAxes, ha='center', font='monospace')
 
@@ -291,15 +336,15 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
         else:
             b = f'{b}, PL Failed)'
         pc = (p[0], p[1 + 2 * i], p[2 + 2 * i])
-        ax0.plot(t, e(t, pc), lw=1, ls='--', color=c, label=b)
+        ax0.plot(x, e(x, pc), lw=1, ls='--', color=c, label=b)
         if profile:
             pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
             pchi = (plo[0], phi[1 + 2 * i], phi[2 + 2 * i])
-            ax0.fill_between(t, e(t, pclo), e(t, pchi), color=c, alpha=0.1)
-            ax0.plot(t, e(t, pclo), lw=0.4, color=c)
-            ax0.plot(t, e(t, pchi), lw=0.4, color=c)
-        #ax0.plot(t, e(t, plo), 'tab:green', ls='--', lw=0.4)
-        #ax0.plot(t, e(t, phi), 'tab:green', ls='--', lw=0.4)
+            ax0.fill_between(x, e(x, pclo), e(x, pchi), color=c, alpha=0.1)
+            ax0.plot(x, e(x, pclo), lw=0.4, color=c)
+            ax0.plot(x, e(x, pchi), lw=0.4, color=c)
+        #ax0.plot(x, e(x, plo), 'tab:green', ls='--', lw=0.4)
+        #ax0.plot(x, e(x, phi), 'tab:green', ls='--', lw=0.4)
 
         # Show profile on dedicated axes
         ax = fig.add_subplot(gr3[0, i])
@@ -315,9 +360,9 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
             ax.axvline(phi[j], color='tab:blue', lw=1, ls='--')
 
         # FIM approximation
-        x = np.linspace(flo, fhi, 100)
+        fx = np.linspace(flo, fhi, 100)
         q = 0.5 / np.diag(np.linalg.inv(p.hes()))
-        ax.plot(x, p.mse() + q[j] * (x - p[j])**2, 'tab:orange', label='FI')
+        ax.plot(fx, p.mse() + q[j] * (fx - p[j])**2, 'tab:orange', label='FI')
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 
@@ -332,20 +377,17 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
 
     # Show initial guess
     ax1 = fig.add_subplot(gr2[0])
-    ax1.set_xlabel('t')
-    ax1.set_ylabel('v')
-    ax1.plot(t, v, code)
-    if pe is not None:
-        ax1.plot(t, e(t, pe), 'k--', lw=1.5,
-                 label=f'Single, $\\tau$={pe[2]:.3g}')
-    ax1.plot(t, e(t, p0), '-', lw=1, label='Initial')
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('y')
+    ax1.plot(x, y, code)
+    ax1.plot(x, e(x, p0), '-', lw=1, label='Initial')
     ax1.legend(frameon=False)
 
     # Show final fit residuals
     ax2 = fig.add_subplot(gr2[1])
-    ax2.set_xlabel('t')
+    ax2.set_xlabel('x')
     ax2.set_ylabel('Residuals')
-    ax2.plot(t, v - e(t, p))
+    ax2.plot(x, y - e(x, p))
     info_axes = [ax1, ax2]
 
     # Show error comparison with known
@@ -358,9 +400,9 @@ def tau_plot(t, v, r, p, p0, pe=None, pt=None):
         padding = 0.25
         s = np.linspace(-padding, 1 + padding, 100)
         r = known - found
-        x = [found + sj * r for sj in s]
-        y = [e.mse(i) for i in x]
-        ax3.plot(s, y, color='green')
+        ex = [found + sj * r for sj in s]
+        ey = [e.mse(i) for i in ex]
+        ax3.plot(s, ey, color='green')
         ax3.axvline(0, color='#1f77b4')
         ax3.axvline(1, color='#7f7f7f')
         emax = p.mse_cutoff()

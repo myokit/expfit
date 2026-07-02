@@ -335,95 +335,58 @@ class TestEstimates(unittest.TestCase):
             plt.show()
         return t.detransform(r)
 
-    '''
     def test_estimate_initial_opposing(self):
-        e = expfit.expc
+        e = expfit.expd
         plot = False
 
-        p = 8, -1, -5, 3, -7
+        p = 8, -1, 0.2, 3, 0.15
         x = np.linspace(0.5, 1.5, 200)
-        q = self.estimate_initial_opposing(x, e(x, p), plot=plot)
-        self.assertAlmostEqual(q[0], 8, delta=0.001)
-        self.assertAlmostEqual(q[1], -1, delta=2)
-        self.assertAlmostEqual(q[2], -5, delta=3)
-        self.assertAlmostEqual(q[3], 3, delta=2)
-        self.assertAlmostEqual(q[4], -7, delta=4)
+        y = e(x, p)
+        q = self.estimate_initial_opposing(x, y, plot=plot)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=0.01)
+        self.assertAlmostEqual(q[1], p[1], delta=1)
+        self.assertAlmostEqual(q[2], p[2], delta=1)
+        self.assertAlmostEqual(q[3], p[3], delta=2)
+        self.assertAlmostEqual(q[4], p[4], delta=.1)
+        self.assertLess(expfit.rmsed(x, y, q), .001)
 
-        p = -3, 10, -6, -200, -10
+        p = -3, 10, 0.17, -200, 0.1
         x = np.linspace(0.5, 1.5, 200)
-        q = self.estimate_initial_opposing(x, e(x, p), plot=plot)
-        self.assertAlmostEqual(q[0], -3, delta=0.005)
-        self.assertAlmostEqual(q[1], 10, delta=10)
-        self.assertAlmostEqual(q[2], -6, delta=3)
-        self.assertAlmostEqual(q[3], -200, delta=120)
-        self.assertAlmostEqual(q[4], -10, delta=2)
-
-        # Test vetting can be disabled
-        x = np.linspace(0, 1, 10)
-        expfit.estimate_initial_opposing(x, e(x, p))
-        self.assertRaisesRegex(
-            ValueError, 'Both arrays in series must have same length',
-            expfit.estimate_initial_opposing, x, e(x[1:], p))
-        self.assertRaisesRegex(
-            ValueError, 'operands could not be broadcast',
-            expfit.estimate_initial_opposing, x, e(x[1:], p), vet=False)
+        y = e(x, p)
+        q = self.estimate_initial_opposing(x, y, plot=plot)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=0.02)
+        self.assertAlmostEqual(q[1], p[1], delta=10)
+        self.assertAlmostEqual(q[2], p[2], delta=.6)
+        self.assertAlmostEqual(q[3], p[3], delta=150)
+        self.assertAlmostEqual(q[4], p[4], delta=.03)
+        self.assertLess(expfit.rmsed(x, y, q), 0.02)
 
         # Test size check
         x = np.linspace(0, 1, 5)
         self.assertRaisesRegex(
             ValueError, 'At least 10 points',
             expfit.estimate_initial_opposing, x, e(x, p))
-    '''
 
-    '''
     def test_find_action(self):
         x = np.linspace(0, 1, 111)
-        y = expfit.exp(x, (8, 2, -1 / 7))
+        y = expfit.exp1(x, (8, 2, 7))
 
-        ij = expfit.
-
-        tr = expfit.ZoomTransform(x, y)
-        a, b, c = 1, 2, 3
-        p, q, r = tr.transform(a, b, c)
-        self.assertEqual(p, a)
-        self.assertAlmostEqual(q, 19.76783796)
-        self.assertAlmostEqual(r, 0.7090909091)
-        u, v, w = tr.detransform(p, q, r)
-        self.assertEqual(u, a)
-        self.assertAlmostEqual(v, b)
-        self.assertEqual(w, c)
-        t, v = np.array([0.5, 0.6, 0.7]), np.array([0.1, 0.2, 0.3])
-        x, y = tr.detransform_series(t, v)
-        self.assertIs(v, y)
-        self.assertEqual(len(x), 3)
-        self.assertAlmostEqual(x[0], 0.88181818)
-        self.assertAlmostEqual(x[1], 0.90545455)
-        self.assertAlmostEqual(x[2], 0.92909091)
+        r = expfit._est.find_action(x, y)
+        self.assertEqual(r, (84, 111))
 
         x = np.linspace(0, 1, 50)
-        y = expfit.exp(x, (1, 1, -1))
-        tr = expfit.ZoomTransform(x, y)
-        a, b, c = 1, 2, 3
-        p, q, r = tr.transform(a, b, c)
-        self.assertEqual(p, a)
-        self.assertEqual(q, b)
-        self.assertEqual(r, c)
-        u, v, w = tr.detransform(p, q, r)
-        self.assertEqual(u, a)
-        self.assertEqual(v, b)
-        self.assertEqual(w, c)
-        t, v = np.array([0.5, 0.6, 0.7]), np.array([0.1, 0.2, 0.3])
-        x, y = tr.detransform_series(t, v)
-        self.assertIs(t, x)
-        self.assertIs(v, y)
-    '''
+        y = expfit.exp1(x, (1, 1, 1))
+        r = expfit._est.find_action(x, y)
+        self.assertIsNone(r)
 
-    '''
+    @unittest.skip
     def test_estimate_noise_level(self):
         # Test noise level estimates
 
         rng = np.random.default_rng(18)
-        f = expfit.exp # CHANGED
+        f = expfit.exp
         plot = False
 
         # Very straight line
@@ -494,7 +457,6 @@ class TestEstimates(unittest.TestCase):
             expfit.estimate_noise_level, x, y)
         # No error:
         expfit.estimate_noise_level(x, y, vet=False)
-    '''
 
 
 if __name__ == '__main__':  # pragma: no cover

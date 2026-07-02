@@ -21,7 +21,7 @@ class TestFitd2(unittest.TestCase):
         # Create in each test and seed!
         cls.r = None
 
-    def d2_on_double(self, a, b, c, d, e, duration=2, n=200, fnoise=0.01, t0=0,
+    def d2_on_double(self, a, b, c, d, e, duration=2, n=200, fnoise=0.01, x0=0,
                      deltas=[], ratio=1, plot=False):
         """
         Tests a double exponential fit to a double exponential signal.
@@ -33,25 +33,29 @@ class TestFitd2(unittest.TestCase):
         parameters, ``ratio`` is the max rmse fit/true ratio, and ``rmse`` is
         the max rmse.
         """
-        t = np.linspace(t0, t0 + duration, n)
-        v = expfit.exp(t, (a, b, c, d, e))
-        v += self.r.normal(0, max(fnoise * abs(v[0] - v[-1]), 1e-9), size=n)
+        x = np.linspace(x0, x0 + duration, n)
+        y = expfit.expd(x, (a, b, c, d, e))
+        y += self.r.normal(0, max(fnoise * abs(y[0] - y[-1]), 1e-9), size=n)
 
         plot_params = (a, b, c, d, e) if plot else False
-        af, bf, cf, df, ef = expfit.fitd2(
-            t, v, plot=plot_params, opt_plot=plot)
-        rt = expfit.rmse(t, v, (a, b, c, d, e))
-        rf = expfit.rmse(t, v, (af, bf, cf, df, ef))
 
+        try:
+            af, bf, cf, df, ef = expfit.fitd2(
+                x, y, plot=plot_params, opt_plot=plot)
+        finally:
+            if plot:
+                import matplotlib.pyplot as plt
+                plt.show()
+
+        rt = expfit.rmsed(x, y, (a, b, c, d, e))
+        rf = expfit.rmsed(x, y, (af, bf, cf, df, ef))
         if plot:  # pragma: no cover
             print(f'RMSE true: {rt}')
             print(f'RMSE fit:  {rf}')
             print(f'ratio: {rf / rt}')
-            import matplotlib.pyplot as plt
-            plt.show()
 
         with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
-                          fnoise=fnoise, t0=t0):
+                          fnoise=fnoise, x0=x0):
             if len(deltas) == 5:
                 self.assertAlmostEqual(af, a, delta=deltas[0])
                 self.assertAlmostEqual(bf, b, delta=deltas[1])
@@ -97,7 +101,7 @@ class TestFitd2(unittest.TestCase):
         dod(18, 10, .17, 5, .08, deltas=(.05, 5, .5, 5, .1), plot=plot)
 
         self.r = np.random.default_rng(1)
-        dod(20, 6, .5, 40, .17, t0=0.5, deltas=(.1, 1, .01, 3, .01), plot=plot)
+        dod(20, 6, .5, 40, .17, x0=0.5, deltas=(.1, 1, .01, 3, .01), plot=plot)
 
         # Fast component is too small
         self.r = np.random.default_rng(6)
@@ -133,7 +137,7 @@ class TestFitd2(unittest.TestCase):
 
         # Non-decreasing
         x = np.linspace(0, 1, 77)
-        y = expfit.exp(x, (1, 2, -3))
+        y = expfit.expd(x, (1, 2, -3))
         self.assertRaises(expfit.NotDecayingError, expfit.fitd2, x, y)
 
 

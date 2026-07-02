@@ -52,9 +52,10 @@ from ._err import (  # noqa
     MultiExponentialError,
     SingleExponentialError,
     TauFormError,
-    exp,
+    expd,
     exp1,
     rmse1,
+    rmsed,
 )
 
 from ._opt import (  # noqa

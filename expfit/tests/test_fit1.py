@@ -26,7 +26,7 @@ class TestFit1(unittest.TestCase):
         # Test return type
         a0, b0, c0 = 3, -3, -4
         x = np.linspace(0, 1, 300)
-        y = expfit.exp(x, (a0, b0, c0))
+        y = expfit.exp1(x, (a0, b0, c0))
         r = np.random.default_rng(5)
         y += r.normal(0, 1)
         p = expfit.fit1(x, y)
@@ -47,15 +47,15 @@ class TestFit1(unittest.TestCase):
         y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
         self.assertRaises(expfit.NotExponentialError, expfit.fit1, x, y)
 
-    def single_on_single(self, a, b, c, duration, n, fnoise=0.01, t0=0,
+    def single_on_single(self, a, b, c, duration, n, fnoise=0.01, x0=0,
                          deltas=[], ratio=1, rmse=None, fails=False,
                          plot=False):
         """
         Fits an exponential to a signal containing an exponential, and returns
         the ratio ``RMSE(fit, noisy) / RMSE(true, noisy)``.
 
-        Creates a signal ``a + b exp(c t)`` with ``n`` points from ``t0`` to
-        ``t0 + duration``, and normally distributed noise with a variance of
+        Creates a signal ``a + b exp(c x)`` with ``n`` points from ``x0`` to
+        ``x0 + duration``, and normally distributed noise with a variance of
         ``fnoise`` times the clea signal's magnitude.
 
         Then fits a signal, and calculates the RMSEs between (1) the noisy
@@ -68,7 +68,7 @@ class TestFit1(unittest.TestCase):
         parameters, ``ratio`` is the max rmse fit/true ratio, and ``rmse`` is
         the max rmse.
         """
-        x = np.linspace(t0, t0 + duration, n)
+        x = np.linspace(x0, x0 + duration, n)
         y = expfit.exp1(x, (a, b, c))
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
@@ -93,7 +93,7 @@ class TestFit1(unittest.TestCase):
             print(f'ratio: {rf / rt}')
 
         with self.subTest(a=a, b=b, c=c, duration=duration, n=n, fnoise=fnoise,
-                          t0=t0):
+                          x0=x0):
             if len(deltas) == 3:
                 self.assertAlmostEqual(af, a, delta=deltas[0])
                 self.assertAlmostEqual(bf, b, delta=deltas[1])
@@ -178,14 +178,14 @@ class TestFit1(unittest.TestCase):
         sos(1000, 8, -0.12, 5, 100000, deltas=(.004, .003, 1e-4), plot=plot)
 
     def single_on_double(self, a, b, c, d, e, duration=1, n=100, fnoise=0.01,
-                         t0=0, rmse=1, plot=False):
+                         x0=0, rmse=1, plot=False):
         """
         Fits a single exponential to a signal containing a double exponential.
 
         Criteria: ``rmse`` is the max rmse.
         """
-        x = np.linspace(t0, t0 + duration, n)
-        y = expfit.exp(x, (a, b, -1 / c, d, -1 / e))
+        x = np.linspace(x0, x0 + duration, n)
+        y = expfit.expd(x, (a, b, -1 / c, d, -1 / e))
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
 
@@ -206,7 +206,7 @@ class TestFit1(unittest.TestCase):
             plt.show()
 
         with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
-                          fnoise=fnoise, t0=t0):
+                          fnoise=fnoise, x0=x0):
             self.assertLess(rf, rmse)
 
     def test_fit1_on_double(self):
@@ -224,14 +224,14 @@ class TestFit1(unittest.TestCase):
         sod(0, 2, -20, 20, -2, rmse=0.5, plot=plot)
 
     def single_on_triple(self, a, b, c, d, e, f, g, duration=1, n=100,
-                         fnoise=0.01, t0=0, rmse=2, plot=False):
+                         fnoise=0.01, x0=0, rmse=2, plot=False):
         """
         Fits a single exponential to a signal containing a double exponential.
 
         Criteria: ``rmse`` is the max rmse.
         """
-        x = np.linspace(t0, t0 + duration, n)
-        y = expfit.exp(x, (a, b, -1 / c, d, -1 / e, f, -1 / g))
+        x = np.linspace(x0, x0 + duration, n)
+        y = expfit.expd(x, (a, b, -1 / c, d, -1 / e, f, -1 / g))
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
 
@@ -253,7 +253,7 @@ class TestFit1(unittest.TestCase):
             plt.show()
 
         with self.subTest(a=a, b=b, c=c, d=d, e=e, duration=duration, n=n,
-                          fnoise=fnoise, t0=t0):
+                          fnoise=fnoise, x0=x0):
             self.assertLess(rf, rmse)
 
     def test_fit1_on_triple(self):
@@ -274,7 +274,7 @@ class TestFit1(unittest.TestCase):
         a0, b0, c0, d0, e0 = 1, -2, 0.1, 0.8, 0.03
         n = 300
         x = np.linspace(0, 1, n)
-        y = expfit.exp(x, (a0, b0, c0, d0, e0))
+        y = expfit.expd(x, (a0, b0, c0, d0, e0))
         y += -0.2 * x
         a, b, c = expfit.fit1(x, y, plot=plot)
         if plot:  # pragma: no cover

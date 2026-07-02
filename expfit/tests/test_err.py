@@ -78,29 +78,70 @@ def mse_jac_hes_fd(x, y, p, dp=1e-6, f=mse):
 class TestError(unittest.TestCase):
     """ Tests the different error classes. """
 
-    def test_exp(self):
-        # Exponential function in tau form
+    def test_exp1(self):
+        # Single exponential function in c-form
+
+        x = np.linspace(0, 1, 123)
+        a, b, c = 1, 2, 3
+        y = a + b * np.exp(c * x)
+        np.testing.assert_array_equal(y, expfit.exp1(x, (a, b, c)))
+
+    def test_expd(self):
+        # Decaying exponential function in tau form
 
         x = np.linspace(0, 1, 123)
         a, b, c = 1, 2, 3
         y = a + b * np.exp(-x / c)
-        np.testing.assert_array_equal(y, expfit.exp(x, (a, b, c)))
+        np.testing.assert_array_equal(y, expfit.expd(x, (a, b, c)))
 
         x = np.linspace(5, 15, 200)
         a, b, c, d, e = 5, 6, 0.2, 8, 0.3
         y = a + b * np.exp(-x / c) + d * np.exp(-x / e)
         np.testing.assert_allclose(
-            y, expfit.exp(x, (a, b, c, d, e)), rtol=1e-15)
+            y, expfit.expd(x, (a, b, c, d, e)), rtol=1e-15)
 
         self.assertRaisesRegex(
-            ValueError, 'number of parameters', expfit.exp, x, (a, b))
+            ValueError, 'number of parameters', expfit.expd, x, (a, b))
+
+    def test_rmse1(self):
+        # RMSE on single exponential in c-form
+
+        x = np.linspace(1, 2, 50)
+        p1 = 3, 2, 3
+        p2 = 4, 7, 2
+        y1 = expfit.exp1(x, p1)
+        y2 = expfit.exp1(x, p2)
+        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
+        self.assertEqual(r, expfit.rmse1(x, y1, p2))
+        self.assertEqual(r, expfit.rmse1(x, y2, p1))
+
+    def test_rmsed(self):
+        # RMSE on multi-exponential in tau form
+
+        x = np.linspace(1, 2, 50)
+        p1 = 3, 2, 3
+        p2 = 4, 7, 2
+        y1 = expfit.expd(x, p1)
+        y2 = expfit.expd(x, p2)
+        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
+        self.assertEqual(r, expfit.rmsed(x, y1, p2))
+        self.assertEqual(r, expfit.rmsed(x, y2, p1))
+
+        x = np.linspace(5, 15, 2000)
+        p1 = 4, 5, -2, 3, -1
+        p2 = 3, 3, -7, 5, -5
+        y1 = expfit.expd(x, p1)
+        y2 = expfit.expd(x, p2)
+        r = np.sqrt(np.sum((y1 - y2)**2) / len(y1))
+        self.assertEqual(r, expfit.rmsed(x, y1, p2))
+        self.assertEqual(r, expfit.rmsed(x, y2, p1))
 
     def test_single_error(self):
         # Test the single exponential error
 
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, (1, 2, -1 / 3))
-        e = expfit.SingleExponentialError(x, y)
+        y = expfit.exp1(x, (1, 2, 3))
+        e = expfit.SingleExponentialError(expfit.TimeSeries(x, y))
         m, j, h = e((1, 2, 3))
         self.assertAlmostEqual(m, 0)
         self.assertEqual(len(j), 3)
@@ -152,27 +193,18 @@ class TestError(unittest.TestCase):
         # Test mse() method
         self.assertEqual(e(p)[0], e.mse(p))
 
-        # Test x, y vs time series gives same results
-        e1 = expfit.SingleExponentialError(x, y)
-        e2 = expfit.SingleExponentialError(expfit.TimeSeries(x, y))
-        self.assertEqual(e1.mse(p), e2.mse(p))
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = e2(p)
-        self.assertEqual(m1, m2)
-        self.assertEqual(list(j1), list(j2))
-        self.assertEqual(h1.shape, h2.shape)
-        self.assertEqual(list(h1[0]), list(h2[0]))
-        self.assertEqual(list(h1[1]), list(h2[1]))
-        self.assertEqual(list(h1[2]), list(h2[2]))
+        # Test n() method
+        self.assertEqual(e.n(), len(x))
 
     def test_multi_error(self):
         # Test the multi exponential error
 
         # Single error comparison: MSE only
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, [1, 2, 1 / 3])
-        e1 = expfit.MultiExponentialError(x, y, 1, 0, True)
-        e2 = expfit.SingleExponentialError(x, y)
+        y = expfit.expd(x, [1, 2, 1 / 3])
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.MultiExponentialError(xy, 1, 0, True)
+        e2 = expfit.SingleExponentialError(xy)
         p0 = np.array([1, 2, -2])
         q0 = np.array([1, np.log(2), np.log(2)])
         self.assertEqual(e1(q0)[0], e2(p0)[0])
@@ -180,9 +212,12 @@ class TestError(unittest.TestCase):
         # Test mse() method
         self.assertEqual(e1(p0)[0], e1.mse(p0))
 
+        # Test n() method
+        self.assertEqual(e1.n(), len(x))
+
         # Multi with zeros
-        e1 = expfit.MultiExponentialError(x, y, 1, 0, True)
-        e2 = expfit.MultiExponentialError(x, y, 2, 0, True)
+        e1 = expfit.MultiExponentialError(xy, 1, 0, True)
+        e2 = expfit.MultiExponentialError(xy, 2, 0, True)
         m1, j1, h1 = e1((0.9, 1.9, 2.9))
         m2, j2, h2 = e2((0.9, 1.9, 2.9, -np.inf, 0))
         self.assertEqual(m1, m2)
@@ -191,8 +226,9 @@ class TestError(unittest.TestCase):
 
         # Multi versus finite differences
         p = np.array([1, 1.1, 0.5, 1.2, 1])
-        y = expfit.exp(x, p)
-        e1 = expfit.MultiExponentialError(x, y, 2, 0, True)
+        y = expfit.expd(x, p)
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.MultiExponentialError(xy, 2, 0, True)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log)
@@ -202,7 +238,7 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
 
-        e1 = expfit.MultiExponentialError(x, y, 2, 1, True)
+        e1 = expfit.MultiExponentialError(xy, 2, 1, True)
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log21)
@@ -220,20 +256,21 @@ class TestError(unittest.TestCase):
             e1.mse, (1, 2))
         self.assertRaisesRegex(
             ValueError, 'with same sign',
-            expfit.MultiExponentialError, x, y, -1, 1, True)
+            expfit.MultiExponentialError, xy, -1, 1, True)
         self.assertRaisesRegex(
             ValueError, 'with same sign',
-            expfit.MultiExponentialError, x, y, 0, 1, True)
+            expfit.MultiExponentialError, xy, 0, 1, True)
         self.assertRaisesRegex(
             ValueError, 'with opposite sign',
-            expfit.MultiExponentialError, x, y, 1, -1, True)
+            expfit.MultiExponentialError, xy, 1, -1, True)
 
     def test_multi_error_transform(self):
         # Transformations
 
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, [1, 2, 0.3])
-        e1 = expfit.MultiExponentialError(x, y, 1, 1, False)
+        y = expfit.expd(x, [1, 2, 0.3])
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.MultiExponentialError(xy, 1, 1, False)
         t = np.array([2, -3, 0.5, 5, 0.1])
         p = np.array([2, -3, -2, 5, -10])
         q = np.array([2, np.log(3), np.log(2), np.log(5), np.log(10)])
@@ -282,9 +319,10 @@ class TestError(unittest.TestCase):
 
         # MSE test against multie error
         x = np.linspace(1, 2, 50)
-        y = expfit.exp(x, [2, 1, 0.5])
-        e1 = expfit.TauFormError(x, y)
-        e2 = expfit.MultiExponentialError(x, y, 1, 1, True)
+        y = expfit.expd(x, [2, 1, 0.5])
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.TauFormError(xy)
+        e2 = expfit.MultiExponentialError(xy, 1, 1, True)
         m1, j1, h1 = e1([5, 2, 0.5, -1, 0.25])
         m2, j2, h2 = e2([5, np.log(2), np.log(2), np.log(1), np.log(4)])
         self.assertEqual(m1, m2)
@@ -292,10 +330,14 @@ class TestError(unittest.TestCase):
         # Test mse() method
         self.assertEqual(e1([1, 2, 3, 4, 5])[0], e1.mse([1, 2, 3, 4, 5]))
 
+        # Test n() method
+        self.assertEqual(e1.n(), len(x))
+
         # Test against finite differences
         p = np.array([1, 1.1, 0.5, 1.2, 1])
-        y = expfit.exp(x, p)
-        e1 = expfit.TauFormError(x, y)
+        y = expfit.expd(x, p)
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.TauFormError(xy)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
@@ -305,7 +347,6 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
         self.assertTrue(np.all(np.abs(h1 - h2) < 1e-5))
 
-        e1 = expfit.TauFormError(x, y)
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e1(p)
         m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
@@ -326,8 +367,9 @@ class TestError(unittest.TestCase):
         # Test the wrapper that fixes a single parameter
 
         x = np.linspace(0, 1, 123)
-        y = expfit.exp(x, (1, 2, 3))
-        e1 = expfit.MultiExponentialError(x, y, 1, 0, False)
+        y = expfit.expd(x, (1, 2, 3))
+        xy = expfit.TimeSeries(x, y)
+        e1 = expfit.MultiExponentialError(xy, 1, 0, False)
         e2 = expfit.ErrorWithFixedParameter(e1, (2, 3, 4), 0)
         m1, j1, h1 = e1((2, 4, 5))
         m2, j2, h2 = e2((4, 5))

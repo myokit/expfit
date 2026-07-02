@@ -130,21 +130,24 @@ class UnitSquaredSeries(TimeSeries):
 
     def transform(self, p):
         """
-        Transform parameters ``p = (a, b, c)`` to the unit square parameters.
+        Transform parameters ``p = (a, b, c)`` (or more generally
+        ``p = (a, b1, c1, b2, ...)``` to the unit square parameters.
         """
-        a, b, c = p
-        p = (a - self._y0) / self._ry
-        q = b / self._ry * np.exp(c * self._x0)
-        r = c * self._rx
-        return np.array((p, q, r))
+        p = np.asarray(p[0] if len(p) == 1 else p, dtype=float)
+        q = np.copy(p)
+        q[0] = (p[0] - self._y0) / self._ry
+        q[1::2] = p[1::2] / self._ry * np.exp(p[2::2] * self._x0)
+        q[2::2] = p[2::2] * self._rx
+        return q
 
     def detransform(self, q):
         """
-        Detransform unit square parameters to the original ``(a, b, c)`` space.
+        Detransform unit square parameters to the original parameter space.
         """
-        p, q, r = q
-        a = self._y0 + self._ry * p
-        b = q * self._ry * np.exp(-r * self._x0 / self._rx)
-        c = r / self._rx
-        return np.array((a, b, c))
+        q = np.asarray(q[0] if len(q) == 1 else q, dtype=float)
+        p = np.copy(q)
+        p[0] = self._y0 + self._ry * q[0]
+        p[1::2] = q[1::2] * self._ry * np.exp(-q[2::2] * self._x0 / self._rx)
+        p[2::2] = q[2::2] / self._rx
+        return p
 

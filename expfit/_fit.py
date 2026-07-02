@@ -76,21 +76,22 @@ def fit1(x, y=None, plot=False, opt_plot=False):
     return p
 
 
-def fitd2(t, v, plot=False, opt_plot=False):
+def fitd2(x, y, plot=False, opt_plot=False):
     """
     Fits a decaying double-exponential to a time series, with equal signed
     multipliers for both components.
 
     Returns parameters for::
 
-        v = a + b_0 * exp(-t / tau_0) + b_1 * exp(-t / tau_1)
+        y = a + b_0 * exp(-t / tau_0) + b_1 * exp(-t / tau_1)
 
     where ``tau_0 > tau_1``.
 
     Arguments:
 
-    ``t``, ``v``
-        The time series
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
     ``plot``
         Optional parameter to create a plot showing the final results,
         including confidence intervals on the time constants.
@@ -99,15 +100,17 @@ def fitd2(t, v, plot=False, opt_plot=False):
 
     Returns an :class:`ExponentialFit`.
     """
-    t, v = expfit.vet_series(t, v)
+    x, y = xy = expfit.TimeSeries._from_xy(x, y)
 
     # Convert `plot` to boolean
     pt = plot
     plot = plot is not False
 
-    # Estimate the dominant rate
-    tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False)
+    # Estimate the dominant rate on unit-transformed data
+    tr = xy
+    if not isinstance(tr, expfit.UnitSquaredSeries):
+        tr = expfit.UnitSquaredSeries(*xy)
+    q0 = expfit.estimate_initial_single(tr)
     a0, b0, c0 = tr.detransform(q0)
     del tr, q0
 
@@ -121,8 +124,8 @@ def fitd2(t, v, plot=False, opt_plot=False):
 
     # Fit double (in untransformed space)
 
-    # Calculate area, to determine new b constants
-    A0 = (b0 / c0) * (np.exp(c0 * t[-1]) - np.exp(c0 * t[0]))
+    # Calculate area (ignoring a), to determine new b constants
+    A0 = (b0 / c0) * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))
 
     # Assume dominant (slowest) rate found, next will be faster
     p0 = np.array((a0, b0, c0, b0, c0), dtype=float)
@@ -130,7 +133,7 @@ def fitd2(t, v, plot=False, opt_plot=False):
     p0[2] *= 0.5    # The first c will be overestimated
 
     # Set up error
-    e = expfit.MultiExponentialError(t, v, 2, 0, b0 > 0)
+    e = expfit.MultiExponentialError(xy, 2, 0, b0 > 0)
 
     max_iter = 10
     opt_fig = opt_plot
@@ -139,8 +142,8 @@ def fitd2(t, v, plot=False, opt_plot=False):
         p0[4] *= 1.4
 
         # Set b constants to get same area under the curve as original estimate
-        A1 = p0[1] / p0[2] * (np.exp(p0[2] * t[-1]) - np.exp(p0[2] * t[0]))
-        A2 = p0[3] / p0[4] * (np.exp(p0[4] * t[-1]) - np.exp(p0[4] * t[0]))
+        A1 = p0[1] / p0[2] * (np.exp(p0[2] * x[-1]) - np.exp(p0[2] * x[0]))
+        A2 = p0[3] / p0[4] * (np.exp(p0[4] * x[-1]) - np.exp(p0[4] * x[0]))
         p0[1] = p0[3] = b0 * (A0 / (A1 + A2))
 
         # Fit with transformed parameters
@@ -158,23 +161,23 @@ def fitd2(t, v, plot=False, opt_plot=False):
     #print(f'Done in {1 + i} repeats. Last opt had {r.iterations} iter.')
 
     # Detransform parameters
-    et = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
+    p_tau = e.detransform(r.x, tau=True)
+    e_tau = expfit.TauFormError(xy)
+    p = expfit.ExponentialFit(p_tau, e_tau)
 
     if plot:  # pragma: no cover
         from ._plot import tau_plot
-        p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
-        pe = expfit.ExponentialFit(t, v, (a0, b0, -1 / c0), et)
+        p0[2::2] = -1 / p0[2::2]
         try:
             assert len(pt) == 5
         except (TypeError, AssertionError):
             pt = None
-        tau_plot(t, v, r, p, p0, pe, pt)
+        tau_plot(xy, p0, r, p, pt)
 
     return p
 
 
-def fitd11(t, v, plot=False, opt_plot=False):
+def fitd11(x, y=None, plot=False, opt_plot=False):
     """
     Fits a decaying double-exponential to a time series, with opposite signed
     multipliers for both components.
@@ -187,8 +190,9 @@ def fitd11(t, v, plot=False, opt_plot=False):
 
     Arguments:
 
-    ``t``, ``v``
-        The time series
+    ``x``, ``y``
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
     ``plot``
         Optional parameter to create a plot showing the final results,
         including confidence intervals on the time constants.
@@ -197,26 +201,25 @@ def fitd11(t, v, plot=False, opt_plot=False):
 
     Returns an :class:`ExponentialFit`.
     """
-    t, v = expfit.vet_series(t, v)
+    x, y = xy = expfit.TimeSeries._from_xy(x, y)
 
     # Convert `plot` to boolean
     pt = plot
     plot = plot is not False
 
-    # Perform initial estimates in transformed space
-    tr = expfit.UnitSquareTransform(t, v)
-    q0 = expfit.estimate_initial_opposing(tr.x, tr.y, vet=False)
+    # Perform initial estimates on unit-transformed data
+    tr = xy
+    if not isinstance(tr, expfit.UnitSquaredSeries):
+        tr = expfit.UnitSquaredSeries(*xy)
+    try:
+        q0 = expfit.estimate_initial_opposing(tr)
+    except expfit.NotExponentialError as e:
+        raise expfit.NotOpposingError(str(e))
     p0 = tr.detransform(q0)
     del tr, q0
 
-    # Catch edge cases
-    if p0[1] * p0[3] >= 0:
-        raise expfit.NotOpposingError()
-    if p0[2] > 0 or p0[4] > 0:
-        raise expfit.NotDecayingError()
-
     # Fit double
-    e = expfit.MultiExponentialError(t, v, 1, 1, p0[1] > 0)
+    e = expfit.MultiExponentialError(xy, 1, 1, p0[1] > 0)
     q0 = e.transform(p0)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)
@@ -224,17 +227,18 @@ def fitd11(t, v, plot=False, opt_plot=False):
             print(r)
 
     # Detransform parameters
-    et = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, e.detransform(r.x, True), et)
+    p_tau = e.detransform(r.x, tau=True)
+    e_tau = expfit.TauFormError(xy)
+    p = expfit.ExponentialFit(p_tau, e_tau)
 
     if plot:  # pragma: no cover
         from ._plot import tau_plot
-        p0 = expfit.ExponentialFit(t, v, e.detransform(q0, True), et)
+        p0[2::2] = -1 / p0[2::2]
         try:
             assert len(pt) == 5
         except (TypeError, AssertionError):
             pt = None
-        tau_plot(t, v, r, p, p0, pt=pt)
+        tau_plot(xy, p0, r, p, pt=pt)
 
     return p
 
@@ -251,7 +255,7 @@ def auto(t, v, plot=False, opt_plot=False):
     # Transform to unit square
     tr = expfit.UnitSquareTransform(t, v)
 
-    # TODO: Do everything in transformed space
+    # TODO: Do everything in transformed space?
     q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False, plot=True)
     p0 = tr.detransform(q0)
     del tr, q0

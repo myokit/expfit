@@ -38,17 +38,20 @@ class Linear1d():
     def mse(self, p):
         return self._m * np.sum((p[0] + p[1] * self._x - self._y)**2)
 
+    def n(self):
+        return len(self._x)
+
 
 def fit(x, y):
     """
     Fit the series ``(x, y)`` with a linear model, returning an object that can
     do CI.
     """
-    x, y = expfit.vet_series(x, y)
+    x, y = expfit.TimeSeries(x, y)
     f = Linear1d(x, y)
     with np.errstate(all='ignore'):
         r = expfit.lm(f, (1, 1))
-    r = expfit.ExponentialFit(x, y, r.x, f)
+    r = expfit.ExponentialFit(r.x, f)
     return r
 
 
@@ -245,7 +248,7 @@ class TestCI(unittest.TestCase):
         p0 = np.array([1, -9, 0.5, -4, .14])
         n = 100
         t = np.linspace(0, 2, n)
-        v = expfit.exp(t, p0)
+        v = expfit.expd(t, p0)
         v += self.r.normal(0, 0.01 * abs(v[0] - v[-1]), size=n)
 
         p = expfit.fitd2(t, v, plot=p0 if plot else False)
@@ -279,7 +282,7 @@ class TestCI(unittest.TestCase):
 
     def test_no_error(self):
         # Exponential fit without error
-        e = expfit.ExponentialFit([1, 2], [3, 4], [5])
+        e = expfit.ExponentialFit([5])
         self.assertFalse(e.ci_available())
         self.assertRaises(expfit.CIUnavailableError, e.ci_fisher, 0)
         self.assertRaises(expfit.CIUnavailableError, e.cov)
@@ -289,9 +292,8 @@ class TestCI(unittest.TestCase):
         self.assertRaises(expfit.CIUnavailableError, e.mse_cutoff, 0)
 
         # Test with error returning function
-        x, y = np.array([1, 2]), np.array([3, 4])
-        f = Linear1d(x, y)
-        e = expfit.ExponentialFit(x, y, [5], f)
+        f = Linear1d(np.array([1, 2]), np.array([3, 4]))
+        e = expfit.ExponentialFit([5], f)
         self.assertTrue(e.ci_available())
         self.assertIs(e.error(), f)
 
@@ -302,7 +304,7 @@ class TestCI(unittest.TestCase):
         y = np.array([2, 3, 4])
         f = Linear1d(x, y)
         cl = expfit.CLevel(95)
-        e = expfit.ExponentialFit(x, y, [1, 1], f)
+        e = expfit.ExponentialFit([1, 1], f)
         self.assertEqual(e.mse_cutoff(cl) / (1 + cl.chi2() / 3), 1)
         self.assertEqual(e.mse_cutoff(95) / (1 + cl.chi2() / 3), 1)
 
@@ -313,12 +315,12 @@ class TestCI(unittest.TestCase):
         y = np.array([2, 3, 4])
         p = np.array([-1, 2])
         f = Linear1d(x, y)
-        e = expfit.ExponentialFit(x, y, p, f)
+        e = expfit.ExponentialFit(p, f)
         mse, jac, hes = f(p)
         self.assertEqual(e.mse(), mse)
-        e = expfit.ExponentialFit(x, y, p, f)
+        e = expfit.ExponentialFit(p, f)
         self.assertEqual(list(e.jac()), list(jac))
-        e = expfit.ExponentialFit(x, y, p, f)
+        e = expfit.ExponentialFit(p, f)
         h2 = e.hes()
         self.assertEqual(h2.shape, (2, 2))
         self.assertEqual(list(h2[0]), list(hes[0]))

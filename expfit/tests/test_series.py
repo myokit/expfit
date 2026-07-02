@@ -34,7 +34,7 @@ class TestTimeSeries(unittest.TestCase):
             expfit.TimeSeries, y, x)
 
         # Size-1 counts as increasing
-        t, v = expfit.TimeSeries([1], [2])
+        expfit.TimeSeries([1], [2])
 
         # Not the same size
         self.assertRaisesRegex(
@@ -132,7 +132,7 @@ class TestTimeSeries(unittest.TestCase):
 
     def test_unit_transformed(self):
 
-        # t0=1, v0=1, rt=4, rv=8
+        # x0=1, v0=1, rt=4, rv=8
         x = np.array([3, 4, 5, 6, 7])  # Note x[0] != y[0], ranges not equal
         y = np.array([2, 9, 1, 8, 7])
         x, y = tr = expfit.UnitSquaredSeries(x, y)
@@ -148,7 +148,7 @@ class TestTimeSeries(unittest.TestCase):
         self.assertAlmostEqual(v, b)
         self.assertEqual(w, c)
 
-        # t0=0, v0=-1, rt=1, rv=10
+        # x0=0, v0=-1, rt=1, rv=10
         x = np.array([0, 0.5, 1])
         y = np.array([1, -1, 9])
         x, y = tr = expfit.UnitSquaredSeries(x, y)
@@ -167,6 +167,18 @@ class TestTimeSeries(unittest.TestCase):
         self.assertEqual(u, a)
         self.assertEqual(v, b)
         self.assertEqual(w, c)
+
+        # Transforming multiple parameters (for opposing exponentials)
+        p = 4, 2, -0.5, 3, 2
+        q = tr.transform(p)
+        self.assertEqual(len(q), len(p))
+        self.assertEqual(q[0], (p[0] + 1) / 10)
+        self.assertEqual(q[1], p[1] / 10)
+        self.assertEqual(q[2], p[2])
+        self.assertEqual(q[3], p[3] / 10)
+        self.assertEqual(q[4], p[4])
+        r = tr.detransform(q)
+        self.assertEqual(list(r), list(p))
 
 
 if __name__ == '__main__':  # pragma: no cover
