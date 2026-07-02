@@ -34,7 +34,7 @@ def exp1(x, p):
 
 def rmse1(x, y, p):
     """
-    Returns the RMSE between ``y`` and an exponential
+    Returns the RMSE between ``y`` and a single exponential
     ``p[0] + p[1] * exp(p[1] * x``.
 
     **Note**: the returned RMSE is the root of the MSE returned by

@@ -104,26 +104,26 @@ def initial_estimate_plot(x, y, estimate):
     return fig, ax
 
 
-def fit1_plot(x, y, tr, r, p, q0, pt=None):
+def fit1_plot(xy, q0, r, xy_org, p, pt=None):
     """
     Creates a plot of a single-exponential fit, highlighting the initial
     estimate.
 
     Arguments:
 
-    ``x``, ``y``
-        The untransformed time series.
-    ``tr``
-        A :class:`UnitSquaredSeries` on ``(x, y)``.
-    ``r``
-        An :class:`LMResult`, in transformed space.
-    ``p``
-        An :class:`ExponentialFit` result.
+    ``xy``
+        A, possibly transformed, time series.
     ``q0``
-        A :class:`SingleExponentialEstimate`, in transformed space.
+        A :class:`SingleExponentialEstimate`, obtained on ``xy``.
+    ``r``
+        An :class:`LMResult`, obtained on ``xy``.
+    ``xy_org``
+        An untransformed time series.
+    ``p``
+        An :class:`ExponentialFit` result, in untransformed (``xy_org``) space.
     ``pt``
         An optional parameter vector with the known solution, in untransformed
-        space.
+        (``xy_org``) space.
 
     Returns a tuple ``(fig, (ax0, ax1, ax2))``.
     """
@@ -137,13 +137,14 @@ def fit1_plot(x, y, tr, r, p, q0, pt=None):
     ax0.set_ylabel('y (transformed)')
 
     # Transformed data
-    ls, color = ('-', '#92cc92') if len(tr.x) > 10 else ('x-', 'tab:green')
-    ax0.plot(tr.x, tr.y, ls, color=color, label='Transformed data')
+    x, y = xy
+    ls, color = ('-', '#92cc92') if len(x) > 10 else ('x-', 'tab:green')
+    ax0.plot(x, y, ls, color=color, label='Transformed data')
 
     # Initial estimate and selected segments
     f1 = lambda p: ', '.join(f'{i:.3}' for i in p)
-    rmse_q0 = expfit.rmse1(tr.x, tr.y, q0)
-    ax0.plot(tr.x, expfit.exp1(tr.x, q0), '-',
+    rmse_q0 = expfit.rmse1(x, y, q0)
+    ax0.plot(x, expfit.exp1(x, q0), '-',
         label=f'Initial ({f1(q0)}), RMSE {rmse_q0:.4}')
     if q0.log1 is not None and len(q0.log1) > 0:
         lsfit = q0.log1[-1]
@@ -158,18 +159,22 @@ def fit1_plot(x, y, tr, r, p, q0, pt=None):
     label = f'RMSE {np.sqrt(r.error):.4}'
     label = (f'Fit ({f1(r.x)}), {r.iterations} iter, {label}' if r.success else
              f'Fit ({f1(r.x)}), {r.message}, {label}')
-    ax0.plot(tr.x, expfit.exp1(tr.x, r.x), '--', label=label)
+    ax0.plot(x, expfit.exp1(x, r.x), '--', label=label)
     ax0.legend()
 
     # Show numerical results
     f2 = lambda p: ' '.join(f'{i:+.5e}' for i in p)
-    p0 = tr.detransform(q0)
+    try:
+        p0 = xy.detransform(q0)
+    except AttributeError:
+        p0 = q0
     lines = [f'Transformed Init: {f2(q0)}', f'             Fit:  {f2(r.x)}',
              f'Real-world  Init: {f2(p0)}', f'             Fit:  {f2(p)}']
     ax0.text(0.75, -0.38, '\n'.join(lines), transform=ax0.transAxes,
              ha='right', font='monospace')
 
-    # Show the residuals for initial estimate, fit, and true
+    # Show detransformed residuals for initial estimate, fit, and true
+    x, y = xy_org
     ax1 = fig.add_subplot(2, 2, 3)
     ax1.set_xlabel('x')
     ax1.set_ylabel('Residuals')

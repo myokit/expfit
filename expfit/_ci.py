@@ -30,19 +30,16 @@ class ExponentialFit:
 
     Arguments:
 
-    ``x``, ``y``
-        The time series.
     ``p``
         The obtained parameters.
     ``error``
-        An optional error object, used in CI methods.
+        An optional error object. When provided, confidence intervals and
+        profiling are enabled.
 
     """
-    def __init__(self, x, y, p, error=None):
-        self._xy = x, y
-        self._p = tuple(p)
+    def __init__(self, p, error=None):
+        self._p = np.copy(p)
         self._np = len(self._p)
-        self._nx = len(x)
 
         self._err = error
         self._mjh = None
@@ -313,6 +310,11 @@ class ExponentialFit:
                 r = expfit.lm(f, p, gtol=gtol)
                 errors[j] = r.error
         return values, errors
+
+    def time_series(self):
+        """ Returns the time series this result was obtained for. """
+        return self._xy
+
 
 
 class CLevel():

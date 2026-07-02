@@ -34,9 +34,10 @@ def fit1(x, y=None, plot=False, opt_plot=False):
 
     Returns a tuple ``(a, b, c)``.
     """
-    xy = expfit.TimeSeries._from_xy(x, y)
-    if not isinstance(xy, expfit.UnitSquaredSeries):
+    xy = xy_org = expfit.TimeSeries._from_xy(x, y)
+    if not isinstance(xy_org, expfit.UnitSquaredSeries):
         xy = expfit.UnitSquaredSeries(*xy)
+    del x, y
 
     # Convert `plot` to boolean
     pt = plot
@@ -47,27 +48,31 @@ def fit1(x, y=None, plot=False, opt_plot=False):
     q0 = expfit.estimate_initial_single(xy, full=plot)
 
     # Fit
-    e = expfit.SingleExponentialError(xy.x, xy.y)
+    e = expfit.SingleExponentialError(xy)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)
         if plot:  # pragma: no cover
             print(r)
 
-    # Transform back to original parameters
-    p = xy.detransform(r.x)
+    # Create result object with CI capabilities, on original data
+    p = expfit.ExponentialFit(
+        xy.detransform(r.x), expfit.SingleExponentialError(xy_org))
 
+    # Plot, especially when not successful
     if plot:  # pragma: no cover
         from ._plot import fit1_plot
         try:
             assert len(pt) == 3
         except (TypeError, AssertionError):
             pt = None
-        fit1_plot(x, y, xy, r, p, q0, pt)
+        fit1_plot(xy, q0, r, xy_org, p, pt)
 
+    # Fail if optimisation failed, but still provide parameters
     if not r.success:
         raise expfit.FitFailedError(
             f'Fit failed with optimiser message: {r.message}', r, p)
 
+    # Create CI-enabled parameter set and return
     return p
 
 

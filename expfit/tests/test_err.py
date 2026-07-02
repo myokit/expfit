@@ -152,6 +152,19 @@ class TestError(unittest.TestCase):
         # Test mse() method
         self.assertEqual(e(p)[0], e.mse(p))
 
+        # Test x, y vs time series gives same results
+        e1 = expfit.SingleExponentialError(x, y)
+        e2 = expfit.SingleExponentialError(expfit.TimeSeries(x, y))
+        self.assertEqual(e1.mse(p), e2.mse(p))
+        m1, j1, h1 = e1(p)
+        m2, j2, h2 = e2(p)
+        self.assertEqual(m1, m2)
+        self.assertEqual(list(j1), list(j2))
+        self.assertEqual(h1.shape, h2.shape)
+        self.assertEqual(list(h1[0]), list(h2[0]))
+        self.assertEqual(list(h1[1]), list(h2[1]))
+        self.assertEqual(list(h1[2]), list(h2[2]))
+
     def test_multi_error(self):
         # Test the multi exponential error
 

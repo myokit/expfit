@@ -165,6 +165,7 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     xy_no_zoom = expfit.TimeSeries._from_xy(x, y)
     if len(xy_no_zoom[0]) < 3:
         raise ValueError('At least 3 points are required')
+    del x, y
 
     # Full information is returned if plot=True
     full = full or plot
