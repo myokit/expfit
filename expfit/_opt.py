@@ -97,8 +97,12 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     to be accepted. The scaling factor is decreased with every successful step
     (converging to a Newton iteration) and increased with every rejection.
 
+
+
     The method halts successfully when the norm of the Jacobian goes below
     ``gtol``.
+
+
 
     Arguments:
 
@@ -211,6 +215,11 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
         if ok:
             if verbose:  # pragma: no cover
                 print('Accepted')
+
+            #jhj = j.T.dot(np.linalg.inv(h).dot(j))
+            #jhj = j.T.dot(np.linalg.inv(h + float(alpha) * eye * h).dot(j))
+            #print(np.linalg.norm(j), np.max(np.abs(2 * (ps - p) / (ps + p))), jhj)
+
             alpha *= 0.5
             p = ps
             m, j, h = fs
@@ -220,13 +229,15 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
                 print(f'Rejected ({fs[0]}, {m})')
             alpha *= 10
             if alpha > 1e20:  # pragma: no cover
-                err = 'Lambda factor grew too large'
+                err = 'Too many successive failed steps'
 
         if verbose:  # pragma: no cover
             print()
 
         if ok and plot is not False:  # pragma: no cover
             log.append([p[0], m, alpha])
+
+    #print()
 
     # Create result object
     res = LMResult()
