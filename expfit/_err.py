@@ -176,18 +176,18 @@ class MultiExponentialError():
 
     ``xy``
         A :class:`TimeSeries`.
-    ``m_dominant``
+    ``m_dom``
         The number of exponential terms with the same sign as the dominant
         term.
-    ``m_opposite``
+    ``m_opp``
         The number of exponential terms with the opposite sign to the dominant
         term.
-    ``dominant_positive``
+    ``dom_pos``
         Determines the sign (strictly positive or negative) of the dominant
         exponential term.
 
     """
-    def __init__(self, xy, m_dominant, m_opposite, dominant_positive):
+    def __init__(self, xy, m_dom, m_opp, dom_pos):
         # Time series
         self._x, self._y = xy
         self._n = len(self._x)
@@ -195,7 +195,7 @@ class MultiExponentialError():
         self._n2 = 2 * self._ni
 
         # Terms
-        m_dom, m_opp = int(m_dominant), int(m_opposite)
+        m_dom, m_opp = int(m_dom), int(m_opp)
         if m_dom < 1:
             raise ValueError(
                 'Number of exponential terms with same sign as dominant term'
@@ -208,9 +208,8 @@ class MultiExponentialError():
         self._np = 1 + 2 * self._m
 
         # Multipliers
-        self._z = np.ones(self._m) * (1 if dominant_positive else -1)
+        self._z = np.ones(self._m) * (1 if dom_pos else -1)
         self._z[m_dom:] *= -1
-
 
     def __call__(self, p):
         if len(p) != self._np:
