@@ -10,69 +10,7 @@ import unittest
 import numpy as np
 
 import expfit
-
-
-def mse(x, y, p):
-    """ Multi-exponential mean-squared error. """
-    m = (len(p) - 1) // 2
-    p = np.asarray(p)
-    b = p[1::2].reshape((m, 1))
-    c = p[2::2].reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
-
-
-def mse_log(x, y, p):
-    """ Log-transformed multi-exponential MSE, all positive b. """
-    m = (len(p) - 1) // 2
-    p = np.asarray(p)
-    b = np.exp(p[1::2]).reshape((m, 1))
-    c = -np.exp(p[2::2]).reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
-
-
-def mse_log21(x, y, p):
-    """ Log-transformed multi-exponential MSE, 2 positive, 1 negative b. """
-    m = (len(p) - 1) // 2
-    p = np.asarray(p)
-    b = np.exp(p[1::2]).reshape((m, 1))
-    b[-1] *= -1
-    c = -np.exp(p[2::2]).reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
-
-
-def mse_tau(x, y, p):
-    """ Tau-form multi-exponential MSE. """
-    d = len(p)
-    m = (d - 1) // 2
-    p = np.asarray(p)
-    b = p[1::2].reshape((m, 1))
-    c = -1 / p[2::2].reshape((m, 1))
-    return np.sum((p[0] - y + np.sum(b * np.exp(c * x), axis=0))**2) / len(x)
-
-
-def mse_jac_fd(x, y, p, dp, f=mse):
-    """ Multi-exponential MSE plus jacobian by finite differences. """
-    e = f(x, y, p)
-    jac = np.zeros(len(p))
-    p = np.array(p, dtype=float)
-    for i in range(len(p)):
-        q = np.copy(p)
-        q[i] += dp
-        jac[i] = (f(x, y, q) - e) / dp
-    return e, jac
-
-
-def mse_jac_hes_fd(x, y, p, dp=1e-6, f=mse):
-    """ Multi-exponential MSE, Jacobian, and Hessian by finite differences. """
-    d = len(p)
-    mse, jac = mse_jac_fd(x, y, p, dp, f=f)
-    hes = np.zeros((d, d))
-    p = np.array(p, dtype=float)
-    for i in range(len(p)):
-        q = np.copy(p)
-        q[i] += dp
-        hes[i] = (mse_jac_fd(x, y, q, dp, f=f)[1] - jac) / dp
-    return mse, jac, hes
+from expfit.tests import FDError, FDErrorMulti, FDErrorTau
 
 
 class TestError(unittest.TestCase):
@@ -177,15 +115,16 @@ class TestError(unittest.TestCase):
         self.assertEqual(h[2, 1], h[1, 2])
 
         p = (1.1, 2.2, 3.1)
+        fd = FDError(x, y)
         m1, j1, h1 = e(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p)
+        m2, j2, h2 = fd(p)
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 4e-4))
         self.assertTrue(np.all(np.abs(h1 - h2) < 2e-2))
 
         p = (0.9, 1.9, 2.9)
         m1, j1, h1 = e(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p)
+        m2, j2, h2 = fd(p)
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 4e-4))
         self.assertTrue(np.all(np.abs(h1 - h2) < 2e-2))
@@ -203,17 +142,17 @@ class TestError(unittest.TestCase):
         x = np.linspace(0, 1, 123)
         y = expfit.expd(x, [1, 2, 1 / 3])
         xy = expfit.TimeSeries(x, y)
-        e1 = expfit.MultiExponentialError(xy, 1, 0, True)
-        e2 = expfit.SingleExponentialError(xy)
+        e = expfit.MultiExponentialError(xy, 1, 0, True)
+        es = expfit.SingleExponentialError(xy)
         p0 = np.array([1, 2, -2])
         q0 = np.array([1, np.log(2), np.log(2)])
-        self.assertEqual(e1(q0)[0], e2(p0)[0])
+        self.assertEqual(e(q0)[0], es(p0)[0])
 
         # Test mse() method
-        self.assertEqual(e1(p0)[0], e1.mse(p0))
+        self.assertEqual(e(p0)[0], e.mse(p0))
 
         # Test n() method
-        self.assertEqual(e1.n(), len(x))
+        self.assertEqual(e.n(), len(x))
 
         # Multi with zeros
         e1 = expfit.MultiExponentialError(xy, 1, 0, True)
@@ -228,20 +167,22 @@ class TestError(unittest.TestCase):
         p = np.array([1, 1.1, 0.5, 1.2, 1])
         y = expfit.expd(x, p)
         xy = expfit.TimeSeries(x, y)
-        e1 = expfit.MultiExponentialError(xy, 2, 0, True)
+        e = expfit.MultiExponentialError(xy, 2, 0, True)
+        fd = FDErrorMulti(x, y, 2, 0, True)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log)
+        m1, j1, h1 = e(p)
+        m2, j2, h2 = fd(p)
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
         self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
         self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
 
-        e1 = expfit.MultiExponentialError(xy, 2, 1, True)
+        e = expfit.MultiExponentialError(xy, 2, 1, True)
+        fd = FDErrorMulti(x, y, 2, 1, True)
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_log21)
+        m1, j1, h1 = e(p)
+        m2, j2, h2 = fd(p)
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
@@ -250,10 +191,13 @@ class TestError(unittest.TestCase):
 
         self.assertRaisesRegex(
             ValueError, 'Expecting 7 parameters, got 2.',
-            e1, (1, 2))
+            e, (1, 2))
         self.assertRaisesRegex(
-            ValueError, 'Expecting 7 parameters, got 2.',
-            e1.mse, (1, 2))
+            ValueError, 'Expecting 7 parameters, got 8.',
+            e, (1, 2, 3, 4, 5, 6, 7, 8))
+        self.assertRaisesRegex(
+            ValueError, 'Expecting 7 parameters, got 3.',
+            e.mse, (1, 2, 3))
         self.assertRaisesRegex(
             ValueError, 'with same sign',
             expfit.MultiExponentialError, xy, -1, 1, True)
@@ -270,12 +214,12 @@ class TestError(unittest.TestCase):
         x = np.linspace(0, 1, 123)
         y = expfit.expd(x, [1, 2, 0.3])
         xy = expfit.TimeSeries(x, y)
-        e1 = expfit.MultiExponentialError(xy, 1, 1, False)
+        e = expfit.MultiExponentialError(xy, 1, 1, False)
         t = np.array([2, -3, 0.5, 5, 0.1])
         p = np.array([2, -3, -2, 5, -10])
         q = np.array([2, np.log(3), np.log(2), np.log(5), np.log(10)])
 
-        r = e1.transform(p, False)
+        r = e.transform(p, False)
         self.assertEqual(q.shape, r.shape)
         self.assertAlmostEqual(q[0], r[0], delta=1e-15)
         self.assertAlmostEqual(q[1], r[1], delta=1e-15)
@@ -283,7 +227,7 @@ class TestError(unittest.TestCase):
         self.assertAlmostEqual(q[3], r[3], delta=1e-15)
         self.assertAlmostEqual(q[4], r[4], delta=1e-15)
 
-        r = e1.transform(t, True)
+        r = e.transform(t, True)
         self.assertEqual(q.shape, r.shape)
         self.assertAlmostEqual(q[0], r[0], delta=1e-15)
         self.assertAlmostEqual(q[1], r[1], delta=1e-15)
@@ -291,7 +235,7 @@ class TestError(unittest.TestCase):
         self.assertAlmostEqual(q[3], r[3], delta=1e-15)
         self.assertAlmostEqual(q[4], r[4], delta=1e-15)
 
-        r = e1.detransform(q, False)
+        r = e.detransform(q, False)
         self.assertEqual(q.shape, r.shape)
         self.assertAlmostEqual(p[0], r[0], delta=1e-15)
         self.assertAlmostEqual(p[1], r[1], delta=1e-15)
@@ -299,7 +243,7 @@ class TestError(unittest.TestCase):
         self.assertAlmostEqual(p[3], r[3], delta=1e-15)
         self.assertAlmostEqual(p[4], r[4], delta=1e-14)
 
-        r = e1.detransform(q, True)
+        r = e.detransform(q, True)
         self.assertEqual(q.shape, r.shape)
         self.assertAlmostEqual(t[0], r[0], delta=1e-15)
         self.assertAlmostEqual(t[1], r[1], delta=1e-15)
@@ -309,10 +253,10 @@ class TestError(unittest.TestCase):
 
         self.assertRaisesRegex(
             ValueError, 'Expecting 5 parameters, got 3',
-            e1.transform, [1, 2, 3])
+            e.transform, [1, 2, 3])
         self.assertRaisesRegex(
             ValueError, 'Expecting 5 parameters, got 6',
-            e1.detransform, [1, 2, 3, 4, 5, 6])
+            e.detransform, [1, 2, 3, 4, 5, 6])
 
     def test_tau_error(self):
         # Test the tau form error
@@ -321,26 +265,27 @@ class TestError(unittest.TestCase):
         x = np.linspace(1, 2, 50)
         y = expfit.expd(x, [2, 1, 0.5])
         xy = expfit.TimeSeries(x, y)
-        e1 = expfit.TauFormError(xy)
-        e2 = expfit.MultiExponentialError(xy, 1, 1, True)
-        m1, j1, h1 = e1([5, 2, 0.5, -1, 0.25])
-        m2, j2, h2 = e2([5, np.log(2), np.log(2), np.log(1), np.log(4)])
+        e = expfit.TauFormError(xy)
+        em = expfit.MultiExponentialError(xy, 1, 1, True)
+        m1, j1, h1 = e([5, 2, 0.5, -1, 0.25])
+        m2, j2, h2 = em([5, np.log(2), np.log(2), np.log(1), np.log(4)])
         self.assertEqual(m1, m2)
 
         # Test mse() method
-        self.assertEqual(e1([1, 2, 3, 4, 5])[0], e1.mse([1, 2, 3, 4, 5]))
+        self.assertEqual(e([1, 2, 3, 4, 5])[0], e.mse([1, 2, 3, 4, 5]))
 
         # Test n() method
-        self.assertEqual(e1.n(), len(x))
+        self.assertEqual(e.n(), len(x))
 
         # Test against finite differences
         p = np.array([1, 1.1, 0.5, 1.2, 1])
         y = expfit.expd(x, p)
         xy = expfit.TimeSeries(x, y)
-        e1 = expfit.TauFormError(xy)
+        e = expfit.TauFormError(xy)
+        fd = FDErrorTau(x, y)
         p = np.array([1.1, 1.2, 0.4, 1.3, 0.9])
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
+        m1, j1, h1 = e(p)
+        m2, j2, h2 = fd(p)
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
@@ -348,8 +293,8 @@ class TestError(unittest.TestCase):
         self.assertTrue(np.all(np.abs(h1 - h2) < 1e-5))
 
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
-        m1, j1, h1 = e1(p)
-        m2, j2, h2 = mse_jac_hes_fd(x, y, p, f=mse_tau)
+        m1, j1, h1 = e(p)
+        m2, j2, h2 = fd(p)
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
@@ -358,10 +303,10 @@ class TestError(unittest.TestCase):
 
         self.assertRaisesRegex(
             ValueError, r'Invalid number of parameters \(2\).',
-            e1, (1, 2))
+            e, (1, 2))
         self.assertRaisesRegex(
             ValueError, r'Invalid number of parameters \(2\).',
-            e1.mse, (1, 2))
+            e.mse, (1, 2))
 
     def test_fixed_parameter(self):
         # Test the wrapper that fixes a single parameter

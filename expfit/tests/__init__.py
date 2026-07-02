@@ -5,4 +5,9 @@
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
 #
+from ._fd import (
+    FDError,
+    FDErrorMulti,
+    FDErrorTau,
+)
 

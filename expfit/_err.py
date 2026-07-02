@@ -208,11 +208,9 @@ class MultiExponentialError():
         self._np = 1 + 2 * self._m
 
         # Multipliers
-        self._z = np.ones(self._m)
-        if dominant_positive:
-            self._z[m_dom:] = -1
-        else:
-            self._z[:m_dom] = -1
+        self._z = np.ones(self._m) * (1 if dominant_positive else -1)
+        self._z[m_dom:] *= -1
+
 
     def __call__(self, p):
         if len(p) != self._np:
