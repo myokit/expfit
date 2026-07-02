@@ -282,7 +282,7 @@ def estimate_initial_single(x, y=None, full=False, plot=False):
     line = (m2 <= m1 * (2 + n) / n)
     if not line and m1 == 0:
         # Ad-hoc comparison for m1 == 0, m2 almost 0
-        line = m2  / abs(A0) < 1e-9
+        line = m2 / abs(A0) < 1e-9
     if line:
         raise expfit.NotExponentialError('Straight line')
 

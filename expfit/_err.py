@@ -6,8 +6,6 @@
 #
 import numpy as np
 
-import expfit
-
 
 def exp(x, p):
     """
@@ -43,8 +41,8 @@ def rmse1(x, y, p):
     a, b, c = p
     return np.sqrt(np.sum((y - a - b * np.exp(c * x))**2) / len(x))
 
-'''
 
+'''
 
 def rmse(x, y, p):
     """
@@ -72,18 +70,17 @@ class SingleExponentialError():
 
         x = np.linspace(0, 1, 100)
         y = 5 + 3 * np.exp(0.5 * x)
-        e = SingleExponentialError(x, y)
+        e = expfit.SingleExponentialError(expfit.TimeSeries(x, y))
         mse, jac, hes = e([1, 2, 3])
 
     Arguments:
 
-    ``x``, ``y``
-        The time series as two one-dimensional arrays of equal size.
-        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``xy``
+        A :class:`TimeSeries`.
 
     """
-    def __init__(self, x, y=None):
-        self._x, self._y = expfit.TimeSeries._from_xy(x, y)
+    def __init__(self, xy):
+        self._x, self._y = xy
         if len(self._x) < 3:
             raise ValueError('At least 3 points are required')
         self._m = 1 / len(self._x)
@@ -176,9 +173,8 @@ class MultiExponentialError():
 
     Arguments:
 
-    ``t``, ``v``
-        The time series as two equal-sized arrays. Alternatively, ``t`` can be
-        a :class:`TimeSeries`, in which case ``v`` should be be ``None``.
+    ``xy``
+        A :class:`TimeSeries`.
     ``m_dominant``
         The number of exponential terms with the same sign as the dominant
         term.
@@ -190,8 +186,15 @@ class MultiExponentialError():
         exponential term.
 
     """
-    def __init__(self, t, v, m_dominant, m_opposite, dominant_positive):
+    def __init__(self, xy, m_dominant, m_opposite, dominant_positive):
+        # Time series
+        self._x, self._y = xy
+        if len(self._x) < 3:
+            raise ValueError('At least 3 points are required')
+        self._ni = 1 / len(self._x)
+        self._n2 = 2 * self._ni
 
+        # Terms
         m_dom, m_opp = int(m_dominant), int(m_opposite)
         if m_dom < 1:
             raise ValueError(
@@ -201,15 +204,10 @@ class MultiExponentialError():
             raise ValueError(
                 'Number of exponential terms with opposite sign to the'
                 ' dominant term can not be negative.')
-
-        self._x = x
-        self._y = y
-        self._ni = 1 / len(x)
-        self._n2 = 2 * self._ni
-
         self._m = m_dom + m_opp
         self._np = 1 + 2 * self._m
 
+        # Multipliers
         self._z = np.ones(self._m)
         if dominant_positive:
             self._z[m_dom:] = -1

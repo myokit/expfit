@@ -145,7 +145,7 @@ def fit1_plot(xy, q0, r, xy_org, p, pt=None):
     f1 = lambda p: ', '.join(f'{i:.3}' for i in p)
     rmse_q0 = expfit.rmse1(x, y, q0)
     ax0.plot(x, expfit.exp1(x, q0), '-',
-        label=f'Initial ({f1(q0)}), RMSE {rmse_q0:.4}')
+             label=f'Initial ({f1(q0)}), RMSE {rmse_q0:.4}')
     if q0.log1 is not None and len(q0.log1) > 0:
         lsfit = q0.log1[-1]
         ax0.plot(lsfit.x, lsfit.y, 'k')
@@ -199,7 +199,6 @@ def fit1_plot(xy, q0, r, xy_org, p, pt=None):
     ax2.plot(x, expfit.exp1(x, p0), '-', label=f'Initial, c={p0[2]:.3f}')
     ax2.plot(x, expfit.exp1(x, p), '--', label=f'Fit, c={p[2]:.3f}')
     ax2.legend()
-
 
     return fig, (ax0, ax1, ax2)
 

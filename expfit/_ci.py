@@ -316,7 +316,6 @@ class ExponentialFit:
         return self._xy
 
 
-
 class CLevel():
     """
     Provides hard-coded normal and chi-squared percentile point functions for
