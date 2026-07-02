@@ -28,7 +28,7 @@ class FDError:
         return self._ni * np.sum(
             (p[0] - self._y + np.sum(b * np.exp(c * self._x), axis=0))**2)
 
-    def mse_jac(self, p, dp=1e-6):
+    def mse_jac(self, p, dp=1e-5):
         """ Multi-exponential MSE plus jacobian by finite differences. """
         e = self.mse(p)
         jac = np.zeros(len(p))
@@ -39,7 +39,7 @@ class FDError:
             jac[i] = (self.mse(q) - e) / dp
         return e, jac
 
-    def __call__(self, p, dp=1e-6):
+    def __call__(self, p, dp=1e-5):
         """
         Multi-exponential MSE, Jacobian, and Hessian by finite differences.
         """

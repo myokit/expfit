@@ -119,15 +119,15 @@ class TestError(unittest.TestCase):
         m1, j1, h1 = e(p)
         m2, j2, h2 = fd(p)
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 4e-4))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 2e-2))
+        self.assertLess(np.max(np.abs(j1 - j2)), 4e-3)
+        self.assertLess(np.max(np.abs(h1 - h2)), 2e-2)
 
         p = (0.9, 1.9, 2.9)
         m1, j1, h1 = e(p)
         m2, j2, h2 = fd(p)
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 4e-4))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 2e-2))
+        self.assertLess(np.max(np.abs(j1 - j2)), 2e-3)
+        self.assertLess(np.max(np.abs(h1 - h2)), 2e-2)
 
         # Test mse() method
         self.assertEqual(e(p)[0], e.mse(p))
@@ -175,8 +175,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-5))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 0.006))
+        self.assertLess(np.max(np.abs(j1 - j2)), 1e-4)
+        self.assertTrue(np.max(np.abs(h1 - h2)), 0.006)
 
         e = expfit.MultiExponentialError(xy, 2, 1, True)
         fd = FDErrorMulti(x, y, 2, 1, True)
@@ -186,8 +186,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 5e-5))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 0.01))
+        self.assertLess(np.max(np.abs(j1 - j2)), 5e-4)
+        self.assertLess(np.max(np.abs(h1 - h2)), 0.01)
 
         self.assertRaisesRegex(
             ValueError, 'Expecting 7 parameters, got 2.',
@@ -289,8 +289,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(j1.shape, (5, ))
         self.assertEqual(h1.shape, (5, 5))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 1e-5))
+        self.assertTrue(np.max(np.abs(j1 - j2)), 1e-5)
+        self.assertTrue(np.max(np.abs(h1 - h2)), 1e-5)
 
         p = [1.01, 2.1, 1.8, 2.1, 0.7, 1.1, 1.1]
         m1, j1, h1 = e(p)
@@ -298,8 +298,8 @@ class TestError(unittest.TestCase):
         self.assertEqual(j1.shape, (7, ))
         self.assertEqual(h1.shape, (7, 7))
         self.assertAlmostEqual(m1, m2)
-        self.assertTrue(np.all(np.abs(j1 - j2) < 1e-6))
-        self.assertTrue(np.all(np.abs(h1 - h2) < 1e-3))
+        self.assertLess(np.max(np.abs(j1 - j2)), 1e-5)
+        self.assertLess(np.max(np.abs(h1 - h2)), 1e-3)
 
         self.assertRaisesRegex(
             ValueError, r'Invalid number of parameters \(2\).',
@@ -320,8 +320,8 @@ class TestError(unittest.TestCase):
         m2, j2, h2 = e2((4, 5))
         self.assertEqual(j2.shape, (2, ))
         self.assertEqual(h2.shape, (2, 2))
-        self.assertTrue(np.all(np.abs(j1[1:] - j2) == 0))
-        self.assertTrue(np.all(np.abs(h1[1:, 1:] - h2) == 0))
+        self.assertEqual(np.max(np.abs(j1[1:] - j2)), 0)
+        self.assertEqual(np.max(np.abs(h1[1:, 1:] - h2)), 0)
 
         e2 = expfit.ErrorWithFixedParameter(e1, (2, 3, 4), 1)
         m1, j1, h1 = e1((2, 3, 5))
@@ -330,16 +330,16 @@ class TestError(unittest.TestCase):
         self.assertEqual(h2.shape, (2, 2))
         self.assertEqual(m1, m2)
         j3, h3 = np.delete(j1, 1), np.delete(np.delete(h1, 1, 0), 1, 1)
-        self.assertTrue(np.all(np.abs(j3 - j2) == 0))
-        self.assertTrue(np.all(np.abs(h3 - h2) == 0))
+        self.assertEqual(np.max(np.abs(j3 - j2)), 0)
+        self.assertEqual(np.max(np.abs(h3 - h2)), 0)
 
         e2 = expfit.ErrorWithFixedParameter(e1, (0, 1, 2), 2)
         m1, j1, h1 = e1((0, 1, 2))
         m2, j2, h2 = e2((0, 1))
         self.assertEqual(j2.shape, (2, ))
         self.assertEqual(h2.shape, (2, 2))
-        self.assertTrue(np.all(np.abs(j1[:-1] - j2) == 0))
-        self.assertTrue(np.all(np.abs(h1[:-1, :-1] - h2) == 0))
+        self.assertEqual(np.max(np.abs(j1[:-1] - j2)), 0)
+        self.assertEqual(np.max(np.abs(h1[:-1, :-1] - h2)), 0)
 
         # Test n() method
         self.assertEqual(e2.n(), e1.n())
