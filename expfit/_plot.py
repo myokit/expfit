@@ -31,6 +31,18 @@ def scale_lightness(color, scale=0.7):
     return matplotlib.colors.to_hex(colorsys.hls_to_rgb(h, l, s))
 
 
+def set_lightness(color, lightness):
+    """
+    Takes a color in matplotlib format, scales its lightness by ``scale``, and
+    returns a hex code.
+    """
+    import colorsys
+    import matplotlib
+    r, g, b = matplotlib.colors.ColorConverter.to_rgb(color)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    return matplotlib.colors.to_hex(colorsys.hls_to_rgb(h, lightness, s))
+
+
 def nth(i):
     """ Converts 0 to '1st', 1 to '2d' etc. """
     if i == 0:
@@ -329,30 +341,15 @@ def tau_plot(xy, p0, r, p, pt=None):
     for i in range(d):
         j = 2 + 2 * i
         flo, fhi = p.ci_fisher(j)
-        try:
-            profile = True
-            plo, phi = p.ci_profile(j)
-        except expfit.CILimitNotFound:
-            profile = False
-
+        plo, phi = p.ci_profile(j)
         c = colors[i][1]
 
-        # Show component and PL CI on main axes
+        # Show component on main axes
         b = f'Fit {nth(i)} ($\\tau$={p[j]:.2g}, FI[{flo:.3g}, {fhi:.3g}]'
-        if profile:
-            b = f'{b}, PL[{plo[j]:.3g}, {phi[j]:.3g}])'
-        else:
-            b = f'{b}, PL Failed)'
+        b = f'{b}, PL[failed' if plo is None else f'{b}, PL[{plo[j]:.3g}'
+        b = f'{b}, failed])' if phi is None else f'{b}, {phi[j]:.3g}])'
         pc = (p[0], p[1 + 2 * i], p[2 + 2 * i])
         ax0.plot(x, e(x, pc), lw=1, ls='--', color=c, label=b)
-        if profile:
-            pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
-            pchi = (plo[0], phi[1 + 2 * i], phi[2 + 2 * i])
-            ax0.fill_between(x, e(x, pclo), e(x, pchi), color=c, alpha=0.1)
-            ax0.plot(x, e(x, pclo), lw=0.4, color=c)
-            ax0.plot(x, e(x, pchi), lw=0.4, color=c)
-        #ax0.plot(x, e(x, plo), 'tab:green', ls='--', lw=0.4)
-        #ax0.plot(x, e(x, phi), 'tab:green', ls='--', lw=0.4)
 
         # Show profile on dedicated axes
         ax = fig.add_subplot(gr3[0, i])
@@ -360,12 +357,32 @@ def tau_plot(xy, p0, r, p, pt=None):
         ax.set_ylabel('MSE')
 
         # Profile log-likelihood (MSE)
-        if profile:
-            values, errors = p.profile(j, plo[j], phi[j])
-            ax.plot(values, errors, label='Profile')
-            ax.axvline(p[j], color='gray')
+        lo = p[j] + 0.5 * (flo - p[j]) if plo is None else plo[j]
+        hi = p[j] + 0.5 * (fhi - p[j]) if phi is None else phi[j]
+        values, errors, solutions = p.profile(j, lo, hi, solutions=True)
+        ax.plot(values, errors, label='Profile')
+        ax.axvline(p[j], color='gray')
+        if plo is not None:
             ax.axvline(plo[j], color='tab:blue', lw=1, ls='--')
+        else:
+            ax.plot(values[0], errors[0], 'x', color='tab:blue')
+        if phi is not None:
             ax.axvline(phi[j], color='tab:blue', lw=1, ls='--')
+        else:
+            ax.plot(values[-1], errors[-1], 'x', color='tab:blue')
+
+        # Show CI on main axes
+        cl = set_lightness(c, 0.9)
+        for pc in solutions:
+            pc = (pc[0], pc[1 + 2 * i], pc[2 + 2 * i])
+            ax0.plot(x, e(x, pc), color=cl, zorder=0.5)
+        # Show solutions at edges
+        if plo is not None:
+            pclo = (plo[0], plo[1 + 2 * i], plo[2 + 2 * i])
+            ax0.plot(x, e(x, pclo), lw=0.4, color=c)
+        if phi is not None:
+            pchi = (phi[0], phi[1 + 2 * i], phi[2 + 2 * i])
+            ax0.plot(x, e(x, pchi), lw=0.4, color=c)
 
         # FIM approximation
         fx = np.linspace(flo, fhi, 100)
@@ -374,6 +391,13 @@ def tau_plot(xy, p0, r, p, pt=None):
         ax.axvline(flo, color='tab:orange', lw=1, ls='--')
         ax.axvline(fhi, color='tab:orange', lw=1, ls='--')
 
+        # CI cut-off
+        lo, hi = p.mse(), p.mse_cutoff()
+        ax.axhline(hi, color='k', lw=1, ls=':')
+        pad = 0.05 * (hi - lo)
+        ax.set_ylim(lo - pad, hi + pad)
+
+        # True value, if known
         if pt is not None:
             ax.axvline(pt[j], color='k', ls='--', label='Known')
 

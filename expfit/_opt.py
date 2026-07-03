@@ -77,8 +77,8 @@ class LMResult:
         ))
 
 
-def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
-       plot=False):
+def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
+       verbose=False, plot=False):
     """
     Performs a Levenberg-Marquardt (LM) style optimisation of ``f`` starting
     from ``p0``.
@@ -163,6 +163,10 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
             'Hessian must match shape of initial point.'
             f' Got {h.shape}, expecting ({n}, {n})')
 
+    # Check stopping criteria
+    if ftol is None and jtol is None and htol is None:
+        raise ValueError('No stopping criterion set')
+
     # Check if constraint holds for initial position
     if constraint is not None and not constraint(p[0]):
         err = 'Initial position fails constraint'
@@ -172,12 +176,9 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
         # Position, mse, alpha
         log = [[p[0], m, alpha]]
 
+    # Run
+    err, msg = False, None
     for iterations in range(max_iter):
-        if err:
-            break
-        if np.linalg.norm(j) < gtol:
-            break
-
         if verbose:  # pragma: no cover
             print(f'Iteration {1 + iterations}')
             print(f'p {p}')
@@ -187,7 +188,9 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
 
         # Suggest next point
         try:
-            ps = p - np.linalg.solve(h + float(alpha) * eye * h, j)
+            hinv = np.linalg.inv(h + float(alpha) * eye * h)
+            ps = p - hinv.dot(j)
+            #ps = p - np.linalg.solve(h + float(alpha) * eye * h, j)
         except np.linalg.LinAlgError:  # pragma: no cover
             '''
             # Try Gauss-newton approximation
@@ -220,6 +223,7 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
             #jhj = j.T.dot(np.linalg.inv(h + float(alpha) * eye * h).dot(j))
             #print(np.linalg.norm(j), np.max(np.abs(2 * (ps - p) / (ps + p))), jhj)  # noqa
 
+            improvement = m - fs[0]
             alpha *= 0.5
             p = ps
             m, j, h = fs
@@ -228,16 +232,29 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
             if verbose:  # pragma: no cover
                 print(f'Rejected ({fs[0]}, {m})')
             alpha *= 10
-            if alpha > 1e20:  # pragma: no cover
-                err = 'Too many successive failed steps'
 
-        if verbose:  # pragma: no cover
-            print()
-
+        # Update logged information for plot
         if ok and plot is not False:  # pragma: no cover
             log.append([p[0], m, alpha])
 
-    #print()
+        # Stop?
+        if ok:
+            if ftol is not None and improvement < ftol:
+                msg = 'Optimisation successful (ftol)'
+                break
+            if jtol is not None and np.linalg.norm(j) < jtol:
+                msg = 'Optimisation successful (jtol)'
+                break
+            if htol is not None and j.T.dot(hinv).dot(j) < 1e-20:
+                msg = 'Optimisation successful (htol)'
+                break
+        else:
+            if alpha > 1e20:  # pragma: no cover
+                err, msg = True, 'Too many successive failed steps'
+                break
+
+    if iterations + 1 == max_iter:
+        err, msg = True, 'Maximum iterations reached'
 
     # Create result object
     res = LMResult()
@@ -250,13 +267,8 @@ def lm(f, p0, gtol=1e-7, max_iter=1000, constraint=None, verbose=False,
     res.iterations = 1 + iterations
     res.evaluations = evaluations
     res.accepted = accepted
-    if err:
-        res.message = err
-    elif iterations + 1 == max_iter:  # pragma: no cover
-        res.message = 'Maximum iterations reached'
-    else:
-        res.success = True
-        res.message = 'Optimisation successful'
+    res.success = False if err else True
+    res.message = msg
 
     # Create plot
     if plot is not False:  # pragma: no cover

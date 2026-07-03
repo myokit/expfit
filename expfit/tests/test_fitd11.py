@@ -78,7 +78,7 @@ class TestD11(unittest.TestCase):
         d(12, -20, .5, 40, .07, s=0.2, x0=0.1, deltas=(.03, .3, .01, 2, .003),
             plot=plot)
         d(7, 15, .2, -100, .1, s=0.4, x0=0.1, deltas=(.2, 10, .1, 10, .01),
-            plot=plot)  # TODO FIX PROFILING FOR THIS ONE
+            plot=plot)
         d(5, 10, .5, -10, .07, s=0.12, x0=0.1, deltas=(.03, .3, .01, 1, .005),
             plot=plot)
         d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 2, 1, 2, .1),

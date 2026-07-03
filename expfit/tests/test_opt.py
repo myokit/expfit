@@ -53,7 +53,7 @@ class TestLM(unittest.TestCase):
         # Test output
         x = str(r).splitlines()
         self.assertEqual(len(x), 12)
-        self.assertEqual(x[0], '     message: Optimisation successful')
+        self.assertEqual(x[0], '     message: Optimisation successful (jtol)')
         self.assertEqual(x[1], '     success: True')
         self.assertEqual(x[2], '  root error: 1.695582495781317')
         self.assertEqual(x[3], '       error: 2.875')

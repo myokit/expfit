@@ -108,9 +108,10 @@ class TestFitd2(unittest.TestCase):
         dod(100, 10, .5, 4, .2, deltas=(.3, 4, .1, 4, .1), plot=plot)
         dod(99, 10, .5, 4, .2, deltas=(.01, 5, .02, 4, .2), plot=plot, n=999)
 
-        # Unidentifiable?
+        # Unidentifiable: Single fits very well
         self.r = np.random.default_rng(9)
         dod(300, -4, .25, -4, .2, plot=plot)
+        self.r = np.random.default_rng(1)
         dod(-1e5, 1, 1, 2, .5, plot=plot)
 
     def test_fitd2_noisy(self):

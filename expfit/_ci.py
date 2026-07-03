@@ -60,7 +60,7 @@ class ExponentialFit:
         """
         return self._err is not None
 
-    def ci_profile(self, i, level=90, max_iter=100, gtol=1e-7, verbose=False):
+    def ci_profile(self, i, level=90, max_iter=100, verbose=False):
         """
         Finds and returns a confidence interval for the parameter at index
         ``i`` using a profile likelihood ratio method.
@@ -93,8 +93,6 @@ class ExponentialFit:
             90 percent.
         ``max_iter``
             The maximum iterations for steps 2 and 3.
-        ``gtol``
-            The optimiser tolerance to use. See :meth:`expfit.lm`.
         ``verbose``
             Set to ``True`` to print debug messages.
 
@@ -107,7 +105,7 @@ class ExponentialFit:
         # Set cut-off
         if not isinstance(level, CLevel):
             level = CLevel(level)
-        e_hat = self._err.mse(self._p)
+        e_hat = self.mse()
         cutoff = (1 + level.chi2() / self._err.n()) * e_hat
         if verbose:  # pragma: no cover
             print(f'Cut off: {cutoff}')
@@ -115,11 +113,14 @@ class ExponentialFit:
         # Set initial step size based on FIM bounds with same level
         fim = self._ci_fisher(i, level)
 
+        # Set stopping criterion for optimiser, based on cut-off
+        ftol = 1e-2 * (cutoff - e_hat)
+
         # Set stopping criterion for bisection, based on cut-off
         bisection_tol = 1e-4 * (cutoff - e_hat)
 
         # Cache last optimiser result, to speed things up
-        self._p_cache = np.array(self._p)
+        self._p_cache = self._p.copy()
 
         def test(value):
             """ Test the given ``value`` has an error below cut-off. """
@@ -130,19 +131,32 @@ class ExponentialFit:
             f = expfit.ErrorWithFixedParameter(self._err, self._p_cache, i)
             p = np.delete(self._p_cache, i)
             with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, gtol=gtol)
-            if r.success:
-                self._p_cache = np.insert(r.x, i, value)
+                r = expfit.lm(f, p, ftol=ftol, jtol=None)
+            self._p_cache = np.insert(r.x, i, value)
             return r.error < cutoff, r.x, r.error
 
         # Find the boundaries
         bounds = []
         for direction in (-1, 1):
 
-            # Start from the FIM bounds, expanding if necessary
+            # Test if we can jump straight to a point near the FIM. This works
+            # in most cases, but can fail if the FIM is large
+            self._p_cache = self._p.copy()
+            ok, p_fim, mse = test(self._p[i] + fim * direction * 0.5)
+
+            if ok:
+                # Use FIM as initial guess, expand with small amounts if
+                # necessary
+                d = fim * direction
+                dd = fim * 0.1 * direction
+            else:
+                # Slowly increase, starting from the known optimum
+                d = 1e-5 * fim * direction
+                dd = d
+                self._p_cache = self._p.copy()
+
+            # Search for limit
             limit_found = False
-            d = fim * direction
-            dd = fim * 0.1 * direction
             for j in range(max_iter):
                 if not test(self._p[i] + d)[0]:
                     limit_found = True
@@ -152,10 +166,12 @@ class ExponentialFit:
                 if abs(d) > 10 * fim:  # pragma: no cover
                     break
             if not limit_found:  # pragma: no cover
-                raise expfit.CILimitNotFound(direction)
-            self._p_cache = np.array(self._p)
+                bounds.append(None)
+                continue
 
             # Bisect
+            self._p_cache = self._p.copy()
+            ok_found = False
             solution = self._p
             a, b = self._p[i], self._p[i] + d
             e_old = e_hat
@@ -168,10 +184,12 @@ class ExponentialFit:
                 if ok:
                     a = c
                     solution = np.insert(p, i, a)
+                    ok_found = True
                 else:
                     b = c
+            if not ok_found:
+                solution = None
             bounds.append(solution)
-            self._p_cache = np.array(self._p)
 
             if verbose:  # pragma: no cover
                 print(f'Found {a:.5g} in {j} iterations'
@@ -275,7 +293,7 @@ class ExponentialFit:
 
         return (1 + level.chi2() / self._err.n()) * self._err.mse(self._p)
 
-    def profile(self, i, lo, hi, evals=25, gtol=1e-7):
+    def profile(self, i, lo, hi, evals=25, solutions=False):
         """
         Profiles the MSE for the i-th parameter, ranging from ``lo`` to ``hi``.
 
@@ -290,25 +308,57 @@ class ExponentialFit:
             The minimum value to test for parameter ``i``.
         ``hi``
             The maximum value to test for parameter ``i``.
-        ``gtol``
-            The optimiser tolerance to use. See :meth:`expfit.lm`.
 
         Returns a tuple ``(values, errors)`` containing the tested parameter
-        values and their MSEs.
+        values and their MSEs. If ``solutions`` is set, a third entry is added
+        to the tuple, containing the obtained parameter sets at each tested
+        value.
         """
         if self._err is None:
             raise expfit.CIUnavailableError()
 
-        p_full = np.array(self._p)
+        # Set stopping criterion for optimiser, based on 90% cut-off
+        e_hat = self.mse()
+        cutoff = (1 + CLevel(90).chi2() / self._err.n()) * e_hat
+        ftol = 1e-2 * (cutoff - e_hat)
+
+        # Create parameter vector
+        p_full = self._p.copy()
+
+        # True value must be in scanned range
+        if p_full[i] < lo or p_full[i] > hi:
+            raise ValueError('Selected range must encompass found optimum')
+
+        # Store obtained parameters
+        psets = []
+
+        # Profiling function, called from two separate loops
+        def iter(j, p):
+            p_full[i] = values[j]
+            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
+            with np.errstate(all='ignore'):
+                r = expfit.lm(f, p, ftol=ftol, jtol=None)
+                errors[j] = r.error
+                if r.success:
+                    p = r.x
+                    if solutions:
+                        psets.append(np.insert(p, i, values[j]))
+            return p
+
+        # Loop over values, from p up, and then down
         values = np.linspace(lo, hi, evals)
         errors = np.zeros(evals)
-        for j, val in enumerate(values):
-            p_full[i] = val
-            f = expfit.ErrorWithFixedParameter(self._err, p_full, i)
-            p = np.delete(p_full, i)
-            with np.errstate(all='ignore'):
-                r = expfit.lm(f, p, gtol=gtol)
-                errors[j] = r.error
+        k = np.where(values > p_full[i])[0]
+        k = k[0] if len(k) > 0 else evals
+        p = np.delete(p_full, i)
+        for j in range(k, evals):
+            p = iter(j, p)
+        p = np.delete(self._p, i)
+        for j in range(k - 1, -1, -1):
+            p = iter(j, p)
+
+        if solutions:
+            return values, errors, psets
         return values, errors
 
 
