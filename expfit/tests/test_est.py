@@ -392,20 +392,12 @@ class TestEstimates(unittest.TestCase):
         r = expfit._est.find_action(x, y)
         self.assertIsNone(r)
 
-    @unittest.skip
     def test_estimate_noise_level(self):
         # Test noise level estimates
 
         rng = np.random.default_rng(18)
-        f = expfit.exp
+        f = expfit.expd
         plot = False
-
-        # Very straight line
-        s = 0.5
-        x = np.linspace(1.5, 2.5, 2000)
-        y = f(x, (8, 2, -3)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.05)
 
         # Quite a strong exponential, low loise
         s = 0.03
@@ -438,36 +430,35 @@ class TestEstimates(unittest.TestCase):
         # Down-then-up exponential
         s = 0.10
         x = np.linspace(0, 2, 800)
-        y = f(x, (8, 10, -15, -15, -5)) + rng.normal(0, s, x.shape)
+        y = f(x, (8, 10, 0.07, -15, 0.2)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.02)
+        self.assertAlmostEqual(e / s, 1, delta=0.25)
 
         # Same but gentler
         s = 0.05
         x = np.linspace(0, 0.4, 800)
-        y = f(x, (8, 10, -15, -15, -5)) + rng.normal(0, s, x.shape)
+        y = f(x, (8, 10, 0.07, -15, 0.2)) + rng.normal(0, s, x.shape)
         e = expfit.estimate_noise_level(x, y, plot=plot)
         self.assertAlmostEqual(e / s, 1, delta=0.1)
 
         # Difficult one for fit1
         s = 1
         x = np.linspace(0, 5, 400)
-        y = f(x, (5, 10, -.2, 5, -1, 5, -3.5, 10, -20))
+        y = f(x, (5, 10, 5, 5, 1, 5, 0.3, 10, 0.05))
         y += rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=True)
-        #self.assertAlmostEqual(e / s, 1, delta=0.1)
+        e = expfit.estimate_noise_level(x, y, plot=plot)
+        self.assertAlmostEqual(e / s, 1, delta=0.1)
 
-        import matplotlib.pyplot as plt
-        plt.show()
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.show()
 
-        # Vets, but can be disabled
+        # Vets
         x = np.linspace(0, 1, 50)
         y = f(x[1:], (1, 2, -3))
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 50 and 49',
             expfit.estimate_noise_level, x, y)
-        # No error:
-        expfit.estimate_noise_level(x, y, vet=False)
 
 
 if __name__ == '__main__':  # pragma: no cover

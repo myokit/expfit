@@ -408,7 +408,7 @@ def estimate_initial_opposing(x, y=None, plot=False):
     return a0, b0, c0, b1, c1
 
 
-def estimate_noise_level(x, y, vet=True, plot=False):
+def estimate_noise_level(x, y, plot=False):
     """
     Estimates the noise level by subtracting a dominant exponential from the
     final section of the signal and assuming what remains is normally
@@ -417,22 +417,27 @@ def estimate_noise_level(x, y, vet=True, plot=False):
     Arguments:
 
     ``x``, ``y``
-        The series
+        The time series as two one-dimensional arrays of equal size.
+        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``plot``
+        Optional parameter to create a plot of the method's workings.
 
     Returns ``sigma`` where ``sigma**2`` is the variance of a normal
     distribution with the estimated noise level.
     """
-    if vet:
-        x, y = expfit.vet_series(x, y)
+    x, y = xy = expfit.TimeSeries._from_xy(x, y)
 
     # Assume final part of signal is dominated by a single exponential
     n = len(x)
     m = min(max((n + 1) // 2, 10), n)
 
-    #p0 = expfit.estimate_initial_single(x, y)
     xx, yy = x[-m:], y[-m:]
-    p0 = expfit.fit1(xx, yy)
-    r = yy - expfit.exp(xx, p0)
+    try:
+        p0 = expfit.fit1(xx, yy)
+    except expfit.NotExponentialError:
+        # Very steep? Then use all data for fit (but not for residuals)
+        p0 = expfit.fit1(x, y)
+    r = yy - expfit.exp1(xx, p0)
     sigma = np.std(r)
 
     if plot:  # pragma: no cover

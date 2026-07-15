@@ -236,69 +236,88 @@ def fitd11(x, y=None, plot=False, opt_plot=False):
     return p
 
 
-def auto(t, v, plot=False, opt_plot=False):
+def auto(x, y, plot=False, opt_plot=False):
     """
     """
-    t, v = expfit.vet_series(t, v)
+    x, y = xy = expfit.TimeSeries._from_xy(x, y)
 
     # Convert `plot` to boolean
     pt = plot
     plot = plot is not False
 
-    # Transform to unit square
-    tr = expfit.UnitSquareTransform(t, v)
+    # Fit single (in c form)
+    try:
+        p0 = expfit.fit1(xy)
+    except:
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(x, y)
+        plt.show()
+        raise
 
-    # TODO: Do everything in transformed space?
-    q0 = expfit.estimate_initial_single(tr.x, tr.y, vet=False, plot=True)
-    p0 = tr.detransform(q0)
-    del tr, q0
-
+    # Stop if not decaying
+    #if c0 > 0:
+    #    raise expfit.NotDecayingError()
+    # TODO ALLOW UP DOWNS
     # Catch edge cases
     #if p0[1] * p0[3] >= 0:
     #    raise expfit.NotOpposingError()
     #if p0[2] > 0 or p0[4] > 0:
     #    raise expfit.NotDecayingError()
 
+    # TODO
     nd = 1
     no = 0
     dom_pos = p0[1] > 0
 
-    # Fit single
-    e = expfit.MultiExponentialError(t, v, nd, no, dom_pos)
-    q0 = e.transform(p0)
-    print('Start', p0)
-    print('Start', q0)
-    with np.errstate(all='ignore'):
-        r = expfit.lm(e, q0)
-        if plot:  # pragma: no cover
-            print(r)
-        #if not r.success:
-        #    p0[2] *= 0.1
-        #    q0 = e.transform(p0)
-        #    r = expfit.lm(e, q0)
-        #    if plot:  # pragma: no cover
-        #        print(r)
+    # Store p_best in tau form, for plots
+    p_best = (p0[0], p0[1], -1 / p0[2])
 
-    a0, b0, c0 = e.detransform(r.x, tau=False)
+    # Store associated E_best, for comparison with higher order
+    E_best = p0.mse()
 
-    # Store p_best in tau form
-    p_best = (a0, b0, -1 / c0)
-    E_best = r.error
+    # Store initial guess, just to show in plots
     p0_best = (p0[0], p0[1], -1 / p0[2])
+
+    # Retain starting position (not fit!) for re-use at next order
     p0_next = p0
+    # TODO: Might make more sense to avoid using the C form here?
+
+    if plot:  # pragma: no cover
+        et = expfit.TauFormError(xy)
+        p = expfit.ExponentialFit(p_best, et)
+
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        # FIM approximation
+        j = 2
+        flo, fhi = p.ci_fisher(j)
+        fx = np.linspace(flo, fhi, 100)
+        q = 0.5 / np.diag(np.linalg.inv(p.hes()))
+        ax.plot(fx, p.mse() + q[j] * (fx - p[j])**2, label='1 exp')
+
+        from ._plot import tau_plot
+        try:
+            assert len(pt) % 2 == 1
+        except (TypeError, AssertionError):
+            pt = None
+        tau_plot(xy, p0_best, None, p, pt=pt)
+
 
     # Estimate sigma
-    s = expfit.estimate_noise_level(t, v, vet=False)
+    s = expfit.estimate_noise_level(x, y)
 
     # Calculate required improvement to accept
-    w = s**2 / len(t) * expfit.CLevel(90).chi2()
+    w = s**2 / len(x) * expfit.CLevel(90).chi2()
     print('Required improvement: ', w)
 
     # Calculate area, to determine new b constants
     #A0 = (b0 / c0) * (np.exp(c0 * t[-1]) - np.exp(c0 * t[0]))
     for i in range(4):
         nd += 1
-        e = expfit.MultiExponentialError(t, v, nd, no, dom_pos)
+        e = expfit.MultiExponentialError(xy, nd, no, dom_pos)
         c = expfit.MultiExponentialConstraint()
 
         p0 = np.zeros(1 + 2 * nd)
@@ -359,18 +378,46 @@ def auto(t, v, plot=False, opt_plot=False):
             E_best = r.error
             p0_best = e.detransform(q0, tau=True)
             p0_next = e.detransform(q0, tau=False)
+
+            if plot:  # pragma: no cover
+                from ._plot import tau_plot
+                try:
+                    assert len(pt) % 2 == 1
+                except (TypeError, AssertionError):
+                    pt = None
+                et = expfit.TauFormError(xy)
+                p = expfit.ExponentialFit(p_best, et)
+                tau_plot(xy, p0_best, r, p, pt=pt)
+
+                # FIM plot
+                c = None
+                d = (len(p) - 1) // 2
+                label = f'FIM, {d} exp'
+                for k in range(d):
+                    j = 2 + 2 * k
+                    flo, fhi = p.ci_fisher(j)
+                    fx = np.linspace(flo, fhi, 100)
+                    q = 0.5 / np.diag(np.linalg.inv(p.hes()))
+                    c = ax.plot(fx, p.mse() + q[j] * (fx - p[j])**2,
+                                label=label, color=c)[0].get_color()
+                    label = None
+                ax.legend()
+
+
         else:
             break
 
     # Create CI object
-    et = expfit.TauFormError(t, v)
-    p = expfit.ExponentialFit(t, v, p_best, et)
+    et = expfit.TauFormError(xy)
+    p = expfit.ExponentialFit(p_best, et)
 
+    '''
     if plot:  # pragma: no cover
         from ._plot import tau_plot
         try:
             assert len(pt) % 2 == 1
         except (TypeError, AssertionError):
             pt = None
-        tau_plot(t, v, r, p, p0_best, pt=pt)
+        tau_plot(xy, p0_best, r, p, pt=pt)
+    '''
 

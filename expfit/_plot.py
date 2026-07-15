@@ -13,8 +13,8 @@ colors = [
     ('tab:red', '#961b1c'),
     ('tab:purple', '#683e8f'),
     ('tab:orange', '#bc5800'),
-    ('tab:pink', '##c92998'),
-    ('tab:brown', '##623c34'),
+    ('tab:pink', '#c92998'),
+    ('tab:brown', '#623c34'),
 ]
 
 
@@ -325,7 +325,9 @@ def tau_plot(xy, p0, r, p, pt=None):
                      label=f'Known {nth(i)} ($\\tau$={pt[2 + 2 * i]:.3g})',)
 
     # Show fit
-    if r.success:
+    if r is None:
+        label = 'Fit'
+    elif r.success:
         label = f'Fit ({r.iterations} iter, rmse {np.sqrt(r.error):.4})'
     else:
         label = f'Fit ({r.message}, rmse {np.sqrt(r.error):.4})'
@@ -335,6 +337,9 @@ def tau_plot(xy, p0, r, p, pt=None):
     p0 = expfit.ExponentialFit(p0)   # TODO
     ax0.text(0.5, 1.015, f'Init: {p0}\n Fit: {p}',
              transform=ax0.transAxes, ha='center', font='monospace')
+
+    # Store y limits, in case PL messed them up
+    ax0_ylims_a = ax0.get_ylim()
 
     # Components
     tau_axes = []
@@ -403,6 +408,12 @@ def tau_plot(xy, p0, r, p, pt=None):
 
         ax.legend(loc=(0, 1.01), ncols=3, frameon=False, handlelength=1.5)
         tau_axes.append(ax)
+
+    # Restore y limits, if required
+    ax0_ylims_b = ax0.get_ylim()
+    ra, rb = ax0_ylims_a[1] - ax0_ylims_a[0], ax0_ylims_b[1] - ax0_ylims_b[0]
+    if abs(rb / ra) > 10:
+        ax0.set_ylim(ax0_ylims_a)
 
     # Finalise main panel
     ax0.legend(framealpha=1, ncol=2)
