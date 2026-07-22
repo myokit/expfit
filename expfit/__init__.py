@@ -38,8 +38,8 @@ from ._series import (  # noqa
 )
 
 from ._est import (  # noqa
-    estimate_initial_single,
-    estimate_initial_opposing,
+    est1,
+    estd11,
     estimate_noise_level,
     LeastSquaresFit,
     SingleExponentialEstimate,

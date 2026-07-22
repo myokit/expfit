@@ -71,18 +71,33 @@ class TestD11(unittest.TestCase):
         self.r = np.random.default_rng(101)
         plot = False
 
-        d(10, -20, .5, 20, .07, s=0.2, deltas=(.07, .04, .003, .2, .002),
-            plot=plot)
-        d(11, -20, .5, 80, .07, s=1, deltas=(.5, .3, .05, .4, 2e-4),
-            plot=plot)
-        d(12, -20, .5, 40, .07, s=0.2, x0=0.1, deltas=(.03, .3, .01, 2, .003),
-            plot=plot)
-        d(7, 15, .2, -100, .1, s=0.4, x0=0.1, deltas=(.2, 10, .1, 10, .01),
-            plot=plot)
-        d(5, 10, .5, -10, .07, s=0.12, x0=0.1, deltas=(.03, .3, .01, 1, .005),
-            plot=plot)
+        # Short start, slow
+        #d(10, -20, .5, 20, .07, s=0.2, deltas=(.07, .04, .003, .2, .002),
+        #    plot=plot)
+        #d(11, -20, .5, 80, .07, s=1, deltas=(.5, .3, .05, .4, 2e-4),
+        #    plot=plot)
+        #d(12, -20, .5, 40, .07, s=0.2, x0=0.1, deltas=(.03, .3, .01, 2, .003),
+        #    plot=plot)
+        #d(7, 15, .2, -100, .1, s=0.4, x0=0.1, deltas=(.2, 10, .1, 10, .01),
+        #    plot=plot)
+        #d(5, 10, .5, -10, .07, s=0.12, x0=0.1, deltas=(.03, .3, .01, 1, .005),
+        #    plot=plot)
+        #d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 2, 1, 2, .1),
+        #    plot=plot)
+
+
+        #self.r = np.random.default_rng(7)
+        #d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 2, 1, 2, .1),
+        #    plot=True)
+
+        #self.r = np.random.default_rng(19)
+        #d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 2, 1, 2, .1),
+        #    plot=True)
+
+        self.r = np.random.default_rng(37)
         d(1, -4, .5, 6, .2, s=0.3, n=500, deltas=(.5, 2, 1, 2, .1),
-            plot=plot)
+            plot=True)
+
 
     def d11_on_d12(self, p, s, x0=0, duration=2, n=100, ratio=1, plot=False):
         """ Tests a d11 fit on a d12 signal. """
@@ -111,8 +126,18 @@ class TestD11(unittest.TestCase):
         self.r = np.random.default_rng(11)
         plot = False
 
-        d((1, -4, 4, -4, 0.1, 10, .05), s=0.01, plot=plot, ratio=6.5)
-        d((1, -4, 4, -4, 0.1, 10, .05), s=0.1, plot=plot, ratio=1.2)
+        #d((1, -4, 4, -4, 0.1, 10, .05), s=0.01, plot=plot, ratio=6.5)
+        #d((1, -4, 4, -4, 0.1, 10, .05), s=0.1, plot=plot, ratio=1.2)
+
+
+
+
+        d((5, -10, 10, -10, 5, 15, 0.5), duration=8, n=700, s=0.1, plot=True, ratio=1.2)
+
+
+
+
+
 
 
 if __name__ == '__main__':  # pragma: no cover

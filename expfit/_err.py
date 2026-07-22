@@ -282,7 +282,7 @@ class MultiExponentialError():
         """ Returns the number of data points in the used time series. """
         return self._n
 
-    def transform(self, p, tau=False):
+    def transform(self, p, tau):
         """ Converts ``p`` from c or tau form to log-transformed. """
         if len(p) != self._np:
             raise ValueError(f'Expecting {self._np} parameters, got {len(p)}.')
@@ -294,8 +294,8 @@ class MultiExponentialError():
             q[2::2] = np.log(-p[2::2])
         return q
 
-    def detransform(self, q, tau=False):
-        """ Converts ``q`` from log-transformed to tau-form. """
+    def detransform(self, q, tau):
+        """ Converts ``q`` from log-transformed to c or tau-form. """
         if len(q) != self._np:
             raise ValueError(f'Expecting {self._np} parameters, got {len(q)}.')
         p = np.array(q, dtype=float, copy=True)

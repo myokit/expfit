@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Real-world test case for single fits
+# Real-world tests for fit1, based on earlier failures.
 #
 # This file is part of ExpFit.
 # See https://github.com/myokit/expfit for copyright, sharing, and licensing.
@@ -12,19 +12,11 @@ import numpy as np
 import expfit
 
 
-class TestSingleRw1(unittest.TestCase):
-    """
-    Real-world test 1, for single exponentials.
-
-    Originally caused maximum iterations to be reached.
-    """
-    @classmethod
-    def setUpClass(cls):
-        # Create in each test and seed!
-        cls.r = None
+class TestFit1Rw(unittest.TestCase):
+    """ Real-world tests for fit1. """
 
     def test_rw1(self):
-        # Real world failing example
+        # Originally caused maximum iterations to be reached.
         plot = False
 
         x = np.arange(0, len(y))

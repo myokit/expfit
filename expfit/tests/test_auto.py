@@ -28,10 +28,12 @@ class TestAuto(unittest.TestCase):
         plot = True
 
 
-        #p0 = 5, 5, 5, 5, 1, 5, .1
-        #p0 = 5, 10, 2, 5, .5, 5, .1
-        #p0 = 5, 10, 5, 5, 1, 5, .3
-        #p0 = 5, 10, 5, 5, 1, 5, .3, 10, .05
+        p0 = 5, 5, 5
+        p0 = 5, 5, 5, 5, 1
+        p0 = 5, 5, 5, 5, 1, 5, .1
+        p0 = 5, 10, 2, 5, .5, 5, .1
+        p0 = 5, 10, 5, 5, 1, 5, .3
+        p0 = 5, 10, 5, 5, 1, 5, .3, 10, .05
         x = np.linspace(0, 5, 300, endpoint=False)
 
         p0 = 5, -10, 10, -10, 5, 15, 0.5
@@ -44,8 +46,8 @@ class TestAuto(unittest.TestCase):
             y = expfit.expd(x, p0) + self.r.normal(0, 0.1, size=x.shape)
             expfit.auto(x, y, plot=p0, opt_plot=False)
         elif plot:
-            from expfit._plot import exp_plot
-            exp_plot(x, p0)
+            from expfit._plot import expd_plot
+            expd_plot(x, p0)
 
 
         if plot:  # pragma: no cover

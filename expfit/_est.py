@@ -65,8 +65,8 @@ class SingleExponentialEstimate:
     Estimated parameters of a single exponential ``a + b * exp(c * x)``.
 
     Can be used as a (read-only) sequence, or may provide extra information if
-    :meth:`estimate_initial_single` is called with ``full=True``. In this case
-    the following extra properties will be set:
+    :meth:`est1` is called with ``full=True``. In this case the following
+    additional properties will be set:
 
     ``ls1``
         A linear least squares fit to the selected segment at the start of the
@@ -103,8 +103,7 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def estimate_initial_single(x, y=None, reject_linear=True,
-                            full=False, plot=False):
+def est1(x, y=None, reject_linear=True, full=False, plot=False):
     """
     Estimates ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
@@ -143,7 +142,7 @@ def estimate_initial_single(x, y=None, reject_linear=True,
         x = np.linspace(0, 1, 50)
         y = 1 + 3 * np.exp(2 * x)
         t = expfit.UnitSquaredSeries(x, y)
-        q = expfit.estimate_initial_single(t)
+        q = expfit.est1(t)
         a, b, c = tr.detransform(q)
         print(a, b, c)
 
@@ -201,7 +200,6 @@ def estimate_initial_single(x, y=None, reject_linear=True,
     if l0.slope * l2.slope < 0:
         l2.slope, l2.offset = 0.0, l2.mu_y
         shrink2 = False
-    assert (shrink1 or shrink2)
 
     # Store initial segments
     log1 = log2 = None
@@ -216,14 +214,16 @@ def estimate_initial_single(x, y=None, reject_linear=True,
     def abca(l1, l2):
         x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
         x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
-        if y1 == y2 or s1 == s2:
-            return 0, 0, 0, 0
-
-        c = (s1 - s2) / (y1 - y2)
-        e1, e2 = np.exp(c * x1), np.exp(c * x2)
-        b = (y1 - y2) / (e1 - e2)
-        a = y1 - b * e1
-        A = b / c * (np.exp(c * x[-1]) - np.exp(c * x[0])) + a * (x[-1] - x[0])
+        with np.errstate(all='raise', divide='raise'):
+            try:
+                c = (s1 - s2) / (y1 - y2)
+                e1, e2 = np.exp(c * x1), np.exp(c * x2)
+                b = (y1 - y2) / (e1 - e2)
+                a = y1 - b * e1
+                e1, e2 = np.exp(c * x[-1]), np.exp(c * x[0])
+                A = b / c * (e1 - e2) + a * (x[-1] - x[0])
+            except FloatingPointError:
+                return 0, 0, 0, 0
         return a, b, c, A
 
     # Shrink segments
@@ -267,7 +267,7 @@ def estimate_initial_single(x, y=None, reject_linear=True,
         r.log2 = log2
         r.region = zoom_region
 
-    # Show initial estimate
+    # Show initial estimate (before failing)
     if plot:  # pragma: no cover
         from ._plot import initial_estimate_plot
         initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
@@ -278,9 +278,10 @@ def estimate_initial_single(x, y=None, reject_linear=True,
     elif l1.mu_y == l2.mu_y:
         raise expfit.NotExponentialError('Equal means')
 
-    # Catch less obvious straight lines
+    # Catch less obviously straight lines
     if reject_linear:
         n = len(x)
+        x = (y - a - b * np.exp(c * x))
         m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
         m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
         # Akaike cut-off
@@ -289,7 +290,7 @@ def estimate_initial_single(x, y=None, reject_linear=True,
             # Ad-hoc comparison for m1 == 0, m2 almost 0
             line = m2 / abs(A0) < 1e-9
         if line:
-            raise expfit.NotExponentialError('Straight line')
+            raise expfit.NotExponentialError('Straight line is better fit')
 
     return r
 
@@ -352,7 +353,7 @@ def find_action(x, y=None, r_factor=20, n_min=10):
     return None
 
 
-def estimate_initial_opposing(x, y=None, plot=False):
+def estd11(x, y=None, sigma=None, plot=False):
     """
     Estimates parameters for two decaying exponentials with opposite signs.
 
@@ -361,58 +362,106 @@ def estimate_initial_opposing(x, y=None, plot=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``sigma``
+        An estimate of the noise level in the data, given as a standard
+        deviation.
     ``plot=False``
         Set to ``True`` to create a debugging plot.
 
     Returns a parameter set ``(a, b0, c0, b1, c1)`` where ``b0`` and ``c0`` are
     for the slower exponential in the second part of the signal.
     """
-    x, y = expfit.TimeSeries._from_xy(x, y)
+    x, y = xy = expfit.TimeSeries._from_xy(x, y)
     if len(x) < 10:
         raise ValueError('At least 10 points are required')
 
     # Estimate start, end, max, and min
-    # Skip points, to ensure at least a segment of length 3
-    imn, imx = 3 + np.argmin(y[3:-3]), 3 + np.argmax(y[3:-3])
+    # Skip points, to ensure at least a segment of length n_min
+    n_min = 3
+    imn = n_min + np.argmin(y[n_min:-n_min])
+    imx = n_min + np.argmax(y[n_min:-n_min])
     mn = max(abs(y[0] - y[imn]), abs(y[-1] - y[imn]))
     mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
     isplit = imn if mn > mx else imx
 
-    # Fit exponentials to both segments
+    # Fit exponential to second (dominant) segment
+    p0 = p1 = msg = None
+    x0, y0 = x[isplit:], y[isplit:]
     try:
-        a0, b0, c0 = p0 = expfit.estimate_initial_single(
-            x[isplit:], y[isplit:])
-        a1, b1, c1 = p1 = expfit.estimate_initial_single(
-            x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0),
-            reject_linear=False)
-    except expfit.NotExponentialError as e:
-        raise expfit.NotOpposingError() from e
+        a0, b0, c0 = p0 = expfit.est1(x0, y0, reject_linear=False)
+
+        # Subtract fit-to-second from first
+        with np.errstate(over='raise'):
+            x1, y1 = x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0)
+    except (FloatingPointError, expfit.NotExponentialError):
+        msg = 'Second segment is not exponential'
+
+    # Fit exponential to subtracted signal
+    if p0 is not None:
+        try:
+            a1, b1, c1 = p1 = expfit.est1(x1, y1, reject_linear=False)
+        except FloatingPointError:
+            msg = 'Second segment is not exponential'
+        except expfit.NotExponentialError:
+            msg = 'First segment is not exponential'
 
     # Check results
-    if c0 > 0 or c1 > 0:
-        raise expfit.NotDecayingError()
-    if b0 * b1 >= 0:  # pragma: no cover
-        raise expfit.NotOpposingError()
+    if p0 is not None and p1 is not None:
+        if c0 > 0 or c1 > 0:
+            msg = 'Segments not both decaying'
+        elif b0 * b1 >= 0:  # pragma: no cover
+            msg = 'Segment are exponential but do not have opposing signs'
+        else:
+            print(a0, b0, c0)
+            print(a1, b1, c1)
 
-    # Compare areas (without a)
-    A0 = b0 / c0 * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))
-    A1 = b1 / c1 * (np.exp(c1 * x[-1]) - np.exp(c1 * x[0]))
-    if abs(A1 / A0) < 1e-2:
-        raise expfit.NotOpposingError()
+
+            # Compare areas (without a)
+            A0 = b0 / c0 * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))
+            A1 = b1 / c1 * (np.exp(c1 * x[-1]) - np.exp(c1 * x[0]))
+            print(A0, A1)
+            print()
+
+            if abs(A1 / A0) < 1e-2:
+                msg = ('Possible fit, but area under segments suggests highly'
+                       ' unequal contributions.')
+
+            '''
+            # Catch less obviously straight lines
+            if reject_linear:
+                n = len(x)
+                x = (y - a - b * np.exp(c * x))
+                m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
+                m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
+                # Akaike cut-off
+                line = (m2 <= m1 * (2 + n) / n)
+                if not line and m1 == 0:
+                    # Ad-hoc comparison for m1 == 0, m2 almost 0
+                    line = m2 / abs(A0) < 1e-9
+                if line:
+                    raise expfit.NotExponentialError('Straight line is better fit')
+            '''
+
 
     # Create plot
     if plot:  # pragma: no cover
         from ._plot import initial_opposing_plot
-        initial_opposing_plot(x, y, isplit, p0, p1)
+        initial_opposing_plot(xy, isplit, p0, p1)
+
+    # Raise exception or return
+    if msg is not None:
+        raise expfit.NotOpposingError(msg)
 
     return a0, b0, c0, b1, c1
 
 
-def estimate_noise_level(x, y, plot=False):
+def estimate_noise_level(x, y=None, plot=False):
     """
-    Estimates the noise level by subtracting a dominant exponential from the
-    final section of the signal and assuming what remains is normally
-    distributed noise.
+    Estimates the noise level in a signal --- assuming it is well fit by either
+    a straight line or a single exponential.
+
+    A typical use case would be to run this on a known flat bit of signal, or
+    on the final 10% of a decaying exponential signal.
 
     Arguments:
 
@@ -426,10 +475,14 @@ def estimate_noise_level(x, y, plot=False):
     distribution with the estimated noise level.
     """
     x, y = xy = expfit.TimeSeries._from_xy(x, y)
+    if len(x) < 10:
+        raise ValueError('At least 10 points are required')
 
-    # Assume final part of signal is dominated by a single exponential
-    n = len(x)
-    m = min(max((n + 1) // 2, 10), n)
+
+
+
+
+
 
     xx, yy = x[-m:], y[-m:]
     try:

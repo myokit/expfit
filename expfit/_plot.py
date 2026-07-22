@@ -125,13 +125,13 @@ def initial_estimate_plot(x, y, estimate):
     return fig, ax
 
 
-def initial_opposing_plot(x, y, isplit, p0, p1):
+def initial_opposing_plot(xy, isplit, p0, p1):
     """
     Creates a plot of an initial estimate for opposing decaying exponentials.
 
     Arguments:
 
-    ``x``, ``y``
+    ``xy``
         The time series.
     ``isplit``
         The index in the time series where the split is made.
@@ -151,27 +151,35 @@ def initial_opposing_plot(x, y, isplit, p0, p1):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
+    x, y = xy
     ax.plot(x, y, 's-' if len(x) < 50 else '-', label='Data')
-    ax.axvspan(x[0], x[isplit], color='#ccc')
-    ax.axvline(x[isplit], color='#888', lw=1, label='Split')
+    ax.axvspan(x[0], x[isplit], color='#eee')
+    ax.axvline(x[isplit], color='#bbb', lw=1, label='Split')
     ax.set_xlim(x[0], x[-1])
 
-    # Dominant
-    ax.plot(x, expfit.exp1(x, p0), '--', label='Dominant')
+    if p0 is not None:
+        # Dominant
+        ax.plot(x, expfit.exp1(x, p0), '--', label='Dominant')
 
-    # Secondary
-    a0, b0, c0 = p0
-    a1, b1, c1 = p1
-    ax.plot(x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], (0, b0, c0)),
-            color='navy',
-            label='Data with dominant subtracted (offset adjusted)')
-    ax.plot(x, expfit.exp1(x, (a0, b1, c1)), '--',
-            label='Second (offset adjusted)')
+        a0, b0, c0 = p0
+        ax.plot(x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], (0, b0, c0)),
+                color='navy',
+                label='Data with dominant subtracted (offset adjusted)')
 
-    # Final result
-    ax.plot(x, expfit.expd(x, (a0, b0, -1 / c0, b1, -1 / c1)),
-            label='Combined')
+        # Secondary and final
+        if p1 is not None:
+            a1, b1, c1 = p1
+            ax.plot(x, expfit.exp1(x, (a0, b1, c1)), '--',
+                    label='Second (offset adjusted)')
+
+            # Final result
+            ax.plot(x, expfit.expd(x, (a0, b0, -1 / c0, b1, -1 / c1)),
+                    label='Combined')
+
     ax.legend()
+    if isinstance(xy, expfit.UnitSquaredSeries):
+        ax.set_ylim(-0.05, 1.05)
+
     return fig, ax
 
 
@@ -284,7 +292,7 @@ def tau_plot(xy, p0, r, p, pt=None):
     ``xy``
         A :class:`expfit.TimeSeries`.
     ``p0``
-        An array containing the initial guess.
+        An array containing the initial guess, or None.
     ``r``
         An :class:`LMResult`. This may be on a transformed parameter space:
         only the optimiser details are used.
@@ -334,8 +342,12 @@ def tau_plot(xy, p0, r, p, pt=None):
     ax0.plot(x, e(x, p), lw=1, color='k', label=label)
 
     # Show parameters
-    p0 = expfit.ExponentialFit(p0)   # TODO
-    ax0.text(0.5, 1.015, f'Init: {p0}\n Fit: {p}',
+    if p0 is None:
+        ptext = f'Fit: {p}'
+    else:
+        p0 = expfit.ExponentialFit(p0)
+        ptext = f'Init: {p0}\n Fit: {p}'
+    ax0.text(0.5, 1.015, ptext,
              transform=ax0.transAxes, ha='center', font='monospace')
 
     # Store y limits, in case PL messed them up
@@ -418,20 +430,23 @@ def tau_plot(xy, p0, r, p, pt=None):
     # Finalise main panel
     ax0.legend(framealpha=1, ncol=2)
 
-    # Show initial guess
-    ax1 = fig.add_subplot(gr2[0])
-    ax1.set_xlabel('x')
-    ax1.set_ylabel('y')
-    ax1.plot(x, y, code)
-    ax1.plot(x, e(x, p0), '-', lw=1, label='Initial')
-    ax1.legend(frameon=False)
+    # Show initial guess, if given
+    info_axes = []
+    if p0 is not None:
+        ax1 = fig.add_subplot(gr2[0])
+        ax1.set_xlabel('x')
+        ax1.set_ylabel('y')
+        ax1.plot(x, y, code)
+        ax1.plot(x, e(x, p0), '-', lw=1, label='Initial')
+        ax1.legend(frameon=False)
+        info_axes.append(ax1)
 
     # Show final fit residuals
     ax2 = fig.add_subplot(gr2[1])
     ax2.set_xlabel('x')
     ax2.set_ylabel('Residuals')
     ax2.plot(x, y - e(x, p))
-    info_axes = [ax1, ax2]
+    info_axes.append(ax2)
 
     # Show error comparison with known
     if known_to_found:
