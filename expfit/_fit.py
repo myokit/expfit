@@ -9,7 +9,7 @@ import numpy as np
 import expfit
 
 
-def fit1(x, y=None, plot=False, opt_plot=False, full=False):
+def fit1(x, y=None, sigma=None, plot=False, opt_plot=False, full=False):
     """
     Fits an exponential ``a + b * exp(c * x)`` to the time series ``(x, y)``,
     returning ``(a, b, c)``
@@ -26,6 +26,9 @@ def fit1(x, y=None, plot=False, opt_plot=False, full=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
+    ``sigma``
+        An optional estimate of the noise level in the data (i.e. the sample
+        standard deviation of a short section of flat signal).
     ``plot``
         Optional parameter to create a plot of the method's workings. Can be
         set to ``True`` or to an array with the true ``(a, b, c)``.
@@ -40,17 +43,51 @@ def fit1(x, y=None, plot=False, opt_plot=False, full=False):
     xy = xy_org = expfit.TimeSeries._from_xy(x, y)
     if not isinstance(xy_org, expfit.UnitSquaredSeries):
         xy = expfit.UnitSquaredSeries(*xy)
-    del x, y
+    x, y = xy
+    n = len(x)
 
     # Convert `plot` to boolean
     pt = plot
     plot = plot is not False
+
+    # Convert sigma to new y-scale, and take square
+    if sigma is not None:
+        print('sigma2 in', sigma**2)
+        print('std2   in', np.std(xy_org[1])**2)
+        lx = expfit.LeastSquaresFit(*xy_org)
+        mse = np.sum((xy_org[1] - lx.offset - lx.slope * xy_org[0])**2) / n
+        print('lin    in', mse)
+        print('cutXXX in', (sigma * n / (n - 1))**2)
+        print('cutYYY in', (sigma * (n + 2) / n)**2)
+        print('cutZZZ in', (sigma * (1 + 1.64 / np.sqrt(2 * n)))**2)
+
+        1.96
+
+        sigma = xy.transform_sigma(sigma)
+
+    # TODO: New l0 is required as one from est() can be on find_action. Should
+    #       we simplify and remove this?
+
+    # Avoid fitting altogether if a straight line fit already has MSE < sigma^2
+    lin = expfit.LeastSquaresFit(x, y)
+    mse_lin = np.sum((y - lin.offset - lin.slope * x)**2) / n
+    print(np.std(y)**2)
+
+
+
+    if sigma is not None:
+        print('MSE lin', mse_lin)
+        print('Cut off', sigma**2)
+        if mse_lin <= sigma**2:
+            raise expfit.NotExponentialError(
+                'Squared MSE of straight line below user-specified sigma.')
 
     # Get an initial estimate in transformed space
     # May raise a NotExponentialError
     q0 = expfit.est1(xy, full=plot)
 
     # Fit
+    #q0 *= np.random.normal(1, 0.01, len(q0))
     e = expfit.SingleExponentialError(xy)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)
@@ -61,7 +98,7 @@ def fit1(x, y=None, plot=False, opt_plot=False, full=False):
     p = expfit.ExponentialFit(
         xy.detransform(r.x), expfit.SingleExponentialError(xy_org))
 
-    # Plot, especially when not successful
+    # Plot, before checking if not successful
     if plot:  # pragma: no cover
         from ._plot import fit1_plot
         try:
@@ -72,8 +109,25 @@ def fit1(x, y=None, plot=False, opt_plot=False, full=False):
 
     # Fail if optimisation failed, but still provide parameters
     if not r.success:
+        with np.errstate(over='ignore'):
+            mse_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2) / n
+        if sigma is not None:
+            print('MSE exp', mse_exp)
+            print('Cut off', sigma**2)
+            print('Adjustd', sigma**2)
+
         raise expfit.FitFailedError(
             f'Fit failed with optimiser message: {r.message}', r, p)
+
+    # Compare against a straight line (still on transformed), using Akaike
+    # (Note this can't be done if optimisation properly failed - although case
+    #  to be made some "failures" are correct stoping...)
+    with np.errstate(over='ignore'):
+        mse_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2) / n
+    sigma2 = mse_exp if sigma is None else sigma**2
+    if mse_lin - mse_exp <= 2 * sigma2 / n:
+        raise expfit.NotExponentialError(
+            'Exponential does not improve significantly over straight line.')
 
     # Return
     return [xy.detransform(q0), p] if full else p

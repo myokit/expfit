@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # Time series object
 #
@@ -150,4 +151,10 @@ class UnitSquaredSeries(TimeSeries):
         p[1::2] = q[1::2] * self._ry * np.exp(-q[2::2] * self._x0 / self._rx)
         p[2::2] = q[2::2] / self._rx
         return p
+
+    def transform_sigma(self, sigma):
+        """
+        Transform a standard deviation (in y) to the unit squared space.
+        """
+        return sigma / self._ry
 

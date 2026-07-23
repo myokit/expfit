@@ -151,10 +151,6 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``reject_linear=True``
-        By default, the result is compared to a linear least squares fit and
-        rejected if the straight line fit is comparable. This parameter can be
-        used to disable this check.
     ``full=False``
         Set to ``True`` to store debugging and visualisation information in
         the returned :class:`SingleExponentialEstimate`.
@@ -167,14 +163,15 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
     ``(a, b, c)``.
     """
     xy_no_zoom = expfit.TimeSeries._from_xy(x, y)
-    if len(xy_no_zoom[0]) < 3:
-        raise ValueError('At least 3 points are required')
+    if len(xy_no_zoom[0]) < 5:
+        raise ValueError('At least 5 points are required')
     del x, y
 
     # Full information is returned if plot=True
     full = full or plot
 
     # Select a subsection of the data, if the signal is too steep
+    # TODO: Stop doing this?
     zoom_region = find_action(xy_no_zoom)
     x, y = xy_no_zoom
     if zoom_region is not None:
@@ -260,7 +257,7 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
 
     # Create results object
     r = SingleExponentialEstimate(a, b, c)
-    if full:
+    if full:  # TODO: This is memory overhead, but nothing else, drop `full`?
         r.ls1 = l1
         r.ls2 = l2
         r.log1 = log1
@@ -272,26 +269,15 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
         from ._plot import initial_estimate_plot
         initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
 
-    # Catch silent failures in abca()
+    # Catch (some possible) silent failures in `abca`
     if l1.slope == l2.slope:
         raise expfit.NotExponentialError('Equal slopes')
     elif l1.mu_y == l2.mu_y:
         raise expfit.NotExponentialError('Equal means')
 
-    # Catch less obviously straight lines
-    if reject_linear:
-        n = len(x)
-        x = (y - a - b * np.exp(c * x))
-        m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
-        m2 = np.sum((y - l0.offset - l0.slope * x)**2) / n
-        # Akaike cut-off
-        line = (m2 <= m1 * (2 + n) / n)
-        if not line and m1 == 0:
-            # Ad-hoc comparison for m1 == 0, m2 almost 0
-            line = m2 / abs(A0) < 1e-9
-        if line:
-            raise expfit.NotExponentialError('Straight line is better fit')
-
+    # Advanced testing (e.g. comparing against linear) is done in other
+    # methods. One good reason is that the AIC should be used on an optimal
+    # fit, not an initial estimate.
     return r
 
 

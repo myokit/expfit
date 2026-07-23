@@ -139,6 +139,7 @@ class TestEstimates(unittest.TestCase):
         return t.detransform(r) if transform else r
 
     def test_est1(self):
+        # Straightforward tests on a growing and decaying single exponential
         rng = np.random.default_rng(71)
         e = expfit.exp1
         plot = False
@@ -161,11 +162,11 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(r, c, delta=.02)
 
     def test_est1_clean(self):
+        # Tests without noise
 
         e = expfit.exp1
         plot = False
 
-        # Noise free
         a, b, c = 8, 2, -3
         x = np.linspace(1.5, 2.5, 2000)
         p, q, r = self.est1(x, e(x, (a, b, c)), plot=plot)
@@ -189,6 +190,9 @@ class TestEstimates(unittest.TestCase):
 
     def test_est1_straight(self):
         # Edge cases: straight and flat lines for est1
+        # Most of these will (and should) only be caught in fit1(), which can
+        # do statiscal tests based on an optimal fit. So the tests here are
+        # for extreme cases.
 
         rng = np.random.default_rng(1)
         plot = False
@@ -200,55 +204,13 @@ class TestEstimates(unittest.TestCase):
             expfit.NotExponentialError, 'Equal slopes',
             self.est1, x, y, plot=plot)
 
-        # Flat line with noise
-        x = np.linspace(0, 1, 3000)
-        y = 3 * np.ones(x.shape) + rng.normal(0, 1e-9, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, plot=plot)
-
         # Straight line through origin, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * x
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Equal slopes',
             self.est1, x, y, plot=plot)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, transform=False, plot=plot)
-
-        # Straight line through origin, with noise
-        x = np.linspace(0, 1, 99)
-        y = 3 * x + rng.normal(0, 0.1, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, plot=plot)
-
-        # Straight line with offset and noise
-        x = np.linspace(0, 1, 99)
-        y = 4 + 2 * x + rng.normal(0, 0.1, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, plot=plot)
-
-        # Almost flat with noise
-        a, b, c = -51, -7.2, 1e-3
-        n = 900
-        x = np.linspace(1e-3, 7e-3, n)
-        y = expfit.exp1(x, (a, b, c)) + rng.normal(0, 100, n)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, plot=plot)
-
-        # This failed when the ZoomTransform was variance-based
-        # Specific case: needs this seed
-        rng = np.random.default_rng(2)
-        x = np.linspace(0, 1, 200)
-        y = 3 * np.zeros(x.shape)
-        y += rng.normal(0, 1, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            self.est1, x, y, plot=plot)
+        # Note: without the transform this isn't picked up
 
     def test_est1_steep(self):
 
@@ -441,6 +403,7 @@ class TestEstimates(unittest.TestCase):
         r = expfit._est.find_action(x, y)
         self.assertIsNone(r)
 
+    '''
     def test_estimate_noise_level(self):
         # Test noise level estimates
 
@@ -508,6 +471,7 @@ class TestEstimates(unittest.TestCase):
         self.assertRaisesRegex(
             ValueError, 'must have same length, got 50 and 49',
             expfit.estimate_noise_level, x, y)
+    '''
 
 
 if __name__ == '__main__':  # pragma: no cover

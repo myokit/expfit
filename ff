@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 1, 100)
+y = 5 * np.random.normal(0, 1, x.shape)
+z = 1 * np.random.normal(0, 5, x.shape)
+
+plt.plot(x, y)
+plt.plot(x, z)
+plt.show()
+

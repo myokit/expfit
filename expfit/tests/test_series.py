@@ -180,6 +180,9 @@ class TestTimeSeries(unittest.TestCase):
         r = tr.detransform(q)
         self.assertEqual(list(r), list(p))
 
+        # Test flat line doesn't give divide by zero
+        expfit.UnitSquaredSeries(np.linspace(0, 1, 10), np.zeros(10))
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

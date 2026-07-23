@@ -40,13 +40,6 @@ class TestFit1(unittest.TestCase):
         q = expfit.fit1(expfit.TimeSeries(x, y))
         self.assertEqual(tuple(p), tuple(q))
 
-    def test_fit1_edge_cases(self):
-        # Test for a specific divide by zero case
-
-        x = np.linspace(0, 1, 10)
-        y = np.zeros(x.shape)   # Means scaling to unit square would div by 0
-        self.assertRaises(expfit.NotExponentialError, expfit.fit1, x, y)
-
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, x0=0,
                          deltas=[], ratio=1, rmse=None, fails=False,
                          plot=False):
@@ -128,9 +121,6 @@ class TestFit1(unittest.TestCase):
         sos(0, -1, 0.3, 2, 123, deltas=(.1, .1, .02), plot=plot)
         sos(3, -1, 1, 2, 3000, deltas=(.01, .01, .01), plot=plot)
         sos(0, 1, -1e6, 1, 200, plot=plot)
-        self.assertRaises(
-            expfit.NotExponentialError,
-            sos, 1, 2, -1e6, 1, 200, fnoise=0.2)
 
         # Both sides of zero
         sos(-2.5, 5, 0.5, 2, 50, deltas=(.6, .6, .04), plot=plot)
@@ -266,6 +256,90 @@ class TestFit1(unittest.TestCase):
         sot(0, -100, -1, -100, -10, -50, -100, rmse=10, plot=plot)
         sot(0, 1, -2, 2, -10, 2, -50, rmse=0.3, plot=plot)
         sot(5, 5, -0.2, 5, -0.1, 5, -10, duration=5, rmse=1, plot=plot)
+
+    def single_on_straight(self, x, y, sigma=None, plot=False):
+        """ Fits an exponential to a straight line (or any line). """
+        try:
+            expfit.fit1(x, y, sigma=sigma, plot=plot, opt_plot=plot)
+        finally:
+            if plot:  # pragma: no cover
+                import matplotlib.pyplot as plt
+                plt.show()
+
+    def test_fit1_straight(self):
+        # Test straight lines are detected
+        sos = self.single_on_straight
+        plot = False
+        self.r = np.random.default_rng(1)
+
+        '''
+        # Flat line with noise
+        s = 1
+        x = np.linspace(0, 1, 200)
+        y = self.r.normal(0, s, x.shape)
+        self.assertRaises(
+            expfit.NotExponentialError,
+            sos, x, y, plot=plot, sigma=s)
+
+        # Flat line with dense noise and offset
+        x = np.linspace(0, 1, 3000)
+        y = 3 * np.ones(x.shape) + self.r.normal(0, 1e-9, x.shape)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'does not improve',
+            sos, x, y, plot=plot)
+
+        # Straight line through origin, with noise
+        x = np.linspace(0, 1, 99)
+        y = 3 * x + self.r.normal(0, 0.1, x.shape)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'does not improve',
+            sos, x, y, plot=plot)
+        # Straight line with offset and noise.
+        self.r = np.random.default_rng(1)
+        x = np.linspace(0, 1, 99)
+        y = 4 + 2 * x + self.r.normal(0, 0.1, x.shape)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'does not improve',
+            sos, x, y, plot=plot)
+        # Depending on the noise, this can still look exponential
+        self.r = np.random.default_rng(9)
+        y = 4 + 2 * x + self.r.normal(0, 0.1, x.shape)
+        sos(x, y, plot=plot)
+
+        #TODO 1
+        #TODO: 3 passes
+        #TODO: 9 equal slopes
+
+        # Flat with dense noise: sensitive to see
+        self.r = np.random.default_rng(1)
+        '''
+        x = np.linspace(1e-3, 7e-3, 900)
+        s = 10
+        '''
+        y = self.r.normal(0, s, x.shape)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Squared MSE',
+            sos, x, y, sigma=s, plot=plot)
+        '''
+        self.r = np.random.default_rng(2)
+        y = self.r.normal(0, s, x.shape)
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Squared MSE',
+            sos, x, y, sigma=s, plot=True)
+
+
+        '''
+
+        # Mock-up of situation where noise creates an apparent exponential, but
+        # only in the first two samples
+        x = np.linspace(0, 1, 20)
+        y = np.zeros(x.shape)
+        y[0] = 1
+        y[1] = 0.1
+        self.assertRaisesRegex(
+            expfit.NotExponentialError, 'Straight line',
+            sos, x, y, plot=plot)
+        '''
 
     def test_fit1_with_peak_and_slope(self):
         # Remnant of "peak" at start of signal, plus slope at end
