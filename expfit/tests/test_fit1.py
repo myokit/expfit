@@ -23,7 +23,7 @@ class TestFit1(unittest.TestCase):
 
     def test_fit1_interface(self):
 
-        # Test return type
+        # Test return type on success
         a0, b0, c0 = 3, -3, -4
         x = np.linspace(0, 1, 300)
         y = expfit.exp1(x, (a0, b0, c0))
@@ -31,14 +31,21 @@ class TestFit1(unittest.TestCase):
         y += r.normal(0, 1)
         p = expfit.fit1(x, y)
         self.assertIsInstance(p, expfit.ExponentialFit)
+        self.assertTrue(p.success)
+        self.assertEqual(p.message, 'Fit successful')
 
-        # Test return type looks pretty
-        r = expfit.ExponentialFit([1, 2, 3])
-        self.assertEqual(str(r), '+1.00000e+00 +2.00000e+00 +3.00000e+00')
+        # No CI is provided
+        self.assertFalse(p.ci_available())
 
         # Test time series and x, y give same result
         q = expfit.fit1(expfit.TimeSeries(x, y))
         self.assertEqual(tuple(p), tuple(q))
+
+        # Test return type looks pretty
+        r = expfit.ExponentialFit([1, 2, 3], True, 'ok')
+        self.assertEqual(str(r), '+1.00000e+00 +2.00000e+00 +3.00000e+00')
+        self.assertTrue(r.success)
+        self.assertEqual(r.message, 'ok')
 
     def single_on_single(self, a, b, c, duration, n, fnoise=0.01, x0=0,
                          deltas=[], ratio=1, rmse=None, fails=False,
@@ -66,20 +73,14 @@ class TestFit1(unittest.TestCase):
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
 
-        try:
-            af, bf, cf = expfit.fit1(
-                x, y, plot=(a, b, c) if plot else False, opt_plot=plot)
-        except expfit.FitFailedError as e:
-            if not fails:  # pragma: no cover
-                raise
-            af, bf, cf = e.p
-        finally:
-            if plot:  # pragma: no cover
-                import matplotlib.pyplot as plt
-                plt.show()
+        p = expfit.fit1(x, y, plot=(a, b, c) if plot else False, opt_plot=plot)
+        self.assertEqual(p.success, not fails)
+        if plot:  # pragma: no cover
+            import matplotlib.pyplot as plt
+            plt.show()
 
         rt = expfit.rmse1(x, y, (a, b, c))
-        rf = expfit.rmse1(x, y, (af, bf, cf))
+        rf = expfit.rmse1(x, y, p)
         if plot:  # pragma: no cover
             print(f'RMSE true: {rt}')
             print(f'RMSE fit:  {rf}')
@@ -88,9 +89,9 @@ class TestFit1(unittest.TestCase):
         with self.subTest(a=a, b=b, c=c, duration=duration, n=n, fnoise=fnoise,
                           x0=x0):
             if len(deltas) == 3:
-                self.assertAlmostEqual(af, a, delta=deltas[0])
-                self.assertAlmostEqual(bf, b, delta=deltas[1])
-                self.assertAlmostEqual(cf, c, delta=deltas[2])
+                self.assertAlmostEqual(p[0], a, delta=deltas[0])
+                self.assertAlmostEqual(p[1], b, delta=deltas[1])
+                self.assertAlmostEqual(p[2], c, delta=deltas[2])
             if ratio is not None:
                 self.assertLess(rf / rt, ratio)
             if rmse is not None:
@@ -179,8 +180,9 @@ class TestFit1(unittest.TestCase):
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
 
-        af, bf, cf = expfit.fit1(x, y, plot=plot)
-        rf = expfit.rmse1(x, y, (af, bf, cf))
+        pf = expfit.fit1(x, y, plot=plot)
+        self.assertTrue(pf.success)
+        rf = expfit.rmse1(x, y, pf)
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e)][np.argmin(np.abs((c, e)))]
@@ -225,8 +227,9 @@ class TestFit1(unittest.TestCase):
         s = max(fnoise * abs(y[0] - y[-1]), 1e-9)
         y += self.r.normal(0, s, size=n)
 
-        af, bf, cf = expfit.fit1(x, y, plot=plot)
-        rf = expfit.rmse1(x, y, (af, bf, cf))
+        pf = expfit.fit1(x, y, plot=plot)
+        self.assertTrue(pf.success)
+        rf = expfit.rmse1(x, y, pf)
 
         # Dominant rate
         bdom, cdom = [(b, c), (d, e), (f, g)][np.argmin(np.abs((c, e, g)))]
@@ -257,14 +260,17 @@ class TestFit1(unittest.TestCase):
         sot(0, 1, -2, 2, -10, 2, -50, rmse=0.3, plot=plot)
         sot(5, 5, -0.2, 5, -0.1, 5, -10, duration=5, rmse=1, plot=plot)
 
-    def single_on_straight(self, x, y, sigma=None, plot=False):
+    def single_on_straight(self, x, y, fails=False, plot=False):
         """ Fits an exponential to a straight line (or any line). """
-        try:
-            expfit.fit1(x, y, sigma=sigma, plot=plot, opt_plot=plot)
-        finally:
-            if plot:  # pragma: no cover
-                import matplotlib.pyplot as plt
-                plt.show()
+        p = expfit.fit1(x, y, plot=plot, opt_plot=plot)
+        if plot:  # pragma: no cover
+            import matplotlib.pyplot as plt
+            plt.show()
+        if isinstance(fails, str):
+            self.assertFalse(p.success)
+            self.assertIn(p.message, fails)
+        else:
+            self.assertEqual(p.success, not fails)
 
     def test_fit1_straight(self):
         # Test straight lines are detected
@@ -272,73 +278,44 @@ class TestFit1(unittest.TestCase):
         plot = False
         self.r = np.random.default_rng(1)
 
-        '''
-        # Flat line with noise
+        # Flat line with noise: fits _something_
         s = 1
         x = np.linspace(0, 1, 200)
         y = self.r.normal(0, s, x.shape)
-        self.assertRaises(
-            expfit.NotExponentialError,
-            sos, x, y, plot=plot, sigma=s)
+        sos(x, y, fails=False, plot=plot)
 
         # Flat line with dense noise and offset
         x = np.linspace(0, 1, 3000)
         y = 3 * np.ones(x.shape) + self.r.normal(0, 1e-9, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'does not improve',
-            sos, x, y, plot=plot)
+        sos(x, y, fails=False, plot=plot)
 
         # Straight line through origin, with noise
         x = np.linspace(0, 1, 99)
         y = 3 * x + self.r.normal(0, 0.1, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'does not improve',
-            sos, x, y, plot=plot)
+        sos(x, y, fails=False, plot=plot)
+
         # Straight line with offset and noise.
         self.r = np.random.default_rng(1)
         x = np.linspace(0, 1, 99)
         y = 4 + 2 * x + self.r.normal(0, 0.1, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'does not improve',
-            sos, x, y, plot=plot)
+        sos(x, y, fails=False, plot=plot)
+
         # Depending on the noise, this can still look exponential
         self.r = np.random.default_rng(9)
         y = 4 + 2 * x + self.r.normal(0, 0.1, x.shape)
-        sos(x, y, plot=plot)
+        sos(x, y, fails=False, plot=plot)
 
-        #TODO 1
-        #TODO: 3 passes
-        #TODO: 9 equal slopes
-
-        # Flat with dense noise: sensitive to see
-        self.r = np.random.default_rng(1)
-        '''
-        #x = np.linspace(1e-3, 7e-3, 900)
+        # Flat with dense noise: very sensitive to seed
         x = np.linspace(0, 1, 900)
-        s = 1
-        '''
+        self.r = np.random.default_rng(2)
         y = self.r.normal(0, s, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Squared MSE',
-            sos, x, y, sigma=s, plot=plot)
-        '''
-        for i in range(100):
-            print(f'== {i:3} ' + '=' * 50)
-            self.r = np.random.default_rng(4)
-            y = expfit.exp1(x, (0, 1, 1)) + self.r.normal(0, s, x.shape)
-            try:
-                sos(x, y, plot=True)
-            except expfit.NotExponentialError as e:
-                print(e)
-            break
-
-
-        #self.assertRaisesRegex(
-        #    expfit.NotExponentialError, 'Squared MSE',
-        #    sos, x, y, sigma=s, plot=True)
-
-
-        '''
+        sos(x, y, fails='Too many successive failed steps', plot=plot)
+        self.r = np.random.default_rng(3)
+        y = self.r.normal(0, s, x.shape)
+        sos(x, y, fails=False, plot=plot)
+        self.r = np.random.default_rng(4)
+        y = self.r.normal(0, s, x.shape)
+        sos(x, y, fails='Maximum iterations reached', plot=plot)
 
         # Mock-up of situation where noise creates an apparent exponential, but
         # only in the first two samples
@@ -346,10 +323,7 @@ class TestFit1(unittest.TestCase):
         y = np.zeros(x.shape)
         y[0] = 1
         y[1] = 0.1
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Straight line',
-            sos, x, y, plot=plot)
-        '''
+        sos(x, y, plot=plot)
 
     def test_fit1_with_peak_and_slope(self):
         # Remnant of "peak" at start of signal, plus slope at end

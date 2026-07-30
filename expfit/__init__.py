@@ -26,9 +26,8 @@ from ._expfit_version import (  # noqa
 from ._ex import (  # noqa
     CILimitNotFound,
     CIUnavailableError,
-    FitFailedError,
+    InitialEstimateFailed,
     NotDecayingError,
-    NotExponentialError,
     NotOpposingError,
 )
 
@@ -40,7 +39,6 @@ from ._series import (  # noqa
 from ._est import (  # noqa
     est1,
     estd11,
-    estimate_noise_level,
     LeastSquaresFit,
     SingleExponentialEstimate,
 )

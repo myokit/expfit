@@ -45,8 +45,8 @@ class TestLS(unittest.TestCase):
             ValueError, 't least 2 points', expfit.LeastSquaresFit, [1], [2])
 
 
-class TestEstimates(unittest.TestCase):
-    """ Tests initial estimates. """
+class TestEst1(unittest.TestCase):
+    """ Tests initial estimates for a single exponential. """
     @classmethod
     def setUpClass(cls):
         # Create in each test and seed!
@@ -65,18 +65,24 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(p[1], p0[1], delta=.03)
         self.assertAlmostEqual(p[2], p0[2], delta=2e-3)
 
-        # Result object, with nice str() but no extended info
+        # Result object, with nice str(), some properties, but no logs or zoom
         self.assertEqual(str(r), '-0.1565 0.1565 2')
+        self.assertIsInstance(r.ls0, expfit.LeastSquaresFit)
+        self.assertIsInstance(r.ls1, expfit.LeastSquaresFit)
+        self.assertIsInstance(r.ls2, expfit.LeastSquaresFit)
+        self.assertIsNone(r.region)
         self.assertIsNone(r.log1)
         self.assertIsNone(r.log2)
-        self.assertIsNone(r.region)
 
-        # Result object with full info (but no zoom)
-        r = expfit.est1(t, full=True)
+        # Result object with log info (but no zoom)
+        r = expfit.est1(t, log=True)
         p = t.detransform(r)
         self.assertAlmostEqual(p[0], p0[0], delta=.1)
         self.assertAlmostEqual(p[1], p0[1], delta=.03)
         self.assertAlmostEqual(p[2], p0[2], delta=2e-3)
+        self.assertIsInstance(r.ls0, expfit.LeastSquaresFit)
+        self.assertIsInstance(r.ls1, expfit.LeastSquaresFit)
+        self.assertIsInstance(r.ls2, expfit.LeastSquaresFit)
         self.assertIsNone(r.region)
         self.assertIsNotNone(r.log1)
         self.assertIsNotNone(r.log2)
@@ -88,7 +94,9 @@ class TestEstimates(unittest.TestCase):
         # With zoom too
         y = expfit.exp1(x, (3, 5, 10))
         t = expfit.UnitSquaredSeries(x, y)
-        r = expfit.est1(t, full=True)
+        r = expfit.est1(t, log=False)
+        self.assertIsNotNone(r.region)
+        r = expfit.est1(t, log=True)
         self.assertIsNotNone(r.region)
 
         # Vets
@@ -103,23 +111,20 @@ class TestEstimates(unittest.TestCase):
         x = np.linspace(0, 1, 3)
         y = expfit.exp1(x, (3, 5, 2))
         t = expfit.UnitSquaredSeries(x, y)
-        r = expfit.est1(t, full=True)
+        r = expfit.est1(t, log=True)
         self.assertEqual(len(r.log1), 1)
         self.assertEqual(len(r.log2), 1)
 
         # Equal slopes
         t = expfit.UnitSquaredSeries(x, x)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Equal slopes', expfit.est1, t)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Equal slopes',
-            expfit.est1, t, full=True)
+        self.assertRaises(
+            expfit.InitialEstimateFailed, expfit.est1, t)
 
         # Contrived example with equal means but not equal slopes
         x = np.array([0, 1, 2, 3])
         y = np.array([0, 2, -1, 3])
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Equal means', expfit.est1, x, y)
+        self.assertRaises(
+            expfit.InitialEstimateFailed, expfit.est1, x, y)
 
     def est1(self, x, y, transform=True, plot=False):
         """
@@ -200,16 +205,14 @@ class TestEstimates(unittest.TestCase):
         # Edge case: perfectly flat line, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * np.ones(x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Equal slopes',
-            self.est1, x, y, plot=plot)
+        self.assertRaises(
+            expfit.InitialEstimateFailed, self.est1, x, y, plot=plot)
 
         # Straight line through origin, no noise
         x = np.linspace(0, 1, 10)
         y = 3 * x
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Equal slopes',
-            self.est1, x, y, plot=plot)
+        self.assertRaises(
+            expfit.InitialEstimateFailed, self.est1, x, y, plot=plot)
         # Note: without the transform this isn't picked up
 
     def test_est1_steep(self):
@@ -279,6 +282,26 @@ class TestEstimates(unittest.TestCase):
         self.assertAlmostEqual(q, b, delta=1e5)
         self.assertAlmostEqual(r, c, delta=1)
         self.assertLess(rmse1(x, y, p, q, r), 1e10)
+
+    def test_find_action(self):
+        x = np.linspace(0, 1, 111)
+        y = expfit.exp1(x, (8, 2, 7))
+
+        r = expfit._est.find_action(x, y)
+        self.assertEqual(r, (84, 111))
+
+        x = np.linspace(0, 1, 50)
+        y = expfit.exp1(x, (1, 1, 1))
+        r = expfit._est.find_action(x, y)
+        self.assertIsNone(r)
+
+
+class TestEstd11(unittest.TestCase):
+    """ Tests initial estimates for opposing decaying exponentials. """
+    @classmethod
+    def setUpClass(cls):
+        # Create in each test and seed!
+        cls.r = None
 
     def estd11(self, x, y, plot=False):
         """
@@ -370,7 +393,7 @@ class TestEstimates(unittest.TestCase):
 
         # TODO: Make that fail?
 
-        return
+        #return
         y = expfit.exp1(x, (1, 1, -1))
         self.assertRaisesRegex(
             expfit.NotOpposingError, 'lalala', e, x, y, plot=True)
@@ -389,89 +412,6 @@ class TestEstimates(unittest.TestCase):
         y = expfit.expd(x, p0) + r.normal(0, 0.1, size=x.shape)
         self.assertRaises(
             expfit.NotOpposingError, self.estd11, x, y, plot=plot)
-
-
-    def test_find_action(self):
-        x = np.linspace(0, 1, 111)
-        y = expfit.exp1(x, (8, 2, 7))
-
-        r = expfit._est.find_action(x, y)
-        self.assertEqual(r, (84, 111))
-
-        x = np.linspace(0, 1, 50)
-        y = expfit.exp1(x, (1, 1, 1))
-        r = expfit._est.find_action(x, y)
-        self.assertIsNone(r)
-
-    '''
-    def test_estimate_noise_level(self):
-        # Test noise level estimates
-
-        rng = np.random.default_rng(18)
-        f = expfit.expd
-        plot = False
-
-        # Quite a strong exponential, low loise
-        s = 0.03
-        x = np.linspace(0.3, 4, 200)
-        y = f(x, (-1000, 5, 0.5)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.2)
-
-        # Not enough data, not enough noise
-        s = 0.05
-        x = np.linspace(0, 0.5, 20)
-        y = f(x, (200, 21, 1.4)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.6)
-
-        # Lots of data, strong noise
-        s = 0.1
-        x = np.linspace(0, 6.7, 1003)
-        y = f(x, (73, 1, -5.55)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.1)
-
-        # Strong noise, but massive exponential
-        s = 10
-        x = np.linspace(1e-3, 7e-3, 900)
-        y = f(x, (-51, -7.2, -1e-3)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.1)
-
-        # Down-then-up exponential
-        s = 0.10
-        x = np.linspace(0, 2, 800)
-        y = f(x, (8, 10, 0.07, -15, 0.2)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.25)
-
-        # Same but gentler
-        s = 0.05
-        x = np.linspace(0, 0.4, 800)
-        y = f(x, (8, 10, 0.07, -15, 0.2)) + rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.1)
-
-        # Difficult one for fit1
-        s = 1
-        x = np.linspace(0, 5, 400)
-        y = f(x, (5, 10, 5, 5, 1, 5, 0.3, 10, 0.05))
-        y += rng.normal(0, s, x.shape)
-        e = expfit.estimate_noise_level(x, y, plot=plot)
-        self.assertAlmostEqual(e / s, 1, delta=0.1)
-
-        if plot:
-            import matplotlib.pyplot as plt
-            plt.show()
-
-        # Vets
-        x = np.linspace(0, 1, 50)
-        y = f(x[1:], (1, 2, -3))
-        self.assertRaisesRegex(
-            ValueError, 'must have same length, got 50 and 49',
-            expfit.estimate_noise_level, x, y)
-    '''
 
 
 if __name__ == '__main__':  # pragma: no cover

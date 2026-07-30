@@ -9,39 +9,47 @@ import numpy as np
 import expfit
 
 
-def fit1(x, y=None, reject_linear=True, plot=False, opt_plot=False,
-         full=False):
+def fit1(x, y=None, plot=False, opt_plot=False):
     """
-    Fits an exponential ``a + b * exp(c * x)`` to the time series ``(x, y)``,
-    returning ``(a, b, c)``
+    Fits an exponential ``a + b * exp(c * x)`` to the time series ``(x, y)``.
 
-    Example::
+    Basic example::
 
         x = np.linspace(0, 1, 100)
         y = 3 + 2 * np.exp(-5 * x) + np.random.normal(0, 1, size=len(t))
         a, b, c = expfit.fit_single(x, y)
 
-    If ``reject_linear`` is set to ``True``, the method will attempt to compare
-    with a linear fit to the same data after fitting.
+    The method can fail either during initial estimation of parameters, or when
+    finding an optimal fit. In both cases, it will fail silently, but the
+    returned :class:`expfit.ExponentialFit` will have its ``success` property
+    set to ``False``::
+
+        x = np.linspace(0, 1, 100)
+        y = 3 + 2 * np.exp(-5 * x) + np.random.normal(0, 1, size=len(t))
+        r = expfit.fit_single(x, y)
+        print(r.success)
+
+    A failure during optimisation may still provide parameters, but failure in
+    initial estimation will result in an empty parameter set::
+
+        if not r.sucess and len(r) == 3:
+            p_failed = np.array(r)
+        else:
+            print('No parameters available')
 
     Arguments:
 
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``reject_linear``
-        Set to ``False`` to skip the post-fitting check comparing to a straight
-        line.
     ``plot``
         Optional parameter to create a plot of the method's workings. Can be
         set to ``True`` or to an array with the true ``(a, b, c)``.
     ``opt_plot``
         Optional parameter to create a plot of the optimisation routine.
-    ``full``
-        Set to ``True`` to return a list containing the initial estimate at
-        index 0, followed by the obtained fit.
 
-    Returns an :class:`expfit.ExponentialFit` (or a list if ``full=True``).
+    Returns an :class:`expfit.ExponentialFit`. If the initial estimate
+    suceeded, this will have the initial parameters ``p0`` set.
     """
     xy = xy_org = expfit.TimeSeries._from_xy(x, y)
     if not isinstance(xy_org, expfit.UnitSquaredSeries):
@@ -54,8 +62,10 @@ def fit1(x, y=None, reject_linear=True, plot=False, opt_plot=False,
     plot = plot is not False
 
     # Get an initial estimate in transformed space
-    # TODO: May raise a NotExponentialError
-    q0 = expfit.est1(xy, full=plot)
+    try:
+        q0 = expfit.est1(xy, log=plot)
+    except expfit.InitialEstimateFailed as e:
+        return ExponentialFit([], False, 'Initial estimate failed')
 
     # Fit
     e = expfit.SingleExponentialError(xy)
@@ -63,14 +73,16 @@ def fit1(x, y=None, reject_linear=True, plot=False, opt_plot=False,
         r = expfit.lm(e, q0, plot=opt_plot)
         if plot:  # pragma: no cover
             print(r)
-    # TODO: Retry?
-    #q0 *= np.random.normal(1, 0.01, len(q0))
+    # TODO: Retry? q0 *= np.random.normal(1, 0.01, len(q0))
 
-    # Create result object with CI capabilities, on original data
+    # Create result object, in untransformed space
     p = expfit.ExponentialFit(
-        xy.detransform(r.x), expfit.SingleExponentialError(xy_org))
+        p=xy.detransform(r.x),
+        p0=xy.detransform(q0),
+        success=r.success,
+        message='Fit successful' if r.success else r.message)
 
-    # Plot, before checking if not successful
+    # Plot
     if plot:  # pragma: no cover
         from ._plot import fit1_plot
         try:
@@ -79,39 +91,7 @@ def fit1(x, y=None, reject_linear=True, plot=False, opt_plot=False,
             pt = None
         fit1_plot(xy, q0, r, xy_org, p, pt)
 
-    # Fail if optimisation failed, but still provide parameters
-    if not r.success:
-        with np.errstate(over='ignore'):
-            mse_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2) / n
-        if sigma is not None:
-            print('MSE exp', mse_exp)
-            print('Cut off', sigma**2)
-            print('Adjustd', sigma**2)
-
-        raise expfit.FitFailedError(
-            f'Fit failed with optimiser message: {r.message}', r, p)
-
-    # Compare with linear fit.
-    if reject_linear and r.success and q0.region is None:
-        # Note 1: This can only be performed if the obtained parameters can be
-        # assumed to be the MLE
-        # Note 2: If a "zoom region" was used in the initial estimate, the data
-        # is assumed not be linear
-        lin = q0.ls0
-        se_lin = np.sum((y - lin.offset - lin.slope * x)**2)
-        with np.errstate(over='ignore'):
-            se_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2)
-        #sigma = xy.transform_sigma(sigma)
-        if mse_lin - mse_exp <= 2 * sigma2 / n:
-
-
-    sigma2 = mse_exp if sigma is None else sigma**2
-
-        raise expfit.NotExponentialError(
-            'Exponential does not improve significantly over straight line.')
-
-    # Return
-    return [xy.detransform(q0), p] if full else p
+    return p
 
 
 # TODO remove TODO remove TODO remove TODO remove TODO remove TODO remove TODO

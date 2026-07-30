@@ -6,13 +6,14 @@
 #
 
 
-class NotExponentialError(RuntimeError):
+class InitialEstimateFailed(RuntimeError):
     """
-    Raised if no exponential can be found in the provided time series.
+    Raised if a method to provide initial estimates fails.
     """
-    def __init__(self, msg=None):
-        end = f': {msg}' if msg is not None else '.'
-        super().__init__(f'No exponential found in time series{end}')
+
+
+
+
 
 
 class NotDecayingError(RuntimeError):

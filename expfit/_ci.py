@@ -31,17 +31,35 @@ class ExponentialFit:
     Arguments:
 
     ``p``
-        The obtained parameters.
+        The obtained parameters (can be empty if not succesful).
+    ``success``
+        True only if the fit was considered successful.
+    ``message``
+        An optional message describing the result.
+    ``p0``
+        An optional array containing the initial parameters or a
+        :class:`expfit.SingleExponentialEstimate`.
     ``error``
         An optional error object. When provided, confidence intervals and
         profiling are enabled.
 
+    Public properties:
+
+    The arguments ``success``, ``message``, and ``p0`` are made available as
+    public properties.
     """
-    def __init__(self, p, error=None):
+    def __init__(self, p, success, message, p0=None, error=None):
         self._p = np.copy(p)
         self._np = len(self._p)
 
-        self._err = error
+        # Public properties
+        self.success = bool(success)
+        self.message = message
+        if p0 is not None:
+            self.p0 = np.copy(p0)
+
+        # Error and cached results
+        self._err = error if success else None
         self._mjh = None
         self._cov = None
 

@@ -217,7 +217,7 @@ def est1(x, y=None, log=False, plot=False):
     def abca(l1, l2):
         x1, y1, s1 = l1.mu_x, l1.mu_y, l1.slope
         x2, y2, s2 = l2.mu_x, l2.mu_y, l2.slope
-        with np.errstate(all='raise', divide='raise'):
+        with np.errstate(all='raise'):
             try:
                 c = (s1 - s2) / (y1 - y2)
                 e1, e2 = np.exp(c * x1), np.exp(c * x2)
@@ -277,14 +277,9 @@ def est1(x, y=None, log=False, plot=False):
         initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
 
     # Catch silent failures in abca()
-    if l1.slope == l2.slope:
-        raise expfit.NotExponentialError('Equal slopes')
-    elif l1.mu_y == l2.mu_y:
-        raise expfit.NotExponentialError('Equal means')
+    if l1.slope == l2.slope or l1.mu_y == l2.mu_y:
+        raise expfit.InitialEstimateFailed()
 
-    # Advanced testing (e.g. comparing against linear) is done in other
-    # methods. One good reason is that the AIC should be used on an optimal
-    # fit, not an initial estimate.
     return r
 
 
@@ -346,7 +341,7 @@ def find_action(x, y=None, r_factor=20, n_min=10):
     return None
 
 
-def estd11(x, y=None, sigma=None, plot=False):
+def estd11(x, y=None, plot=False):
     """
     Estimates parameters for two decaying exponentials with opposite signs.
 
@@ -355,9 +350,6 @@ def estd11(x, y=None, sigma=None, plot=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``sigma``
-        An estimate of the noise level in the data, given as a standard
-        deviation.
     ``plot=False``
         Set to ``True`` to create a debugging plot.
 
@@ -446,49 +438,4 @@ def estd11(x, y=None, sigma=None, plot=False):
         raise expfit.NotOpposingError(msg)
 
     return a0, b0, c0, b1, c1
-
-
-def estimate_noise_level(x, y=None, plot=False):
-    """
-    Estimates the noise level in a signal --- assuming it is well fit by either
-    a straight line or a single exponential.
-
-    A typical use case would be to run this on a known flat bit of signal, or
-    on the final 10% of a decaying exponential signal.
-
-    Arguments:
-
-    ``x``, ``y``
-        The time series as two one-dimensional arrays of equal size.
-        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``plot``
-        Optional parameter to create a plot of the method's workings.
-
-    Returns ``sigma`` where ``sigma**2`` is the variance of a normal
-    distribution with the estimated noise level.
-    """
-    x, y = xy = expfit.TimeSeries._from_xy(x, y)
-    if len(x) < 10:
-        raise ValueError('At least 10 points are required')
-
-
-
-
-
-
-
-    xx, yy = x[-m:], y[-m:]
-    try:
-        p0 = expfit.fit1(xx, yy)
-    except expfit.NotExponentialError:
-        # Very steep? Then use all data for fit (but not for residuals)
-        p0 = expfit.fit1(x, y)
-    r = yy - expfit.exp1(xx, p0)
-    sigma = np.std(r)
-
-    if plot:  # pragma: no cover
-        from ._plot import sigma_plot
-        sigma_plot(x, y, xx, yy, r, sigma)
-
-    return sigma
 
