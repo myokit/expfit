@@ -9,7 +9,8 @@ import numpy as np
 import expfit
 
 
-def fit1(x, y=None, sigma=None, plot=False, opt_plot=False, full=False):
+def fit1(x, y=None, reject_linear=True, plot=False, opt_plot=False,
+         full=False):
     """
     Fits an exponential ``a + b * exp(c * x)`` to the time series ``(x, y)``,
     returning ``(a, b, c)``
@@ -19,16 +20,18 @@ def fit1(x, y=None, sigma=None, plot=False, opt_plot=False, full=False):
         x = np.linspace(0, 1, 100)
         y = 3 + 2 * np.exp(-5 * x) + np.random.normal(0, 1, size=len(t))
         a, b, c = expfit.fit_single(x, y)
-        print(a, b, c)
+
+    If ``reject_linear`` is set to ``True``, the method will attempt to compare
+    with a linear fit to the same data after fitting.
 
     Arguments:
 
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``sigma``
-        An optional estimate of the noise level in the data (i.e. the sample
-        standard deviation of a short section of flat signal).
+    ``reject_linear``
+        Set to ``False`` to skip the post-fitting check comparing to a straight
+        line.
     ``plot``
         Optional parameter to create a plot of the method's workings. Can be
         set to ``True`` or to an array with the true ``(a, b, c)``.
@@ -50,49 +53,18 @@ def fit1(x, y=None, sigma=None, plot=False, opt_plot=False, full=False):
     pt = plot
     plot = plot is not False
 
-    # Convert sigma to new y-scale, and take square
-    if sigma is not None:
-        print('sigma2 in', sigma**2)
-        print('std2   in', np.std(xy_org[1])**2)
-        lx = expfit.LeastSquaresFit(*xy_org)
-        mse = np.sum((xy_org[1] - lx.offset - lx.slope * xy_org[0])**2) / n
-        print('lin    in', mse)
-        print('cutXXX in', (sigma * n / (n - 1))**2)
-        print('cutYYY in', (sigma * (n + 2) / n)**2)
-        print('cutZZZ in', (sigma * (1 + 1.64 / np.sqrt(2 * n)))**2)
-
-        1.96
-
-        sigma = xy.transform_sigma(sigma)
-
-    # TODO: New l0 is required as one from est() can be on find_action. Should
-    #       we simplify and remove this?
-
-    # Avoid fitting altogether if a straight line fit already has MSE < sigma^2
-    lin = expfit.LeastSquaresFit(x, y)
-    mse_lin = np.sum((y - lin.offset - lin.slope * x)**2) / n
-    print(np.std(y)**2)
-
-
-
-    if sigma is not None:
-        print('MSE lin', mse_lin)
-        print('Cut off', sigma**2)
-        if mse_lin <= sigma**2:
-            raise expfit.NotExponentialError(
-                'Squared MSE of straight line below user-specified sigma.')
-
     # Get an initial estimate in transformed space
-    # May raise a NotExponentialError
+    # TODO: May raise a NotExponentialError
     q0 = expfit.est1(xy, full=plot)
 
     # Fit
-    #q0 *= np.random.normal(1, 0.01, len(q0))
     e = expfit.SingleExponentialError(xy)
     with np.errstate(all='ignore'):
         r = expfit.lm(e, q0, plot=opt_plot)
         if plot:  # pragma: no cover
             print(r)
+    # TODO: Retry?
+    #q0 *= np.random.normal(1, 0.01, len(q0))
 
     # Create result object with CI capabilities, on original data
     p = expfit.ExponentialFit(
@@ -119,13 +91,22 @@ def fit1(x, y=None, sigma=None, plot=False, opt_plot=False, full=False):
         raise expfit.FitFailedError(
             f'Fit failed with optimiser message: {r.message}', r, p)
 
-    # Compare against a straight line (still on transformed), using Akaike
-    # (Note this can't be done if optimisation properly failed - although case
-    #  to be made some "failures" are correct stoping...)
-    with np.errstate(over='ignore'):
-        mse_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2) / n
+    # Compare with linear fit.
+    if reject_linear and r.success and q0.region is None:
+        # Note 1: This can only be performed if the obtained parameters can be
+        # assumed to be the MLE
+        # Note 2: If a "zoom region" was used in the initial estimate, the data
+        # is assumed not be linear
+        lin = q0.ls0
+        se_lin = np.sum((y - lin.offset - lin.slope * x)**2)
+        with np.errstate(over='ignore'):
+            se_exp = np.sum((y - r.x[0] - r.x[1] * np.exp(r.x[2] * x))**2)
+        #sigma = xy.transform_sigma(sigma)
+        if mse_lin - mse_exp <= 2 * sigma2 / n:
+
+
     sigma2 = mse_exp if sigma is None else sigma**2
-    if mse_lin - mse_exp <= 2 * sigma2 / n:
+
         raise expfit.NotExponentialError(
             'Exponential does not improve significantly over straight line.')
 

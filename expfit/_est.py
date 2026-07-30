@@ -64,29 +64,43 @@ class SingleExponentialEstimate:
     """
     Estimated parameters of a single exponential ``a + b * exp(c * x)``.
 
-    Can be used as a (read-only) sequence, or may provide extra information if
-    :meth:`est1` is called with ``full=True``. In this case the following
-    additional properties will be set:
+    Can be used as a (read-only) sequence::
 
+        a, b, c = expfit.est1(x, y)
+
+    or as a result object with extended information::
+
+        r = expfit.est1(x, y)
+        print(r.ls1)
+
+    The following properties are provided by default:
+
+    ``region``
+        If only a region of the data was used, this will contain its lower and
+        upper indicies. In most cases it will be ``None``.
+    ``ls0``
+        A linear least squares fit to the data (either the full data or the
+        selected region).
     ``ls1``
         A linear least squares fit to the selected segment at the start of the
-        signal.
+        (full or selected) data.
     ``ls2``
         A linear least squares fit to the selected segment at the end of the
-        signal.
+        (full or selected) data.
+
+    Additionally, if :meth`est1` was called with ``log=True``, it will provide
+
     ``log1``
         A list where each entry is ``(least_squares_fit, message)``
         containing a proposed least squares fit to a segment at the start of
         the signal, and a message describing it.
     ``log2``
         Like ``log1``, but for the end of the signal.
-    ``region``
-        Either ``None``, or the lower and upper indices of the region zoomed in
-        on.
 
     """
     def __init__(self, a, b, c):
         self._p = np.array([a, b, c], dtype=float)
+        self.ls0 = None
         self.ls1 = None
         self.ls2 = None
         self.log1 = None
@@ -103,7 +117,7 @@ class SingleExponentialEstimate:
         return ' '.join(f'{i:.4g}' for i in self._p)
 
 
-def est1(x, y=None, reject_linear=True, full=False, plot=False):
+def est1(x, y=None, log=False, plot=False):
     """
     Estimates ``a, b, c`` in ``y = a + b * exp(c * x)`` using derivatives
     estimated from mean averages at the sides.
@@ -151,27 +165,22 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
     ``x``, ``y``
         The time series as two one-dimensional arrays of equal size.
         Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``full=False``
-        Set to ``True`` to store debugging and visualisation information in
-        the returned :class:`SingleExponentialEstimate`.
+    ``log=False``
+        Set to ``True`` to store information about the segments used in the
+        estimate in the ``log1`` and ``log2`` properties of the returned
+        :class:`SingleExponentialEstimate`.
     ``plot=False``
         Set to ``True`` to create a plot of the initial estimation process.
-        Setting this to ``True`` will has the side effect of setting
-        ``full=True``.
 
     Returns a :class:`SingleExponentialEstimate` with the estimated
     ``(a, b, c)``.
     """
     xy_no_zoom = expfit.TimeSeries._from_xy(x, y)
-    if len(xy_no_zoom[0]) < 5:
-        raise ValueError('At least 5 points are required')
+    if len(xy_no_zoom[0]) < 3:
+        raise ValueError('At least 3 points are required')
     del x, y
 
-    # Full information is returned if plot=True
-    full = full or plot
-
     # Select a subsection of the data, if the signal is too steep
-    # TODO: Stop doing this?
     zoom_region = find_action(xy_no_zoom)
     x, y = xy_no_zoom
     if zoom_region is not None:
@@ -198,11 +207,8 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
         l2.slope, l2.offset = 0.0, l2.mu_y
         shrink2 = False
 
-    # Store initial segments
-    log1 = log2 = None
-    if full:
-        log1 = [l1]
-        log2 = [l2]
+    # Store initial segments, if requested
+    log1, log2 = ([l1], [l2]) if (log or plot) else (None, None)
 
     # Calculate area under the data
     A0 = expfit._trapezoid(y, x)
@@ -255,21 +261,22 @@ def est1(x, y=None, reject_linear=True, full=False, plot=False):
                     if log2 is not None:
                         log2.append(l2)
 
-    # Create results object
+    # Create result object
     r = SingleExponentialEstimate(a, b, c)
-    if full:  # TODO: This is memory overhead, but nothing else, drop `full`?
-        r.ls1 = l1
-        r.ls2 = l2
+    r.ls0 = l0
+    r.ls1 = l1
+    r.ls2 = l2
+    r.region = zoom_region
+    if log:
         r.log1 = log1
         r.log2 = log2
-        r.region = zoom_region
 
     # Show initial estimate (before failing)
     if plot:  # pragma: no cover
         from ._plot import initial_estimate_plot
         initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
 
-    # Catch (some possible) silent failures in `abca`
+    # Catch silent failures in abca()
     if l1.slope == l2.slope:
         raise expfit.NotExponentialError('Equal slopes')
     elif l1.mu_y == l2.mu_y:

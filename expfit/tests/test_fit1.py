@@ -313,19 +313,29 @@ class TestFit1(unittest.TestCase):
         # Flat with dense noise: sensitive to see
         self.r = np.random.default_rng(1)
         '''
-        x = np.linspace(1e-3, 7e-3, 900)
-        s = 10
+        #x = np.linspace(1e-3, 7e-3, 900)
+        x = np.linspace(0, 1, 900)
+        s = 1
         '''
         y = self.r.normal(0, s, x.shape)
         self.assertRaisesRegex(
             expfit.NotExponentialError, 'Squared MSE',
             sos, x, y, sigma=s, plot=plot)
         '''
-        self.r = np.random.default_rng(2)
-        y = self.r.normal(0, s, x.shape)
-        self.assertRaisesRegex(
-            expfit.NotExponentialError, 'Squared MSE',
-            sos, x, y, sigma=s, plot=True)
+        for i in range(100):
+            print(f'== {i:3} ' + '=' * 50)
+            self.r = np.random.default_rng(4)
+            y = expfit.exp1(x, (0, 1, 1)) + self.r.normal(0, s, x.shape)
+            try:
+                sos(x, y, plot=True)
+            except expfit.NotExponentialError as e:
+                print(e)
+            break
+
+
+        #self.assertRaisesRegex(
+        #    expfit.NotExponentialError, 'Squared MSE',
+        #    sos, x, y, sigma=s, plot=True)
 
 
         '''

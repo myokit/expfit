@@ -36,6 +36,7 @@ class NotOpposingError(RuntimeError):
         super().__init__(f'No opposing exponentials found in the signal{end}')
 
 
+# TODO Remove
 class FitFailedError(RuntimeError):
     """
     Raised if a fit fails.
