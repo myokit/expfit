@@ -128,56 +128,63 @@ def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
 
     Returns an :class:`LMResult`.
     """
-    # Old:
-    # By default, the Hessian is used to guide
-    # the update step, but if this leads to an uninvertible matrix, the more
-    # common approximation JTJ is used (where JT is the transpose of the
-    # Jacobian). Although the Hessian is more exact, it has been suggested this
-    # approximation can be more stable, especially far from the true solution.
     time = timeit.default_timer()
 
+    # Initial point: reshape for matrix multiplication
     p = np.asarray(p0)
     n = np.prod(p.shape)
     p = p.reshape((1, n))
-    eye = np.eye(n)
-    #alpha = 1
-    #alpha = 1000    # Cautious start
-    alpha = 1e-3  # Brave start
-    err = False
 
+    # Check if constraint holds for initial position
+    if constraint is not None and not constraint(p[0]):
+        # TODO: This could be an exception?
+        res = LMResult()
+        res.success = False
+        res.message = 'Initial position fails constraint'
+        return res
+
+    # Initial error, jacobian, hessian, error state and message
     m, j, h = f(p[0])
     evaluations = 1
     accepted = 0
+    err, msg = False, None
 
-    # Check dimensions
+    # Check error function returns correct dimensions
     if not np.isscalar(m):
         raise ValueError('MSE must be a scalar')
     j = np.asarray(j)
     if j.shape != n:
         raise ValueError(
             'Jacobian must match shape of initial point.'
-            f' Got {j.shape}, expecting ({n}, )')
+            f' Got {j.shape}, expecting ({n},)')
     h = np.asarray(h)
     if len(h.shape) != 2 or h.shape != (n, n):
         raise ValueError(
             'Hessian must match shape of initial point.'
             f' Got {h.shape}, expecting ({n}, {n})')
 
-    # Check stopping criteria
+    # Check a stopping criterion is set
     if ftol is None and jtol is None and htol is None:
         raise ValueError('No stopping criterion set')
 
-    # Check if constraint holds for initial position
-    if constraint is not None and not constraint(p[0]):
-        err = 'Initial position fails constraint'
+    # Factor determining balance between gradient descent and Newton. Bigger
+    # number means purer Newton method.
+    #alpha = 1
+    #alpha = 1000    # Cautious start
+    alpha = 1e-3  # Brave start
+
+    # General damping factor
+    beta = 1
+
+    # Identity matrix used below.
+    eye = np.eye(n)
 
     # Create storage for plot
     if plot is not False:  # pragma: no cover
         # Position, mse, alpha
-        log = [[p[0], m, alpha]]
+        log = [[p[0], m, alpha, beta]]
 
     # Run
-    err, msg = False, None
     for iterations in range(max_iter):
         if verbose:  # pragma: no cover
             print(f'Iteration {1 + iterations}')
@@ -189,7 +196,7 @@ def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
         # Suggest next point
         try:
             hinv = np.linalg.inv(h + float(alpha) * eye * h)
-            ps = p - hinv.dot(j)
+            ps = p - beta * hinv.dot(j)
             #ps = p - np.linalg.solve(h + float(alpha) * eye * h, j)
         except np.linalg.LinAlgError:  # pragma: no cover
             '''
@@ -225,6 +232,7 @@ def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
 
             improvement = m - fs[0]
             alpha *= 0.5
+            beta = 1
             p = ps
             m, j, h = fs
             accepted += 1
@@ -232,10 +240,11 @@ def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
             if verbose:  # pragma: no cover
                 print(f'Rejected ({fs[0]}, {m})')
             alpha *= 10
+            beta *= 0.9
 
         # Update logged information for plot
         if ok and plot is not False:  # pragma: no cover
-            log.append([p[0], m, alpha])
+            log.append([p[0], m, alpha, beta])
 
         # Stop?
         if ok:
@@ -248,10 +257,9 @@ def lm(f, p0, ftol=None, jtol=1e-7, htol=None, max_iter=1000, constraint=None,
             if htol is not None and j.T.dot(hinv).dot(j) < 1e-20:
                 msg = 'Optimisation successful (htol)'
                 break
-        else:
-            if alpha > 1e20:  # pragma: no cover
-                err, msg = True, 'Too many successive failed steps'
-                break
+        elif alpha > 1e20:  # pragma: no cover
+            err, msg = True, 'Too many successive failed steps'
+            break
 
     if iterations + 1 == max_iter:
         err, msg = True, 'Maximum iterations reached'

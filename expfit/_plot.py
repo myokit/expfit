@@ -507,7 +507,7 @@ def opt_plot(log, previous=None):
         else:
             grid = fig.add_gridspec(3, d - 1, height_ratios=(1, 3, 3))
 
-        grd2 = grid[0, :].subgridspec(1, 3)
+        grd2 = grid[0, :].subgridspec(1, 4)
         axa = fig.add_subplot(grd2[0])
         axa.set_xlabel('Iterations')
         axa.set_ylabel('a')
@@ -521,6 +521,11 @@ def opt_plot(log, previous=None):
         axl.set_xlabel('Iterations')
         axl.set_ylabel('Alpha')
         axl.set_yscale('log')
+
+        axt = fig.add_subplot(grd2[3])
+        axt.set_xlabel('Iterations')
+        axt.set_ylabel('Beta')
+        axt.set_yscale('log')
 
         axb, axc = [], []
         if d == 1:
@@ -541,7 +546,7 @@ def opt_plot(log, previous=None):
                 ax.set_ylabel(f'c{2 + i}')
     else:
         # Re-use an existing figure and axes
-        fig, axa, axb, axc, axm, axl, diagonals = previous
+        fig, axa, axb, axc, axm, axl, axt, diagonals = previous
 
         # Remove the diagonals, which were based on x-limits likely to change
         if d > 1:
@@ -554,6 +559,7 @@ def opt_plot(log, previous=None):
     c = [[row[0][2 + 2 * i] for row in log] for i in range(d)]
     m = [row[1] for row in log]
     l = [row[2] for row in log]
+    t = [row[3] for row in log]
 
     n = len(a)
     import matplotlib
@@ -564,10 +570,12 @@ def opt_plot(log, previous=None):
     axa.plot(a, '-')
     axm.plot(m, '-')
     axl.plot(l, '-')
+    axt.plot(t, '-')
     for j in range(n):
         axa.plot(j, a[j], 's', color=cols[j])
         axm.plot(j, m[j], 's', color=cols[j])
         axl.plot(j, l[j], 's', color=cols[j])
+        axt.plot(j, t[j], 's', color=cols[j])
 
     diagonals = []
     if d == 1:
@@ -587,7 +595,7 @@ def opt_plot(log, previous=None):
             diagonals.append(axc[i].plot(x, x, '#ccc', ls='--', lw=1)[0])
 
     # Pass items back to allow repeated optimisations to be plotted in one fig
-    return fig, axa, axb, axc, axm, axl, diagonals
+    return fig, axa, axb, axc, axm, axl, axt, diagonals
 
 
 def sigma_plot(t, v, x, y, r, sigma):
