@@ -75,18 +75,15 @@ class SingleExponentialEstimate:
 
     The following properties are provided by default:
 
-    ``region``
-        If only a region of the data was used, this will contain its lower and
-        upper indicies. In most cases it will be ``None``.
     ``ls0``
-        A linear least squares fit to the data (either the full data or the
+        A linear least squares fit to the full signal.
         selected region).
     ``ls1``
         A linear least squares fit to the selected segment at the start of the
-        (full or selected) data.
+        signal.
     ``ls2``
         A linear least squares fit to the selected segment at the end of the
-        (full or selected) data.
+        signal.
 
     Additionally, if :meth`est1` was called with ``log=True``, it will provide
 
@@ -105,7 +102,6 @@ class SingleExponentialEstimate:
         self.ls2 = None
         self.log1 = None
         self.log2 = None
-        self.region = None
 
     def __len__(self):
         return 3
@@ -175,17 +171,9 @@ def est1(x, y=None, log=False, plot=False):
     Returns a :class:`SingleExponentialEstimate` with the estimated
     ``(a, b, c)``.
     """
-    xy_no_zoom = expfit.TimeSeries._from_xy(x, y)
-    if len(xy_no_zoom[0]) < 3:
+    x, y = expfit.TimeSeries._from_xy(x, y)
+    if len(x) < 3:
         raise ValueError('At least 3 points are required')
-    del x, y
-
-    # Select a subsection of the data, if the signal is too steep
-    zoom_region = find_action(xy_no_zoom)
-    x, y = xy_no_zoom
-    if zoom_region is not None:
-        i, j = zoom_region
-        x, y = x[i:j], y[i:j]
 
     # Get starting segments, and least squares fits
     m = (1 + len(x)) // 2
@@ -208,7 +196,8 @@ def est1(x, y=None, log=False, plot=False):
         shrink2 = False
 
     # Store initial segments, if requested
-    log1, log2 = ([l1], [l2]) if (log or plot) else (None, None)
+    log = log or plot
+    log1, log2 = ([l1], [l2]) if log else (None, None)
 
     # Calculate area under the data
     A0 = expfit._trapezoid(y, x)
@@ -266,7 +255,6 @@ def est1(x, y=None, log=False, plot=False):
     r.ls0 = l0
     r.ls1 = l1
     r.ls2 = l2
-    r.region = zoom_region
     if log:
         r.log1 = log1
         r.log2 = log2
@@ -274,71 +262,13 @@ def est1(x, y=None, log=False, plot=False):
     # Show initial estimate (before failing)
     if plot:  # pragma: no cover
         from ._plot import initial_estimate_plot
-        initial_estimate_plot(xy_no_zoom[0], xy_no_zoom[1], r)
+        initial_estimate_plot(x, y, r)
 
     # Catch silent failures in abca()
     if l1.slope == l2.slope or l1.mu_y == l2.mu_y:
         raise expfit.InitialEstimateFailed()
 
     return r
-
-
-def find_action(x, y=None, r_factor=20, n_min=10):
-    """
-    For very steep exponentials, isolates a region of the series ``(x, y)`` for
-    use in initial estimates.
-
-    The method tests wether there is a segment at the start or end of the
-    signal, in which the range of ``y`` exceeds ``r_factor`` times the range
-    outside this segment. If this segment exists, and has length greather than
-    ``n_min``, the method returns the indices corresponding to that segment. If
-    no such segment is found, ``None`` is returned.
-
-    Example::
-
-        zoom_region = find_action(x, y)
-        if zoom_region is not None:
-            i, j = zoom_region
-            x, y = x[i:j], y[i:j]
-
-    Arguments:
-
-    ``x``, ``y``
-        The time series as two one-dimensional arrays of equal size.
-        Alternatively, ``x, y`` can be a :class:`TimeSeries` and ``None``.
-    ``r_factor``
-        Ratio between ranges that triggers zooming in.
-    ``n_min``
-        Minimum size of zoomed-in on segment.
-
-    Returns the lower and upper indices of the segment where the action
-    happens, or ``None`` if no stand-out segment is found.
-    """
-    x, y = expfit.TimeSeries._from_xy(x, y)
-    n = len(y)
-    m = n // 2
-    s1, s2 = y[:m], y[m:]
-    r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
-
-    if r2 != 0 and r1 / r2 > r_factor:
-        while r2 != 0 and r1 / r2 > r_factor and m > 1:
-            m = max(m // 2, 1)
-            s1, s2 = y[:m], y[m:]
-            r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
-
-        if m >= n_min:
-            return 0, m
-
-    elif r1 != 0 and r2 / r1 > r_factor:
-        while r1 != 0 and r2 / r1 > r_factor and m > 1:
-            m = max(m // 2, 1)
-            s1, s2 = y[:-m], y[-m:]
-            r1, r2 = np.max(s1) - np.min(s1), np.max(s2) - np.min(s2)
-
-        if m >= n_min:
-            return n - m, n
-
-    return None
 
 
 def estd11(x, y=None, plot=False):
@@ -357,7 +287,8 @@ def estd11(x, y=None, plot=False):
     for the slower exponential in the second part of the signal.
     """
     x, y = xy = expfit.TimeSeries._from_xy(x, y)
-    if len(x) < 10:
+    n = len(x)
+    if n < 10:
         raise ValueError('At least 10 points are required')
 
     # Estimate start, end, max, and min
@@ -369,6 +300,7 @@ def estd11(x, y=None, plot=False):
     mx = max(abs(y[0] - y[imx]), abs(y[-1] - y[imx]))
     isplit = imn if mn > mx else imx
 
+    '''
     # Fit exponential to second (dominant) segment
     p0 = p1 = msg = None
     x0, y0 = x[isplit:], y[isplit:]
@@ -389,6 +321,116 @@ def estd11(x, y=None, plot=False):
             a1, b1, c1 = p1 = expfit.est1(x1, y1)
         except expfit.InitialEstimateFailed:
             msg = 'First segment is not exponential'
+    '''
+    # Create plot
+    def plt():
+        if plot: # pragma: no cover
+            from ._plot import initial_opposing_plot
+            initial_opposing_plot(xy, isplit, p0, p1, p)
+
+            #import matplotlib.pyplot as plt
+            #plt.show()
+            #import sys
+            #sys.exit(1)
+
+    # Fail
+    def fail(msg):
+        plt()
+        raise expfit.NotOpposingError(msg)
+
+    # Early split? Then do dominant first, followed by initial
+    if isplit < n // 2:
+
+        print('STRATEGY 1')
+
+        x1, y1 = x[isplit:], y[isplit:]
+        try:
+            p1 = expfit.est1(x1, y1)
+        except expfit.InitialEstimateFailed:
+            fail('Failed to estimate exponential on second segment')
+
+        if False:
+            x0, y0 = x, y - expfit.exp1(x, p1)
+        else:
+            x0 = x[:isplit]
+            y0 = y[:isplit] - expfit.exp1(x0, p1)
+
+        try:
+            p0 = expfit.est1(x0, y0)
+        except expfit.InitialEstimateFailed:
+            fail('Failed to estimate exponential on first segment')
+
+    else:
+        # Estimate exponential on both segments independently
+        p0 = p1 = None    # Left (fast), right (slow)
+
+        print('STRATEGY 2')
+        x1, y1 = x[isplit:], y[isplit:]
+        x1, y1 = x[isplit:], y[isplit:]
+        try:
+            p0 = expfit.est1(x0, y0)
+        except expfit.InitialEstimateFailed:
+            fail('Failed to estimate exponential on first segment')
+        try:
+            p1 = expfit.est1(x1, y1)
+        except expfit.InitialEstimateFailed:
+            fail('Failed to estimate exponential on second segment')
+
+    # Both expanding? Fail
+    if p0[2] > 0 and p1[2] > 0:
+        fail('Initial estimates not decaying')
+
+    print('Initial tau', p0[2], p1[2])
+
+    # Fallback strategy for when the observed signal is too slow to show decay
+    # in the second exponential
+    # try to recover by enforcing a negative c
+    if p1[2] > 0:
+        c = p0[2] * .1
+        t1, v1 = p1.ls1.mu_x, p1.ls1.mu_y
+        t2, v2 = p1.ls2.mu_x, p1.ls2.mu_y
+        e1, e2 = np.exp(c * t1), np.exp(c * t2)
+        b = (v1 - v2) / (e1 - e2)
+        a = v1 - b * e1
+
+        p1 = a, b, c
+
+        print('Updated tau', p0[2], p1[2])
+
+        p = np.array((p1[0], p1[1], p1[2], p0[1], p0[2]))
+
+
+    elif p0[2] > 0:
+        # TODO: Recovery strategy if
+        raise NotImplementedError
+
+    else:
+        # TODO: Improve by subtracting?
+
+        p = np.array((p1[0], p1[1], p1[2], p0[1], p0[2]))
+
+    # something negative and slower than c1
+
+
+
+
+
+    '''
+    # Fit exponential to subtracted signal
+    if msg is None:
+        try:
+            with np.errstate(over='raise'):
+                x1, y1 = x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0)
+        except FloatingPointError:
+            msg = 'Second segment is not exponential'
+    if msg is None:
+        try:
+            a1, b1, c1 = p1 = expfit.est1(x1, y1)
+        except expfit.InitialEstimateFailed:
+            msg = 'First segment is not exponential'
+
+
+
 
     # Check results
     if msg is None:
@@ -410,9 +452,8 @@ def estd11(x, y=None, plot=False):
                 msg = ('Possible fit, but area under segments suggests highly'
                        ' unequal contributions.')
 
-            '''
             # Catch less obviously straight lines
-            if reject_linear:
+            if False:
                 n = len(x)
                 x = (y - a - b * np.exp(c * x))
                 m1 = np.sum((y - a - b * np.exp(c * x))**2) / n
@@ -424,17 +465,15 @@ def estd11(x, y=None, plot=False):
                     line = m2 / abs(A0) < 1e-9
                 if line:
                     raise expfit.NotExponentialError('Straight line is better fit')
-            '''
+    '''
 
 
-    # Create plot
-    if plot:  # pragma: no cover
-        from ._plot import initial_opposing_plot
-        initial_opposing_plot(xy, isplit, p0, p1)
 
-    # Raise exception or return
-    if msg is not None:
-        raise expfit.NotOpposingError(msg)
 
-    return a0, b0, c0, b1, c1
+
+
+    print('Final', p)
+    plt()
+
+    return p
 

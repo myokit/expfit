@@ -102,11 +102,6 @@ def initial_estimate_plot(x, y, estimate):
     fig.subplots_adjust(0.075, 0.06, 0.99, 0.95)
     ax = fig.add_subplot()
 
-    # Show zoomed region
-    if estimate.region is not None:
-        i, j = estimate.region
-        ax.axvspan(x[i], x[j - 1], color='#eee')
-
     # Show data
     ax.plot(x, y, 's-' if len(x) < 50 else '-', label=f'Data (n={len(x)})')
 
@@ -125,7 +120,7 @@ def initial_estimate_plot(x, y, estimate):
     return fig, ax
 
 
-def initial_opposing_plot(xy, isplit, p0, p1):
+def initial_opposing_plot(xy, isplit, p0, p1, p):
     """
     Creates a plot of an initial estimate for opposing decaying exponentials.
 
@@ -136,9 +131,11 @@ def initial_opposing_plot(xy, isplit, p0, p1):
     ``isplit``
         The index in the time series where the split is made.
     ``p0``
-        The fit to the dominant (slowest) exponential.
+        The estimate for the first (fast) exponential.
     ``p1``
-        The fit to the faster (initial) exponential.
+        The estimate for the second (slow) exponential.
+    ``p``
+        The combined estimate.
 
     """
     import matplotlib.pyplot as plt
@@ -158,27 +155,20 @@ def initial_opposing_plot(xy, isplit, p0, p1):
     ax.set_xlim(x[0], x[-1])
 
     if p0 is not None:
-        # Dominant
-        ax.plot(x, expfit.exp1(x, p0), '--', label='Dominant')
-
-        a0, b0, c0 = p0
-        ax.plot(x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], (0, b0, c0)),
-                color='navy',
-                label='Data with dominant subtracted (offset adjusted)')
-
-        # Secondary and final
-        if p1 is not None:
-            a1, b1, c1 = p1
-            ax.plot(x, expfit.exp1(x, (a0, b1, c1)), '--',
-                    label='Second (offset adjusted)')
-
-            # Final result
-            ax.plot(x, expfit.expd(x, (a0, b0, -1 / c0, b1, -1 / c1)),
-                    label='Combined')
+        ax.plot(x, expfit.exp1(x, p0), ':', label='Left', color='tab:green')
+    if p1 is not None:
+        ax.plot(x, expfit.exp1(x, p1), ':', label='Right', color='tab:orange')
+    if p is not None:
+        a, b, c, d, e = p
+        y = expfit.exp1(x, (a, b, c)) + expfit.exp1(x, (0, d, e))
+        ax.plot(x, y, '--', label='Combined', color='tab:red')
 
     ax.legend()
     if isinstance(xy, expfit.UnitSquaredSeries):
-        ax.set_ylim(-0.05, 1.05)
+        ylo, yhi = ax.get_ylim()
+        ylo = min(max(ylo, -1), -0.05)
+        yhi = max(min(yhi, 2), 1.05)
+        ax.set_ylim(ylo, yhi)
 
     return fig, ax
 
