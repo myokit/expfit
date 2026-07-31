@@ -47,10 +47,6 @@ class TestLS(unittest.TestCase):
 
 class TestEst1(unittest.TestCase):
     """ Tests initial estimates for a single exponential. """
-    @classmethod
-    def setUpClass(cls):
-        # Create in each test and seed!
-        cls.r = None
 
     def test_est1_interface(self):
         # Test directly, check return type etc.
@@ -298,10 +294,6 @@ class TestEst1(unittest.TestCase):
 
 class TestEstd11(unittest.TestCase):
     """ Tests initial estimates for opposing decaying exponentials. """
-    @classmethod
-    def setUpClass(cls):
-        # Create in each test and seed!
-        cls.r = None
 
     def estd11(self, x, y, plot=False):
         """
@@ -317,7 +309,7 @@ class TestEstd11(unittest.TestCase):
                 plt.show()
         return t.detransform(r)
 
-    def test_estd11(self):
+    def test_estd11_clean(self):
         plot = False
 
         # No noise, down then up
@@ -346,15 +338,75 @@ class TestEstd11(unittest.TestCase):
         self.assertAlmostEqual(q[4], p[4], delta=.03)
         self.assertLess(expfit.rmsed(x, y, q), 0.02)
 
+        # Peak near the start
+        p = 50, -1, 1, 1, 0.3
+        x = np.linspace(0, 10, 250)
+        y = expfit.expd(x, p)
+        q = self.estd11(x, y, plot=plot)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=.5)
+        self.assertAlmostEqual(q[1], p[1], delta=.3)
+        self.assertAlmostEqual(q[2], p[2], delta=3)
+        self.assertAlmostEqual(q[3], p[3], delta=.7)
+        self.assertAlmostEqual(q[4], p[4], delta=.2)
+        self.assertLess(expfit.rmsed(x, y, q), .2)
+
+        # Peak near the end
+        p = -200, -1, 30, 1, 1
+        x = np.linspace(0, 5, 100)
+        y = expfit.expd(x, p)
+        q = self.estd11(x, y, plot=True)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=1e-9)
+        self.assertAlmostEqual(q[1], p[1], delta=1e-9)
+        self.assertAlmostEqual(q[2], p[2], delta=1e-9)
+        self.assertAlmostEqual(q[3], p[3], delta=1e-9)
+        self.assertAlmostEqual(q[4], p[4], delta=1e-9)
+        self.assertLess(expfit.rmsed(x, y, q), 1e-9)
+        return
+
+
+
+
+    def test_estd11(self):
+        plot = False
+
+        # No noise, down then up
+        p = 8, -1, 0.2, 3, 0.15
+        x = np.linspace(0.5, 1.5, 200)
+        y = expfit.expd(x, p)
+        q = self.estd11(x, y, plot=True)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=0.01)
+        self.assertAlmostEqual(q[1], p[1], delta=1)
+        self.assertAlmostEqual(q[2], p[2], delta=1)
+        self.assertAlmostEqual(q[3], p[3], delta=2)
+        self.assertAlmostEqual(q[4], p[4], delta=.1)
+        self.assertLess(expfit.rmsed(x, y, q), .001)
+        return
+
+        # No noise, up then down (shallow)
+        p = -3, 10, 0.17, -200, 0.1
+        x = np.linspace(0.5, 1.5, 200)
+        y = expfit.expd(x, p)
+        q = self.estd11(x, y, plot=True)
+        q[2::2] = -1 / q[2::2]
+        self.assertAlmostEqual(q[0], p[0], delta=0.02)
+        self.assertAlmostEqual(q[1], p[1], delta=10)
+        self.assertAlmostEqual(q[2], p[2], delta=.6)
+        self.assertAlmostEqual(q[3], p[3], delta=150)
+        self.assertAlmostEqual(q[4], p[4], delta=.03)
+        self.assertLess(expfit.rmsed(x, y, q), 0.02)
+
         # Down-up with noise. Exact noise matters
         p0 = 1, -4, .5, 6, .2
         x = np.linspace(0, 2, 500, endpoint=False)
         r = np.random.default_rng(38)
         y = expfit.expd(x, p0) + r.normal(0, 0.3, size=x.shape)
-        self.estd11(x, y, plot=plot)
+        self.estd11(x, y, plot=True)
         r = np.random.default_rng(1)
         y = expfit.expd(x, p0) + r.normal(0, 0.3, size=x.shape)
-        self.estd11(x, y, plot=plot)
+        self.estd11(x, y, plot=True)
         r = np.random.default_rng(17)
         y = expfit.expd(x, p0) + r.normal(0, 0.3, size=x.shape)
         self.estd11(x, y, plot=plot)

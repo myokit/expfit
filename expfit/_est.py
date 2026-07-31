@@ -373,39 +373,38 @@ def estd11(x, y=None, plot=False):
     p0 = p1 = msg = None
     x0, y0 = x[isplit:], y[isplit:]
     try:
-        a0, b0, c0 = p0 = expfit.est1(x0, y0, reject_linear=False)
-
-        # Subtract fit-to-second from first
-        with np.errstate(over='raise'):
-            x1, y1 = x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0)
-    except (FloatingPointError, expfit.NotExponentialError):
+        a0, b0, c0 = p0 = expfit.est1(x0, y0)
+    except expfit.InitialEstimateFailed:
         msg = 'Second segment is not exponential'
 
     # Fit exponential to subtracted signal
-    if p0 is not None:
+    if msg is None:
         try:
-            a1, b1, c1 = p1 = expfit.est1(x1, y1, reject_linear=False)
+            with np.errstate(over='raise'):
+                x1, y1 = x[:isplit], y[:isplit] - expfit.exp1(x[:isplit], p0)
         except FloatingPointError:
             msg = 'Second segment is not exponential'
-        except expfit.NotExponentialError:
+    if msg is None:
+        try:
+            a1, b1, c1 = p1 = expfit.est1(x1, y1)
+        except expfit.InitialEstimateFailed:
             msg = 'First segment is not exponential'
 
     # Check results
-    if p0 is not None and p1 is not None:
+    if msg is None:
+        print(c0, c1)
         if c0 > 0 or c1 > 0:
             msg = 'Segments not both decaying'
         elif b0 * b1 >= 0:  # pragma: no cover
             msg = 'Segment are exponential but do not have opposing signs'
         else:
-            print(a0, b0, c0)
-            print(a1, b1, c1)
 
 
             # Compare areas (without a)
             A0 = b0 / c0 * (np.exp(c0 * x[-1]) - np.exp(c0 * x[0]))
             A1 = b1 / c1 * (np.exp(c1 * x[-1]) - np.exp(c1 * x[0]))
-            print(A0, A1)
-            print()
+            print(abs(A1 / A0))
+            #print()
 
             if abs(A1 / A0) < 1e-2:
                 msg = ('Possible fit, but area under segments suggests highly'
